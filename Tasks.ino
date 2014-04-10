@@ -43,6 +43,9 @@ const byte TASK_RUNSTATE = 6;
 const byte TASK_MODE = 7;
 const byte TASK_VALSET = 8;
 
+int beepCount = 0;
+boolean beepStat = false;
+
 byte taskList[] = {0,TASK_TONE,0,TASK_RUNSTATE,0,TASK_BLINK,0,0,TASK_BATT,0,
                    0,TASK_TONE,0,TASK_MODE    ,0,TASK_BLINK,0,0,0,0,
                    0,TASK_TONE,0,TASK_RUNSTATE,0,TASK_BLINK,0,0,TASK_ERROR,0,
@@ -79,13 +82,10 @@ byte taskList[] = {0,TASK_TONE,0,TASK_RUNSTATE,0,TASK_BLINK,0,0,TASK_BATT,0,
        blink();
        break;
      case TASK_RUNSTATE:
-      cmdIntPC(CMD_RUN_STATE_STAT, runState);
        break;
      case TASK_MODE:
-       cmdIntPC(CMD_MODE_STAT, mode);
        break;
      case TASK_VALSET:
-       cmdIntPC(CMD_VAL_SET_STAT, valSetStat);
        break;
      default:
        break;
@@ -152,8 +152,7 @@ void battery() {
   // Send out the battery voltage
   int sensorValue = analogRead(BATTERY_PIN);
   batteryVoltage = sensorValue * BATT_ATOD_MULTIPLIER;
-  cmdFloatPC(CMD_BATTVOLT_VAL, batteryVoltage);
-
+ 
   // Check for warning condition.
   if (batteryVoltage < BATTERY_WARNING) {
     warningCount++;
@@ -175,46 +174,6 @@ void battery() {
   } 
   else {
     criticalCount = 0;
-  }
-}
-
-
-
-/***************************************************************
- *
- * errorReport()
- *
- *       Report the number of error of each type to the PC
- *
- ***************************************************************/
-void errorReport() {
-  if (byteCountErrorsHc) {
-    debugInt("byteCountErrorsHc", byteCountErrorsHc);
-    byteCountErrorsHc = 0;
-  }
-  if (pingHcTpErrors) {
-    debugInt("pingHcTpErrors", pingHcTpErrors);
-    pingHcTpErrors = 0;
-  }
-  if (pingPcTpErrors) {
-    debugInt("pingPcTpErrors", pingPcTpErrors);
-    pingPcTpErrors = 0;
-  }
-  if (unknownPcSingleCmdErrors) {
-    debugInt("unknownPcSingleCmdErrors", unknownPcSingleCmdErrors);
-    unknownPcSingleCmdErrors = 0;
-  }
-  if (unknownPcParamCmdErrors) {
-    debugInt("unknownPcParamCmdErrors", unknownPcParamCmdErrors);
-    unknownPcParamCmdErrors = 0;
-  }
-  if (unknownHcSingleCmdErrors) {
-    debugInt("unknownHcSingleCmdErrors", unknownHcSingleCmdErrors);
-    unknownHcSingleCmdErrors = 0;
-  }
-  if (unknownHcParamCmdErrors) {
-    debugInt("unknownHcParamCmdErrors", unknownHcParamCmdErrors);
-    unknownHcParamCmdErrors = 0;
   }
 }
 
@@ -254,10 +213,10 @@ void errorReport() {
    blinkPtr = ++blinkPtr % patternSize;
    byte blink = blinkPattern[blinkPtr];
    if (blink & 1) {
-     digitalWrite(GREEN_LED_PIN, HIGH);
+     digitalWrite(BLUE_LED_PIN, HIGH);
    }
    else {
-     digitalWrite(GREEN_LED_PIN, LOW);
+     digitalWrite(BLUE_LED_PIN, LOW);
    }
    if (blink & 2) {
      digitalWrite(RED_LED_PIN, HIGH);
@@ -323,4 +282,22 @@ void gravity() {
 //  beepDur[0] = duration;
 //  audioStart(*beepPitch, *beepDur, 1);
 //}
+
+void beep(int freq, int dur) {
+  beepCount = 0;
+  Timer3.attachInterrupt(beepIsr);
+  Timer3.start(300);
+}
+
+void beepIsr() {
+  if (beepCount++ > 500) {
+    Timer3.stop();
+    Timer3.detachInterrupt();
+    digitalWrite(SPEAKER_PIN, LOW);
+  }
+  beepStat = !beepStat;
+  digitalWrite(SPEAKER_PIN, beepStat);
+}
+
+
 

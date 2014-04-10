@@ -4,7 +4,7 @@
  * 
  * 
  ************************************************************************/
-#define PID1_LOOP_TIME 10000L;        // Microsecons/loop
+#define TP4_LOOP_TIME 10000L;        // Microsecons/loop
 
 
 float tp4FpsLeft = 0.0f;
@@ -25,9 +25,20 @@ float tp4ControllerSpeed = 0;
 int homeTime = 0;
 
 void aTp4Init() {
+  
+  // Set up IMU
+//  compass.init(LSM303DLHC_DEVICE, 0);
+//  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
+//  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
+//  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
+//  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
+//  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
+  accelgyro.initialize();
+
+
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
   tp4RawIError = 0.0f;
-  loopTime = PID1_LOOP_TIME;
+  loopTime = TP4_LOOP_TIME;
   motorInitTp();
 }
 
@@ -39,6 +50,8 @@ void aTp4Start() {
 
 
 void aTp4() {
+  getTpAngle();
+
   tp4Home();
   // compute the coSpeed
   float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
@@ -46,11 +59,16 @@ void aTp4() {
   oldCospeed = coSpeed;
 
   // get the target speed
-  if (home == 0L) {
-    tp4ControllerSpeed = controllerY * 3.0; //+-3.0 fps
+  if (isPcConnected || isHcConnected) {
+    if (home == 0L) {
+      tp4ControllerSpeed = controllerY * 3.0; //+-3.0 fps
+    }
+    else {
+      tp4ControllerSpeed = tp4HomeSpeed;
+    }
   }
-  else {
-    tp4ControllerSpeed = tp4HomeSpeed;
+  else { 
+    tp4ControllerSpeed = 0.0f; // no controller connected.  Stay in place.
   }
 
   // find the speed error
@@ -79,16 +97,16 @@ void aTp4() {
 
   // Set the debug values
   //aVal = timeMicroSeconds/1000000.0f;
-  aVal = tickDistance;
-  bVal = gaXAngle;
-  cVal = wheelSpeedFps;
-  dVal = gyroXAngleDelta;
-  eVal = coSpeed;
-  fVal = tp4ControllerSpeed;
-  gVal = tp4TargetAngle;
-  hVal = tp4AngleErrorW;
-  iVal = tp4ISpeed;
-  jVal = tp4Fps;
+  streamValueArray[0] = timeMicroSeconds;
+  streamValueArray[1] = (long) (gaXAngle * 100.0f);
+  streamValueArray[2] = (long) (wheelSpeedFps * 100.f);
+  streamValueArray[3] = (long) (gyroXAngleDelta * 100.f);
+  streamValueArray[4] = (long) (coSpeed * 100.f);
+  streamValueArray[5] = (long) (tp4ControllerSpeed * 100.f);
+  streamValueArray[6] = (long) (tp4TargetAngle * 100.f);
+  streamValueArray[7] = (long) (tp4AngleErrorW * 100.f);
+  streamValueArray[8] = (long) (tp4ISpeed * 100.f);
+  streamValueArray[9] = (long) (tp4Fps * 100.f);
 //  jVal = gyroZAngle;
   //  debugFloat("tp4Fps: ", tp4Fps);
 } // End tp4();

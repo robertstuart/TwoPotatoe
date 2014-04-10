@@ -1,14 +1,12 @@
 void motorInitTp() {
   setTargetSpeedRight(0.0);
   setTargetSpeedLeft(0.0);
-  attachInterrupt(0, encoderIsrRight, CHANGE);
-  attachInterrupt(1, encoderIsrLeft, CHANGE);
+  attachInterrupt(MOT_RIGHT_ENCA, encoderIsrRight, CHANGE);
+  attachInterrupt(MOT_LEFT_ENCA, encoderIsrLeft, CHANGE);
   Timer4.attachInterrupt(timer4Isr);
   Timer5.attachInterrupt(timer5Isr);
-  DDRA = B00000111; // Pins 22-24
-  DDRC = B00000111; // Pins 37-35
-  MOTOR_PORT_RIGHT = MOTOR_COAST;
-  MOTOR_PORT_LEFT = MOTOR_COAST;
+  setMotor(MOTOR_RIGHT, COAST);
+  setMotor(MOTOR_LEFT, COAST);
 }
 
 
@@ -32,12 +30,9 @@ void encoderIsrRight() {
     tickDistanceRight--;
   }
   if (runState != STATE_RUNNING) {
-    MOTOR_PORT_RIGHT = MOTOR_COAST;
+    setMotor(MOTOR_RIGHT, COAST);
     return;
   } 
-  if (mode == MODE_HOME) {
-    return;
-  }
 
   // Pulse if we are behind. (only fwd at the moment.)
   if (timerStateRight != TIMER_IDLE) {
@@ -47,36 +42,36 @@ void encoderIsrRight() {
     if ((tickPeriodRight > targetTickPeriodRight) || (tickPeriodRight <= 0)) { // Too slow?
       if (targetSpeedRight < MAX_PULSE_SPEED) {
         timerStateRight = TIMER_PULSE;
-        Timer4.initialize(1800);
-//        Timer4.initialize(tp4Ky);
+        Timer4.start(1800);
+        //        Timer4.initialize(tp4Ky);
       }
-      MOTOR_PORT_RIGHT = MOTOR_FWD;
+      setMotor(MOTOR_RIGHT, FWD);
     }
     else if (tickPeriodRight < targetBrakePeriodRight) { // Brake?
-      MOTOR_PORT_RIGHT = MOTOR_BRAKE;
+      setMotor(MOTOR_RIGHT, BRAKE);
     } 
     else { // between target & brake.  Coast.
-      MOTOR_PORT_RIGHT = MOTOR_COAST; 
+      setMotor(MOTOR_RIGHT, COAST);
     }
   } // end FWD
   else if (targetDirectionRight == BKWD) {
     if ((tickPeriodRight < targetTickPeriodRight) || (tickPeriodRight >= 0)) { // Too slow?
       if (abs(targetSpeedRight) < MAX_PULSE_SPEED) {
         timerStateRight = TIMER_PULSE;
-        Timer4.initialize(1800);
-//        Timer4.initialize(tp4Ky);
+        Timer4.start(1800);
+        //        Timer4.initialize(tp4Ky);
       }
-      MOTOR_PORT_RIGHT = MOTOR_BKWD;
+      setMotor(MOTOR_RIGHT, BKWD);
     }
     else if (tickPeriodRight > targetBrakePeriodRight) { // Brake?
-      MOTOR_PORT_RIGHT = MOTOR_BRAKE;
+      setMotor(MOTOR_RIGHT, BRAKE);
     }
     else { // coast
-      MOTOR_PORT_RIGHT = MOTOR_COAST;
+      setMotor(MOTOR_RIGHT, COAST);
     }
   } // end BKWD
   else { // STOP
-    MOTOR_PORT_RIGHT = MOTOR_BRAKE;
+      setMotor(MOTOR_RIGHT, BRAKE);
   }
 } // end encoderIsrRight()
 
@@ -95,12 +90,9 @@ void encoderIsrLeft() {
     tickDistanceLeft--;
   }
   if (runState != STATE_RUNNING) {
-    MOTOR_PORT_LEFT = MOTOR_COAST;
+    setMotor(MOTOR_LEFT, COAST);
     return;
   } 
-  if (mode == MODE_HOME) {
-    return;
-  }
 
   // Pulse if we are behind. (only fwd at the moment.)
   if (timerStateLeft != TIMER_IDLE) {
@@ -110,36 +102,36 @@ void encoderIsrLeft() {
     if ((tickPeriodLeft > targetTickPeriodLeft) || (tickPeriodLeft <= 0)) { // Too slow?
       if (targetSpeedLeft < MAX_PULSE_SPEED) {
         timerStateLeft = TIMER_PULSE;
-//        Timer5.initialize(tp4Ky);
-        Timer5.initialize(1800);
+        //        Timer5.initialize(tp4Ky);
+        Timer5.start(1800);
       }
-      MOTOR_PORT_LEFT = MOTOR_FWD;
+      setMotor(MOTOR_LEFT, FWD);
     }
     else if (tickPeriodLeft < targetBrakePeriodLeft) { // Brake?
-      MOTOR_PORT_LEFT = MOTOR_BRAKE;
+      setMotor(MOTOR_LEFT, BRAKE);
     } 
     else { // between target & brake.  Coast.
-      MOTOR_PORT_LEFT = MOTOR_COAST;
+      setMotor(MOTOR_LEFT, COAST);
     }
   } // end FWD
   else if (targetDirectionLeft == BKWD) {
     if ((tickPeriodLeft < targetTickPeriodLeft)  || (tickPeriodLeft >= 0)) { // Too slow?
       if (abs(targetSpeedLeft) < MAX_PULSE_SPEED) {
         timerStateLeft = TIMER_PULSE;
-//        Timer5.initialize(tp4Ky);
-        Timer5.initialize(1800);
+        //        Timer5.initialize(tp4Ky);
+        Timer5.start(1800);
       }
-      MOTOR_PORT_LEFT = MOTOR_BKWD;
+      setMotor(MOTOR_LEFT, BKWD);
     }
     else if (tickPeriodLeft > targetBrakePeriodLeft) { // Brake?
-      MOTOR_PORT_LEFT = MOTOR_BRAKE;
+      setMotor(MOTOR_LEFT, BRAKE);
     }
     else { // coast
-      MOTOR_PORT_LEFT = MOTOR_COAST;
+      setMotor(MOTOR_LEFT, COAST);
     }
   } // end BKWD
   else { // STOP
-    MOTOR_PORT_LEFT = MOTOR_BRAKE;
+    setMotor(MOTOR_LEFT, BRAKE);
   }
 } // end encoderIsrLeft()
 
@@ -155,15 +147,10 @@ void encoderIsrLeft() {
 void timer4Isr() {
   Timer4.stop();
   if (timerStateRight == TIMER_PULSE) {
-    if (mode == MODE_HOME) {
-      MOTOR_PORT_RIGHT = MOTOR_BRAKE;
-      MOTOR_PORT_LEFT = MOTOR_BRAKE;
-    }
-    else {
-      MOTOR_PORT_RIGHT = MOTOR_COAST; 
-    }
+     setMotor(MOTOR_RIGHT, COAST);
+
     if (waitPeriodRight > 0) {
-      Timer4.initialize(waitPeriodRight);
+      Timer4.start(waitPeriodRight);
       timerStateRight = TIMER_WAIT;
     }
     else {
@@ -181,9 +168,9 @@ void timer4Isr() {
 void timer5Isr() {
   Timer5.stop();
   if (timerStateLeft == TIMER_PULSE) {
-    MOTOR_PORT_LEFT = MOTOR_COAST;
+    setMotor(MOTOR_LEFT, COAST);
     if (waitPeriodLeft > 0) {
-      Timer5.initialize(waitPeriodLeft);
+      Timer5.start(waitPeriodLeft);
       timerStateLeft = TIMER_WAIT;
     }
     else {
@@ -207,12 +194,9 @@ void timer5Isr() {
  *
  *********************************************************/
 void checkMotorRight() {
-  if (mode == MODE_HOME) {
-    return;
-  }
   if (runState != STATE_RUNNING) {
     noInterrupts();
-      MOTOR_PORT_RIGHT = MOTOR_COAST;
+    setMotor(MOTOR_RIGHT, COAST);
     interrupts(); 
     return;
   }
@@ -223,26 +207,26 @@ void checkMotorRight() {
     if (targetDirectionRight == FWD) {
       if (targetSpeedRight < MAX_PULSE_SPEED) {
         timerStateRight = TIMER_PULSE;
-//        Timer4.initialize(tp4Ky);
-        Timer4.initialize(1800);
+        //        Timer4.initialize(tp4Ky);
+        Timer4.start(1800);
       }
       noInterrupts();
-      MOTOR_PORT_RIGHT = MOTOR_FWD;
+      setMotor(MOTOR_RIGHT, COAST);
       interrupts();    
     }
     else if (targetDirectionRight == BKWD) {
       if (abs(targetSpeedRight) < MAX_PULSE_SPEED) {
         timerStateRight = TIMER_PULSE;
-//        Timer4.initialize(tp4Ky);
-        Timer4.initialize(1800);
+        //        Timer4.initialize(tp4Ky);
+        Timer4.start(1800);
       }
       noInterrupts();
-      MOTOR_PORT_RIGHT = MOTOR_BKWD;
+      setMotor(MOTOR_RIGHT, BKWD);
       interrupts();    
     }
     else { // STOP
       noInterrupts();
-      MOTOR_PORT_RIGHT = MOTOR_BRAKE;
+      setMotor(MOTOR_RIGHT, BRAKE);
       interrupts();    
     }
   } 
@@ -251,12 +235,9 @@ void checkMotorRight() {
 
 /************************ checkMotorLeft *************************/
 void checkMotorLeft() {
-  if (mode == MODE_HOME) {
-    return;
-  }
   if (runState != STATE_RUNNING) {
     noInterrupts();
-    MOTOR_PORT_LEFT = MOTOR_COAST;
+    setMotor(MOTOR_LEFT, COAST);
     interrupts(); 
     return;
   }
@@ -267,26 +248,26 @@ void checkMotorLeft() {
     if (targetDirectionLeft == FWD) {
       if (targetSpeedLeft < MAX_PULSE_SPEED) {
         timerStateLeft = TIMER_PULSE;
-//        Timer5.initialize(tp4Ky);
-        Timer5.initialize(1800);
+        //        Timer5.initialize(tp4Ky);
+        Timer5.start(1800);
       }
       noInterrupts();
-      MOTOR_PORT_LEFT = MOTOR_FWD;
+      setMotor(MOTOR_LEFT, FWD);
       interrupts();    
     }
     else if (targetDirectionLeft == BKWD) {
       if (abs(targetSpeedLeft) < MAX_PULSE_SPEED) {
         timerStateLeft = TIMER_PULSE;
-//        Timer5.initialize(tp4Ky);
-        Timer5.initialize(1800);
+        //        Timer5.initialize(tp4Ky);
+        Timer5.start(1800);
       }
       noInterrupts();
-      MOTOR_PORT_LEFT = MOTOR_BKWD;
+      setMotor(MOTOR_LEFT, BKWD);
       interrupts();    
     }
     else { // STOP
       noInterrupts();
-     MOTOR_PORT_LEFT = MOTOR_BRAKE;
+      setMotor(MOTOR_LEFT, BRAKE);
       interrupts();    
     }
   } 
@@ -317,13 +298,13 @@ void setTargetSpeedRight(float targetSpeed) {
   else {
     targetDirectionRight = STOP;
   }
-  
+
   // Set timer wait period specifying when a new pulse can start.
   if (abs(targetSpeed) > MAX_PULSE_SPEED) {
     waitPeriodRight = 0;
   }
   else {
-//    waitPeriodRight = ((MAX_PULSE_SPEED - abs(targetSpeed)) / MAX_PULSE_SPEED) * tp4Kx;
+    //    waitPeriodRight = ((MAX_PULSE_SPEED - abs(targetSpeed)) / MAX_PULSE_SPEED) * tp4Kx;
     waitPeriodRight = ((MAX_PULSE_SPEED - abs(targetSpeed)) / MAX_PULSE_SPEED) * 8000;
     if (waitPeriodRight < 200) {
       waitPeriodRight = 0;
@@ -348,18 +329,66 @@ void setTargetSpeedLeft(float targetSpeed) {
   else {
     targetDirectionLeft = STOP;
   }
-  
+
   // Set timer wait period specifying when a new pulse can start.
   if (abs(targetSpeed) > MAX_PULSE_SPEED) {
     waitPeriodLeft = 0;
   }
   else {
-//    waitPeriodLeft = ((MAX_PULSE_SPEED - abs(targetSpeed)) / MAX_PULSE_SPEED) * tp4Kx;
+    //    waitPeriodLeft = ((MAX_PULSE_SPEED - abs(targetSpeed)) / MAX_PULSE_SPEED) * tp4Kx;
     waitPeriodLeft = ((MAX_PULSE_SPEED - abs(targetSpeed)) / MAX_PULSE_SPEED) * 8000;
     if (waitPeriodLeft < 200) {
       waitPeriodLeft = 0;
     }
   }
 }
+
+/*********************************************************
+ *
+ * setMotor()
+ *
+ *    Set the motor to the specified state.
+ *
+ *********************************************************/
+void setMotor(int motor, int state) {
+  int pinInA;
+  int pinInB;
+  int pinPwm;
+  
+  if (motor == MOTOR_RIGHT) {
+    pinInA = MOT_RIGHT_INA;
+    pinInB = MOT_RIGHT_INB;
+    pinPwm = MOT_RIGHT_PWM;
+  }
+  else {
+    pinInA = MOT_LEFT_INA;
+    pinInB = MOT_LEFT_INB;
+    pinPwm = MOT_LEFT_PWM;
+  }
+  
+  switch(state) {
+    case FWD:
+      digitalWrite(pinInA, HIGH);
+      digitalWrite(pinInB, LOW);
+      digitalWrite(pinPwm, HIGH);
+      break;
+    case BKWD:
+      digitalWrite(pinInA, LOW);
+      digitalWrite(pinInB, HIGH);
+      digitalWrite(pinPwm, HIGH);
+      break;
+    case COAST:
+      digitalWrite(pinInA, LOW);
+      digitalWrite(pinInB, LOW);
+      digitalWrite(pinPwm, LOW);
+      break;
+    case BRAKE:
+      digitalWrite(pinInA, HIGH);
+      digitalWrite(pinInB, HIGH);
+      digitalWrite(pinPwm, HIGH);
+      break;
+  }
+}
+
 
 
