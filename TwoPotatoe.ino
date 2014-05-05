@@ -1,17 +1,12 @@
 /* ---------------------- TwoPotatoe ---------------------- */
-//#include <Wire.h>
-#include "Wire.h"
-#include "I2Cdev.h"
-#include "MPU6050.h"
-//#include <L3G.h>
-//#include <LSM303.h>
 #include <stdlib.h>
 #include "Common.h"
-//#include "TimerThree.h"
-//#include "TimerFour.h"
-//#include "TimerFive.h"
 #include <DueTimer.h>
 
+#define SERIAL Serial3
+const byte RESET[] = {0xFE, 0x00, 0x04, 0x08, 0x0, 0x46, 0x52, 0x5F};
+const int TPSTATE_MSG_RECEIVED = 0;
+unsigned int mode = MODE_TP4;
 
 // set motor to test
 const boolean TEST_RIGHT = true;
@@ -19,16 +14,27 @@ const boolean TEST_LEFT = true;
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
-const int MOT_RIGHT_INA = 40;    // green from motor1 controller INA
-#define MOT_RIGHT_INB 41    // blue from motor1 controller INB
-#define MOT_RIGHT_ENCA 42   // yellow from right motor, encoder A, (interrupt0)
-#define MOT_RIGHT_ENCB 43  // white from motor2, encoder B
-#define MOT_RIGHT_PWM 2    // yellow from motor1 controller, pulse width signal
-#define MOT_LEFT_INA 46    // blue from motor 2 controller INA
-#define MOT_LEFT_INB 47    // green from motor 2 controller ING
-#define MOT_LEFT_ENCA 48   // yellow from left motor, encoder A, (interrupt1)
-#define MOT_LEFT_ENCB 49  // white from motor1, encoder B 
-#define MOT_LEFT_PWM 3   // yellow from motor2 controller
+const int MOT_RIGHT_ENCA = 41;   
+const int MOT_RIGHT_ENCB = 43; 
+const int MOT_RIGHT_INA =  45;   
+const int MOT_RIGHT_INB =  47;   
+const int MOT_RIGHT_SF =   49;    
+const int MOT_RIGHT_PWM =   2; 
+const int MOT_LEFT_ENCA =  40;  
+const int MOT_LEFT_ENCB =  42; 
+const int MOT_LEFT_INA =   44; 
+const int MOT_LEFT_INB =   46; 
+const int MOT_LEFT_SF =    48; 
+const int MOT_LEFT_PWM =    3;  
+
+// State machine for messaging between TP, PC, & HC.
+const int MSG_STATE_TIMER_WAIT = 0;
+const int MSG_STATE_PC_ACK = 2;
+const int MSG_STATE_HC_ACK = 3;
+const int MSG_STATE_PC_NAK = 4;
+const int MSG_STATE_HC_NAK = 5;
+
+const int ACK_PC = 100; // Message frames >= this have been sent to PC
 
 #define BRAKE 2
 #define FWD 1
@@ -42,9 +48,9 @@ const int MOT_RIGHT_INA = 40;    // green from motor1 controller INA
 #define BLUE_LED_PIN 13 // LED in switch, same as status above
 #define YELLOW_LED_PIN 12 // LED in switch
 #define RED_LED_PIN 11 // LED in switch
-#define RIGHT_HL_PIN 10
-#define LEFT_HL_PIN 9
-#define REAR_BL_PIN 8
+#define RIGHT_HL_PIN 10 // headlamp
+#define LEFT_HL_PIN 9 // headlamp
+#define REAR_BL_PIN 8 // rear lamp
 
 #define YE_SW_PIN 24
 #define PWR_PIN 25 // Mosfet power controller
@@ -63,7 +69,6 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define UNSIGNED_LONG_MAX 4294967295UL 
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
-#define INT_MAX 32767
 
 // Constants for IMU
 #define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
@@ -91,6 +96,30 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 #define END_MARKER 42
 //#define MAX_PULSE_WAIT 8000
 //#define PULSE_LENGTH 1500
+int BEEP_UP [] = {1200, 100, 1500, 100, 0};
+int BEEP_WARBLE[] = {1200, 300, 1500, 300, 
+                  1200, 300, 1500, 300, 
+                  1200, 300, 1500, 300, 
+                  1200, 300, 1500, 300, 0};
+int BEEP_DOWN[] = {1000, 300, 1500, 300, 0};
+// bit0=blue, bin1= yellow, bit2=red
+// each state lasts 1/10 second
+byte BLINK_R_FB[] = {
+  1,4,4,4,4,4,4,4,END_MARKER};  // red on, flash blue
+byte BLINK_B_FR[] = {
+  2,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash red
+byte BLINK_FRG[] = {
+  4,1,END_MARKER};               // rapid red-green
+byte BLINK_SBYG[] = {
+  7,7,7,7,0,0,0,0,END_MARKER};  // blink all slow flash
+byte BLINK_FY[] = {
+  2,0,END_MARKER};                // yellow flash
+byte BLINK_FR[] = {
+  4,0,END_MARKER};                // red flash
+byte BLINK_FB[] = {
+  1,0,END_MARKER};                // blue flash
+byte BLINK_SB[] = {
+  1,1,1,1,1,1,1,1,0,0,0,0,END_MARKER};    // blue slow
 
 typedef struct {
   float t;
@@ -100,72 +129,43 @@ typedef struct {
   float x;
   float y;
   float z;
-} valSet;
+} 
+valSet;
 
 valSet tp4A = { 
-                  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
-                  0.0,    // u tick angle added in.  ~0-2.0. 
-                  1.0,    // v rotation subtraction, 0-2.0?
-                  0.2,    // w cos smoothing rate.  0-1.0
-                  2.0,    // x CO speed error to angle factor
-                  0.09,   // Y Target angle to WS
-                  -2.55}; // z accelerometer offset
-                  
-valSet tp4B = { 
-                  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
-                  0.0,    // u tick angle added in.  ~0-2.0. 
-                  1.0,    // v rotation subtraction, 0-2.0?
-                  0.3,    // w cos smoothing rate.  0-1.0
-                  3.0,    // x CO speed error to angle factor
-                  0.15,   // Y Target angle to WS
-                  -2.55}; // z accelerometer offset
-                  
-valSet tp4C = { 
-                  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
-                  0.0,    // u tick angle added in.  ~0-2.0. 
-                  1.0,    // v rotation subtraction, 0-2.0?
-                  0.3,    // w cos smoothing rate.  0-1.0
-                  3.0,    // x CO speed error to angle factor
-                  0.15,   // Y Target angle to WS
-                  -2.55}; // z accelerometer offset
-                  
-valSet *currentValSet = &tp4A;
-int valSetStat = VAL_SET_A;
+  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
+  0.0,    // u tick angle added in.  ~0-2.0. 
+  1.0,    // v rotation subtraction, 0-2.0?
+  0.2,    // w cos smoothing rate.  0-1.0
+  2.0,    // x CO speed error to angle factor
+  0.09,   // Y Target angle to WS
+  0.85}; // z accelerometer offset
 
-  // general constants
-//
-//  // from A_TP4
-//  float tp4Kv = 4.0;     // Speed error to angle
-//  float tp4Kw = 0.18;    // Speed error to angle
-//  float tp4Kx = 8000.0;     // max pulse wait
-//  float tp4Ky = 1800.0;   // pulse lenght
-////  float tp4Kx = 0.3;     // coSpeed integration
-////  float tp4Ky = 0.87;   // base speed integration
-//  float tp4Kz = 1800.0;   // home integrated error
-//
-//  // from A_HOME
-//  float homeKv = 0.0f;
-//  float homeKw = 0.0f;
-//  float homeKx = 0.0f;
-//  float homeKy = 0.0f;
-//  float homeKz = 0.0f;
-//  
-  
+valSet tp4B = { 
+  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
+  0.0,    // u tick angle added in.  ~0-2.0. 
+  1.0,    // v rotation subtraction, 0-2.0?
+  0.3,    // w cos smoothing rate.  0-1.0
+  3.0,    // x CO speed error to angle factor
+  0.15,   // Y Target angle to WS
+  0.85}; // z accelerometer offset
+
+valSet tp4C = { 
+  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
+  0.0,    // u tick angle added in.  ~0-2.0. 
+  1.0,    // v rotation subtraction, 0-2.0?
+  0.3,    // w cos smoothing rate.  0-1.0
+  3.0,    // x CO speed error to angle factor
+  0.15,   // Y Target angle to WS
+  0.85}; // z accelerometer offset
+
+valSet *currentValSet = &tp4A;
+int vSetStatus = VAL_SET_A;
+
 int timerStateRight = TIMER_IDLE;
 int timerStateLeft = TIMER_IDLE;
 
-long debugCountA = 0;  //Incremented or set by various routines for debugging.
-long debugCountB = 0;  //Incremented or set by various routines for debugging.
-long debugCountC = 0;  //Incremented or set by various routines for debugging.
-long debugCountD = 0;  //Incremented or set by various routines for debugging.
-
-unsigned long t;
-
-// Values from encoder interrupts
-long resetTickPositionRight = 0L;
-long resetTickPositionLeft = 0L;
-unsigned long resetTimeRight;
-unsigned long resetTimeLeft;
+int msgState = MSG_STATE_TIMER_WAIT;
 
 // Speed and position variables
 long tickDistanceRight = 0L;
@@ -185,8 +185,6 @@ long tickPeriodLeft = 0L;
 float tickAngle = 0;
 float fpsRight = 0.0f; // right feet per second
 float fpsLeft = 0.0f;  // left feet per second
-float tpcsRight = 0.0f; // right ticks per centi-second 
-float tpcsLeft = 0.0f; // left ticks per centi-second 
 float wheelSpeedFps = 0.0f;
 float speedTpcs = 0.0f;
 
@@ -196,9 +194,8 @@ unsigned long waitPeriodLeft = 0UL;  // Wait beyond beginning of pulse!!!
 int targetDirectionRight = FWD;
 int targetDirectionLeft = FWD;
 
-// debug flags and variables
-boolean debugFlagArray[10] = {false,false,false,false,false,false,false,false,false,false};
-long streamValueArray[10] = {0,0,0,0,0,0,0,0,0,0};
+//long streamValueArray[10] = {
+//  0,0,0,0,0,0,0,0,0,0};
 
 // Sequence variables
 int sequenceCount = 0;
@@ -212,21 +209,11 @@ int pwArray[30];
 float wsArray[30];
 int wsDurArray[30];
 
-
-//L3G gyro;
-//LSM303 compass;
-MPU6050 accelgyro;
-
-// Public variables
-unsigned int mode = MODE_TP4;
-//boolean startup = true; // True intil TP reaches vertical for first time.
 unsigned long loopTime = 11000L;     // Actual time set by Algorithm initXXX() routines.
 unsigned long timeTrigger = 0L;
 unsigned long oldTimeTrigger = 0L;
-unsigned long timeMicroSeconds = 0L; // Set in main loop.  Used by several routines.
-unsigned long aliveTrigger = 0L;
-unsigned long lastHandshake = 0L;
-boolean handshakeAlive = false;
+unsigned long timeMicroseconds = 0L; // Set in main loop.  Used by several routines.
+unsigned long timeMilliseconds = 0L; // Set in main loop from above.  Used by several routines.
 
 int remotePwR = 0;
 int remotePwL = 0;
@@ -240,24 +227,14 @@ float iError = 0.0;
 float dError = 0.0;
 float pid = 0.0;
 
-int tipCount = 0;
-float ae = 0.0;
-
-int runState = STATE_RESTING; // 
-boolean sitting = true;  // sitting on the ground.
-boolean upright = false;
+int tpState = 0; // contains STATE_READY, STATE_RUNNING,STATE_UPRIGHT, STATE_ON_GROUND, STATE_MOTOR_FAULT bits
+int cmdState = CMD_STATE_PWR;  // READY, PWR, & HOME command bits
 
 long home = 0L;  // home tpPosition, zero indicates no home position.
 unsigned int pressure = 0; // pressure sensor value
-int pressureCount = 0;
 unsigned int tpPw = 2000;
-long tickRate; 
-float integratedTickRate = 0.0f; 
-int gravityCount = 0;
 
-// Values computed before calling algorithm()
 unsigned int actualLoopTime; // Time since the last
-float loopSec;               // float value of above
 float controllerX = 0.0; // +1.0 to -1.0 from controller
 float controllerY = 0.0;  // Y value set by message from controller
 
@@ -289,56 +266,46 @@ float oldtpAngle1 = 0.0;
 float tpAngle1Rate = 0.0;
 boolean straightMode = false;
 
-float coFallingAccel = 0.0f;;
-float coFallingRate = 0.0f;
 float coDistance = 0.0f;
 float tpAngle2 = 0.0f;
 float tpAngle2Rate = 0.0f;
 
-float general = 42.42f;
-
 float rotateTarget = 0.0;
 boolean isRotating = false;
-
-int pingHcTpCount = 0;
-int pingPcTpCount = 0;
-int pingTpCount = 0; // pings going out
-unsigned long pingPcTpTime = 0L;
-unsigned long pingHcTpTime = 0L;
-unsigned int pingHcTpErrors = 0;
-unsigned int pingPcTpErrors = 0;
-
-int ackCount = 0;;
-int missing =0;
-long lastCount = 0;
-unsigned long ackTrigger = 0L;
-unsigned long thisCount;
-
-unsigned int unknownPcSingleCmdErrors = 0;
-unsigned int unknownPcParamCmdErrors = 0;
-unsigned int unknownHcSingleCmdErrors = 0;
-unsigned int unknownHcParamCmdErrors = 0;
+//
 unsigned int byteCountErrorsHc = 0;
-unsigned int unknownPcSingleCmd = 0;
-unsigned int unknownPcParamCmd = 0;
 
-float batteryVoltage = 0.0f;
-boolean hcAlive = false;
-boolean pcAlive = false;
+int batteryVolt = 0;
 float gyroXAngleDelta = 0;
 
 long oldTickDistance = 0;
 int oldTickSpeed = 0;
 float oldTickAngle = 0.0f;
 
-boolean mtRun = false;
 int unknownCmdErrors = 0;
 
 int lamp;
-boolean isStreaming = false;
-boolean isPcConnected = false;
-boolean isHcConnected = false;
-int monitorCount = 0;
+unsigned long tHc;  // Milliseconds of last command received.
+unsigned long tPc;  // Milliseconds of last command received.
+
+const int MAX_PACKET_SIZE = 100;
+
+byte rcvArray[MAX_PACKET_SIZE + 1];
+byte sendArray[MAX_PACKET_SIZE + 1];
+unsigned int packetByteCount = 0;
+unsigned int dataPtr = 0;
+unsigned int packetLength = 0;
+unsigned int dataLength = 0;
+int packetValue;   // int value
+boolean isPacketInProgress = false;
+unsigned int packetSource;
+unsigned int packetSignal;
+boolean isTxStatusMessage = false;
+int txAckFrame = 0;
+
+int debugVal = NO_DEBUG;
+
+boolean isHcCommand = false;
 
 /*********************************************************
  *
@@ -348,21 +315,24 @@ int monitorCount = 0;
  *
  *********************************************************/
 void setup() {
-  
-  //  Serial.begin(115200);
-  Serial.begin(57600); // XBee
-  
+
+  //  SERIAL.begin(115200);
+  // XBee, See bottom of this page for settings.
+  SERIAL.begin(57600);  // 113000 Rate matched by testing.
+  Serial.begin(9600); // for debugging output
+  //  resetXBee();
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
   pinMode(YELLOW_LED_PIN,OUTPUT);
   pinMode(RED_LED_PIN,OUTPUT);
   pinMode(RIGHT_HL_PIN, OUTPUT);
   pinMode(LEFT_HL_PIN, OUTPUT);
-//  pinMode(REAR_BL_PIN, OUTPUT);
+  //  pinMode(REAR_BL_PIN, OUTPUT);
   pinMode(PWR_PIN,OUTPUT);  // Power mosfet control
   pinMode(SPEAKER_PIN, OUTPUT);
   pinMode(BATTERY_PIN, INPUT);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
-  
+
+  digitalWrite(PWR_PIN, HIGH);
   digitalWrite(LED_PIN, HIGH);
   digitalWrite(RED_LED_PIN, LOW);
   digitalWrite(RIGHT_HL_PIN, LOW);
@@ -371,13 +341,18 @@ void setup() {
   digitalWrite(SPEAKER_PIN, LOW);
   digitalWrite(YELLOW_LED_PIN, LOW);
 
-  Wire.begin();
-
-  delay(100);
-  digitalWrite(PWR_PIN, HIGH);
-  algorithmInit(MODE_TP4);
+  angleInit();
   timeTrigger = micros();
-  beep(0,0);
+  beep(BEEP_UP);
+  delay(100);
+  
+  // Start in PWM mode if the yellow button is down.
+  if (digitalRead(YE_SW_PIN) == LOW) {
+    mode = MODE_PWM_SPEED;
+  } 
+  else {
+    mode = MODE_TP4;
+  }
 } // end setup()
 
 
@@ -386,177 +361,186 @@ void setup() {
  *
  * loop()
  *
- *     Required by the Arduino system.  Called frequently, 
- *     hopefully at least every millisecond.
+ *     Used only to change modes.  All algorithms should
+ *     run in an infinite loop and then exit their loop
+ *     whenever the mode changes.
  *
  *********************************************************/
 void loop() { //Main Loop
-  if (mtRun) {
-    a_mt();
-    return;
-  }
-  readXBee();  // Read XBee on Arduino-based hand controller
-  timeMicroSeconds = micros();
-  
-  // Start timed loop
-  if(timeMicroSeconds > timeTrigger) {  // Loop executed every XX microseconds 
-    actualLoopTime = timeMicroSeconds - oldTimeTrigger;
-    loopSec = ((float) actualLoopTime)/1000000.0;
-    timeTrigger += loopTime;
-    oldTimeTrigger = timeMicroSeconds;
-    
-    readSpeed();
-    algorithm();  // Do the computations and run motors.
-    if (isStreaming || (monitorCount++ > 5)) {
-      monitorCount = 0;
-      monitor();  // Send out values & query
-    }
-    tasks();
-//    checkDrift();
-//    checkState();
-  } // end timed loop
-
-  // The remaining calls are made every loop.
-//  if (     (mode == MODE_TP4) 
-//    || (mode == MODE_TP_SPEED ) 
-//    || (mode == MODE_TP_SEQUENCE)) {
-//    checkMotorRight();
-//    checkMotorLeft();
-//  } 
+  switch (mode) {
+  case MODE_TP4:
+    aTp4Run();
+    break;
+  case MODE_IMU:
+    aImuRun();
+    break;
+  case MODE_PWM_SPEED:
+    aPwmSpeedRun();
+    break;
+  case MODE_TP_SPEED:
+    aTpSpeedRun();
+    break;
+  default:
+    readXBee();
+    break;
+  } // end switch(mode)
 } // End loop().  
 
 
 
-/*********************************************************
- *
- * getTpAngle()
- *
- *     Computes the angle from the accelerometer and the gyro.
- *     Sets: gyroRate
- *           tpAngle
- *
- *********************************************************/
-float sumGyroRate;
-float getTpAngle() {
+/************************************************************************
+ * aImuRun()
+ *     Testing the IMU.
+ * 
+ * 
+ ************************************************************************/
+void aImuRun() {
+  short accelX = 0;
+  int velX = 0;
+  int distX = 0;
+  short accelY = 0;
+  int velY = 0;
+  int distY = 0;
+  short accelZ = 0;
   int16_t ax, ay, az;
-  int16_t gx, gy, gz;
 
-//  gyro.read();   
-//  compass.readAcc();  
-    accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  
-  // Compute angle around the x axis
-//  gyroXRaw = gyro.g.x;  // 
-  gyroXRaw = gx;  // 
-  gyroXRate = gyroXRaw * GYRO_SENS;  // Rate in degreesChange/sec
-  gyroXAngleDelta = (gyroXRate * actualLoopTime)/1000000; // degrees changed during period
-  gyroXAngle = gyroXAngle + gyroXAngleDelta;   // Not used.  Only for debuggin purposes
-  float gyroXWeightedAngle = gyroXAngleDelta + gaXAngle;  // used in weighting final angle
-//  accelXAngle = ((atan2(-compass.a.y, compass.a.z))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
-  accelXAngle = ((atan2(-ay, az))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
-  constrain(accelXAngle, -90.0f, 90.0f);
-  gaXAngle = (gyroXWeightedAngle * GYRO_WEIGHT) + (accelXAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
-  
-  // Add in tick data to improve angle measurement
-  long tickDistance = tickDistanceRight + tickDistanceLeft;
-  int tickSpeed = (tickDistance - oldTickDistance);
-  tickAngle = (oldTickSpeed - tickSpeed) + ((*currentValSet).t * oldTickAngle);
-  oldTickDistance = tickDistance;
-  oldTickSpeed = tickSpeed;
-  oldTickAngle = tickAngle;
-  gatXAngle = (tickAngle * (*currentValSet).u) + gaXAngle;
-  
-  // compute the Y plane to check for falling sideways
-//  gyroYRaw = -gyro.g.y;
-  gyroYRaw = gy;
-  gyroYRate = gyroYRaw * GYRO_SENS;
-  float gyroYAngleDelta = (gyroYRate * actualLoopTime)/1000000;
-  gyroYAngle = gyroYAngle + gyroYAngleDelta; // not used
-  float gyroYWeightedAngle = gyroYAngleDelta + gaYAngle;
-//  accelYAngle = atan2(compass.a.x, compass.a.z) * RAD_TO_DEG;
-  accelYAngle = atan2(ax, az) * RAD_TO_DEG;
-  gaYAngle = (gyroYWeightedAngle * GYRO_WEIGHT) + (accelYAngle * (1 - GYRO_WEIGHT));
-  
-  // compute Z plane to measure turns
-//  gyroZRaw = -gyro.g.z;
-  gyroZRaw = -gz;
-  gyroZRate = (gyroZRaw - driftZ) * GYRO_SENS;
-  float gyroZAngleDelta = (gyroZRate * actualLoopTime)/1000000;
-  gyroZAngle = gyroZAngle + gyroZAngleDelta; 
- 
+  timeMicroseconds = timeTrigger = micros();
+  timeMilliseconds = timeMicroseconds / 1000;
+  //  imu9150.initialize();
+  setBlink(BLINK_SB);
+
+  while (mode == MODE_IMU) {
+//    imu9150.getAcceleration(&ax, &ay, &az);
+    if ((ax != accelX) || (ay != accelY) || (az != accelZ)) { // if any values are new.
+      accelX = ax;
+      velX = velX + accelX;  // Velocity = sum of accelerations at sample rate.
+      distX = distX + velX;   // Distance = sum of velocities at sample rate.  
+      accelY = ay;
+      velY = velY + accelY;  // Velocity = sum of accelerations at sample rate.
+      distY = distY + velY;   // Distance = sum of velocities at sample rate.  
+      accelZ = az;
+    }
+
+    timeMicroseconds = micros();
+    timeMilliseconds = timeMicroseconds / 1000;
+    if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
+      timeTrigger += 10000;  // 100 per second
+
+      readXBee();  // Read commands from PC or Hand Controller
+      led();
+      battery();
+
+//      streamValueArray[0] = accelX;
+//      streamValueArray[1] = velX;
+//      streamValueArray[2] = distX;
+//      streamValueArray[3] = accelY;
+//      streamValueArray[4] = velY;
+//      streamValueArray[5] = distY;
+//      monitorImu();
+    }
+  }
 }
-
-
 
 
 /*********************************************************
  *
- * getState()
+ * aPwmSpeedRun()
  *
- *     Move the state between STATE_READY and STATE_RUN
- *     depending on the state of "upright" and "sitting".
- *     Always put in running mode if in a test state.
+ *     Run the MODE_PWM_SPEED algorithm
  *
  *********************************************************/
-void checkState() {
-  // Check if in one of the "run" modes.
-  if (mode == MODE_TP4) {
-    if ((runState == STATE_READY) && upright && sitting) {
-        runState = STATE_RUNNING;
-        rawIError = 0;
-        algorithmStart();
-    }
-    else if (runState == STATE_RUNNING) {
-      if (!upright || !sitting) {
-        runState = STATE_READY;
+void aPwmSpeedRun() { 
+  timeTrigger = timeMicroseconds = micros();
+  timeMilliseconds = timeMicroseconds / 1000;
+  motorInitPwm();
+  setPwmSpeed(MOTOR_RIGHT, 0);
+  setPwmSpeed(MOTOR_LEFT, 0);
+  setBlink(BLINK_FY);
+
+  while(mode == MODE_PWM_SPEED) { // main loop
+    readXBee();  // Read commands from PC or Hand Controller
+    led();
+    timeMicroseconds = micros();
+    timeMilliseconds = timeMicroseconds / 1000;
+
+    // Timed loop
+    if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
+      timeTrigger += 100000;  // 10 per second
+
+      readSpeed();
+      battery(); 
+      cmdBits();
+      if ((tpState & TP_STATE_RUN_READY) == 0) {
+        tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
       }
-    }
-  }
-  else { // Otherwise, in a "test" mode so we don't look at upright & sitting
-    runState = STATE_RUNNING;
-  }
-}
+      else {
+        tpState = tpState | TP_STATE_RUNNING; // set the bit
+      }
+      setPwmSpeed(MOTOR_RIGHT, remotePwR);
+      setPwmSpeed(MOTOR_LEFT, remotePwL);
 
-
+      // Fill out the sendArray and send it.
+      sendArray[TP_SEND_STATE_STATUS] = tpState;
+      sendArray[TP_SEND_MODE_STATUS] = mode;
+      set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
+      set4Byte(sendArray, TP_SEND_DEBUG, debugVal);
+      set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
+      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
+      int right = (int) (fpsRight * 100.0);
+      set2Byte(sendArray, TP_SEND_C_VAL, right);
+      int left = (int) (fpsLeft * 100.0);
+      set2Byte(sendArray, TP_SEND_D_VAL, left);
+      sendTXFrame(XBEE_PC, sendArray, TP_SEND_E_VAL);  
+    } // End if(time) 
+  } // End while(mode)
+} // End aPwmSpeedRun()
 
 /*********************************************************
  *
- * algorithm()
+ * aTpSpeedRun()
  *
- *     Call the correct processing routine for the mode we are in.
+ *     Run the MODE_TP_SPEED algorithm
  *
  *********************************************************/
-void algorithm() {
-  switch (mode) {
-  case MODE_MOTOR_PW:
-//      setPwmSpeed(MOTOR_RIGHT, remotePwR);
-//      setPwmSpeed(MOTOR_LEFT, remotePwL);
-      streamValueArray[0] = fpsRight;
-      streamValueArray[1] = fpsLeft;
-      streamValueArray[2] = tickDistanceRight;
-      streamValueArray[3] = tickDistanceLeft;
-    break;
-  case MODE_TP4:
-    aTp4(); 
-    break;
-  case MODE_IMU:
-    aImu();
-    break;
-  case MODE_TP_SEQUENCE:
-    runTpSequence();
-    break;
-  case MODE_TP_SPEED:
-      setTargetSpeedRight(remoteTpR);
-      setTargetSpeedLeft(remoteTpL);
-      streamValueArray[0] = fpsRight;
-      streamValueArray[1] = fpsLeft;
-      streamValueArray[2] = 0;
-      streamValueArray[3] = tickDistanceLeft;
-      streamValueArray[4] = tickPeriodRight;
-
-    break;
-  } // end switch  
-} // end algorithm()
+void aTpSpeedRun() { 
+  //  timeTrigger = timeMicroseconds = micros();
+  //  timeMilliseconds = timeMicroseconds / 1000;
+  //  motorInitTp();
+  //  setTargetSpeedRight(0.0f);
+  //  setTargetSpeedLeft(0.0f);
+  //  setBlink(BLINK_FB);
+  //
+  //  while(mode == MODE_TP_SPEED) { // main loop
+  //    readXBee();  // Read commands from PC or Hand Controller
+  //    checkMotorRight();
+  //    checkMotorLeft();
+  //    led();
+  //    timeMicroseconds = micros();
+  //    timeMillisecondstimeMilliseconds = timeMicroseconds / 1000;
+  //
+  //    // Do the timed loop
+  //    if(timeMicroseconds > timeTrigger) {  
+  //      timeTrigger += 100000;  // 10 per second
+  //
+  //      // Set the RUNNING bit if the READY bit is set.
+  //      if ((runState & STATE_READY) == 0) {
+  //        runState = runState & (~STATE_RUNNING); // unset the bit
+  //      }
+  //      else {
+  //        runState = runState | STATE_RUNNING; // set the bit
+  //      }
+  //      setTargetSpeedRight(remoteTpR);
+  //      setTargetSpeedLeft(remoteTpL);
+  //      readSpeed();
+  //      streamValueArray[0] = tickDistanceRight;
+  //      streamValueArray[1] = tickDistanceLeft;
+  //      streamValueArray[2] = (long) (fpsRight * 100.0);
+  //      streamValueArray[3] = (long) (fpsLeft * 100.0);     
+  //      battery();  
+  //      monitorPwmSpeed();
+  //    }
+  //  }
+}
 
 
 /*********************************************************
@@ -573,9 +557,7 @@ void checkDrift() {
     driftCount--;
     if (driftCount == 0) {
       driftX = gyroXRawSum / DRIFT_COUNT;
-//      debugFloat("X Drift/sec: ", driftX * GYRO_SENS);
       driftZ = gyroZRawSum / DRIFT_COUNT;
-//      debugFloat("Z Drift/sec: ", driftZ * GYRO_SENS);
     }  
   }
 }
@@ -590,10 +572,10 @@ void checkDrift() {
  *
  *********************************************************/
 void initPwmSequence() {
-    sequenceIsRunning = true;
-    runSequenceCount = 0;
-    seqDur = wsDurArray[0];
-    seqPw = pwArray[0];
+  sequenceIsRunning = true;
+  runSequenceCount = 0;
+  seqDur = wsDurArray[0];
+  seqPw = pwArray[0];
 }
 void runPwmSequence() {
   if (!sequenceIsRunning) {
@@ -601,27 +583,27 @@ void runPwmSequence() {
   }
   if (--seqDur < 0) { // move on to next pair?
     if (++runSequenceCount >= sequenceCount) { // Last one?
-//      setPwmSpeed(MOTOR_RIGHT, 0);
-//      setPwmSpeed(MOTOR_LEFT, 0);
+      //      setPwmSpeed(MOTOR_RIGHT, 0);
+      //      setPwmSpeed(MOTOR_LEFT, 0);
       sequenceIsRunning = false;
-      send0(CMD_SEQUENCE_END, false);
+//      send0(CMD_SEQUENCE_END, false);
       return;
     }
     seqDur = wsDurArray[runSequenceCount];
     seqPw = pwArray[runSequenceCount];
   }
   if (TEST_RIGHT) {
-//    setPwmSpeed(MOTOR_RIGHT, seqPw);
-    streamValueArray[1] = fpsRight;
+    //    setPwmSpeed(MOTOR_RIGHT, seqPw);
+//    streamValueArray[1] = fpsRight;
   }
   if (TEST_LEFT) {
-//    setPwmSpeed(MOTOR_LEFT, seqPw);
-    streamValueArray[1] = fpsLeft;
+    //    setPwmSpeed(MOTOR_LEFT, seqPw);
+//    streamValueArray[1] = fpsLeft;
   }
   if (TEST_RIGHT && TEST_LEFT) {
-    streamValueArray[1] = wheelSpeedFps;
+//    streamValueArray[1] = wheelSpeedFps;
   }
-  streamValueArray[2] = seqPw;
+//  streamValueArray[2] = seqPw;
 }
 
 
@@ -634,12 +616,12 @@ void runPwmSequence() {
  *
  *********************************************************/
 void initTpSequence() {
-    sequenceIsRunning = true;
-    runSequenceCount = 0;
-    seqDur = wsDurArray[0];
-    seqWs = wsArray[0];
-    gyroXAngle = 0.0f;
-    tickDistanceRight = tickDistanceLeft = 0L;
+  sequenceIsRunning = true;
+  runSequenceCount = 0;
+  seqDur = wsDurArray[0];
+  seqWs = wsArray[0];
+  gyroXAngle = 0.0f;
+  tickDistanceRight = tickDistanceLeft = 0L;
 }
 void runTpSequence() {
   if (!sequenceIsRunning) {
@@ -649,116 +631,51 @@ void runTpSequence() {
     if (++runSequenceCount >= sequenceCount) { // Last one?
       seqWs = 0.0;
       sequenceIsRunning = false;
-      send0(CMD_SEQUENCE_END, false);
+//      send0(CMD_SEQUENCE_END, false);
     } 
     else { // Not done.  Load next in sequence
       seqDur = wsDurArray[runSequenceCount];
       seqWs = wsArray[runSequenceCount];
-//      debugFloat("seqWs: ", seqWs);
-//      debugInt("seqDur: ", seqDur);
+      //      debugFloat("seqWs: ", seqWs);
+      //      debugInt("seqDur: ", seqDur);
     }
   } 
-  
+
   setTargetSpeedRight(seqWs);    
   setTargetSpeedLeft(seqWs);
 
-  streamValueArray[0] = timeMicroSeconds/1000;
-  streamValueArray[1] = seqWs;
-  streamValueArray[2] = wheelSpeedFps;
-  streamValueArray[3] = gyroXAngle;
-  streamValueArray[4] = accelXAngle;
-  streamValueArray[5] = gaXAngle;
-  streamValueArray[6] = tickDistanceRight + tickDistanceLeft;
+//  streamValueArray[0] = timeMicroseconds/1000;
+//  streamValueArray[1] = seqWs;
+//  streamValueArray[2] = wheelSpeedFps;
+//  streamValueArray[3] = gyroXAngle;
+//  streamValueArray[4] = accelXAngle;
+//  streamValueArray[5] = gaXAngle;
+//  streamValueArray[6] = tickDistanceRight + tickDistanceLeft;
 }
-
-
-
-
 /*********************************************************
  *
- * algorithmInit()
+ * Xbee settings
  *
- *     Called once when the mode is established via the 
- *     MODE command.
+ *     The XBee is configured with the default settings 
+ *     except for the following:
  *
- *********************************************************/
-void algorithmInit(int x) {
-//  debugOff();  // Turn off all debugging flags.
-  mode = x;
-  runState = STATE_RESTING;
-//  debugInt("Starting mode: ", mode); // Seems to need this.
-  driftCount = DRIFT_COUNT;
-  gyroXRawSum = 0L;
-  gyroZRawSum = 0L;
-  
-  switch (mode) {
-  case MODE_MOTOR_PW:
-    motorInitPwm();
-    setPwmSpeed(MOTOR_RIGHT, 0);
-    setPwmSpeed(MOTOR_LEFT, 0);
-    break;
-  case MODE_DRIVE:
-    motorInitTp();
-    break;
-  case MODE_TP_SEQUENCE:
-    motorInitTp();
-    break;
-  case MODE_TP4:
-    aTp4Init();  
-    break;
-  case MODE_IMU:
-    aImuInit();
-    break;
-  case MODE_TP_SPEED:
-    motorInitTp();
-    break;
-  } // end switch  
-}  // end algorithmInit()
-
-
-
-
-/*********************************************************
- *
- * algorithmStart()
- *
- *     Called when tp enters run state because run button
- *     is pressed or tp is vertical and resting on ground.
+ *     CH     19
+ *     IC     2221   (Is this needed?)
+ *     MY     7770  TwoPotatoe
+ *            7771  PC
+ *            7772  Hand Controller
+ *     BD     7     115200 baud
+ *     AP     1     API mode
  *
  *********************************************************/
-void algorithmStart() {
-    
-  gyroXAngle = gaXAngle;
-  tickAngle = gaXAngle;
-  tpAngle2 = gaXAngle;
-  coDistance = 0.0f;
-  tickDistance = -(tpAngle2 * TICKS_PER_DEGREE);
-  tickDistanceRight = tickDistance/2;
-  tickDistanceLeft = tickDistance/2;
-  coFallingAccel = TA_FACTOR * sin(DEG_TO_RAD * tpAngle2);  
-  coFallingRate = 0.0f;
-  coDistance = 0.0f;
-  tpAngle2Rate = 0.0f;
-  tipCount = 0;
-  
-  switch (mode) {
-  case MODE_MOTOR_PW:
-    break;
-  case MODE_DRIVE:
-    break;
-  case MODE_TP4:
-    aTp4Start();
-    break;
-  case MODE_IMU:
-    aImuStart();
-    break;
-  case MODE_TP_SPEED:
-//    resetTp();
-    break;
-  case MODE_TP_SEQUENCE:
-//    resetTp();
-    break;
-  } // end switch  
-}
+
+
+
+
+
+
+
+
+
 
 

@@ -4,7 +4,6 @@
  * 
  * 
  ************************************************************************/
-#define TP4_LOOP_TIME 10000L;        // Microsecons/loop
 
 
 float tp4FpsLeft = 0.0f;
@@ -23,62 +22,83 @@ float tp4HomeSpeed = 0.0f;
 long tp4AccumDistanceError = 0l;
 float tp4ControllerSpeed = 0;
 int homeTime = 0;
+float loopSec = 0.0f;
+unsigned int tp4LoopCounter = 0;
 
-void aTp4Init() {
-  
-  // Set up IMU
+
+// Set up IMU
 //  compass.init(LSM303DLHC_DEVICE, 0);
 //  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
 //  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
 //  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
 //  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
 //  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
-  accelgyro.initialize();
 
-
+/************************************************************************
+ *  aTp4Run() 
+ *    
+ * 
+ * 
+ ************************************************************************/
+void aTp4Run() {
+  timeMicroseconds = timeTrigger = micros();
+  timeMilliseconds = timeMicroseconds / 1000;
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
   tp4RawIError = 0.0f;
-  loopTime = TP4_LOOP_TIME;
   motorInitTp();
+  while(mode == MODE_TP4) { // main loop
+    readXBee();  // Read commands from PC or Hand Controller
+    checkMotorRight();
+    checkMotorLeft();
+    timeMicroseconds = micros();
+    timeMilliseconds = timeMicroseconds / 1000;
+    dump();
+
+    // Do the timed loop
+    if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
+      actualLoopTime = timeMicroseconds - oldTimeTrigger;
+      loopSec = ((float) actualLoopTime)/1000000.0; 
+      timeTrigger += 10000; // 100 per second
+      oldTimeTrigger = timeMicroseconds;
+      aTp4();     // Run the algorithm and control motors
+
+      // Misc. tasks.    
+      battery();
+      led();
+      safeAngle();
+      gravity();
+      controllerConnected();
+      setRunningState();
+      cmdBits();
+      //    checkDrift();
+    } // end timed loop
+  }
 }
 
-void aTp4Start() {
-  tp4RawIError = 0.0;  // Get rid of any accumulated error.
-  tp4IsHome = false;
-}
 
 
-
+/************************************************************************
+ *  aTp4() 
+ *    
+ * 
+ * 
+ ************************************************************************/
 void aTp4() {
+  readSpeed();
   getTpAngle();
 
-  tp4Home();
   // compute the coSpeed
   float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
   coSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * oldCospeed); // smooth it out a little
   oldCospeed = coSpeed;
 
-  // get the target speed
-  if (isPcConnected || isHcConnected) {
-    if (home == 0L) {
-      tp4ControllerSpeed = controllerY * 3.0; //+-3.0 fps
-    }
-    else {
-      tp4ControllerSpeed = tp4HomeSpeed;
-    }
-  }
-  else { 
-    tp4ControllerSpeed = 0.0f; // no controller connected.  Stay in place.
-  }
+  tp4ControllerSpeed = controllerY * 3.0; //+-3.0 fps
 
   // find the speed error
   float tp4SpeedError = tp4ControllerSpeed - coSpeed;
 
   // compute a weighted angle to eventually correct the speed error
   float tp4TargetAngle = tp4SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
-
-  // limit the angle
-//  tp4TargetAngle = constrain(tp4TargetAngle, -15.0f, 15.0f);
 
   // Compute angle error and weight factor
   float tp4AngleError = gaXAngle - tp4TargetAngle;
@@ -88,28 +108,41 @@ void aTp4() {
   tp4Fps = tp4AngleErrorW + coSpeed;
   tp4FpsRight = tp4FpsLeft = tp4Fps;
 
-
   tp4Steer();
   setTargetSpeedRight(tp4FpsRight);
   setTargetSpeedLeft(tp4FpsLeft);
   //  setTargetSpeedRight(pid2FpsTwsRight);
   //  setTargetSpeedLeft(pid2FpsTwsLeft);
 
-  // Set the debug values
-  //aVal = timeMicroSeconds/1000000.0f;
-  streamValueArray[0] = timeMicroSeconds;
-  streamValueArray[1] = (long) (gaXAngle * 100.0f);
-  streamValueArray[2] = (long) (wheelSpeedFps * 100.f);
-  streamValueArray[3] = (long) (gyroXAngleDelta * 100.f);
-  streamValueArray[4] = (long) (coSpeed * 100.f);
-  streamValueArray[5] = (long) (tp4ControllerSpeed * 100.f);
-  streamValueArray[6] = (long) (tp4TargetAngle * 100.f);
-  streamValueArray[7] = (long) (tp4AngleErrorW * 100.f);
-  streamValueArray[8] = (long) (tp4ISpeed * 100.f);
-  streamValueArray[9] = (long) (tp4Fps * 100.f);
-//  jVal = gyroZAngle;
-  //  debugFloat("tp4Fps: ", tp4Fps);
-} // End tp4();
+  // Send
+  tp4LoopCounter = ++tp4LoopCounter % 5;
+  if (  ((tp4LoopCounter == 0) 
+        || ((tpState & TP_STATE_STREAMING) != 0)) 
+        && ((tpState & TP_STATE_DUMPING) == 0)) {
+    sendArray[TP_SEND_STATE_STATUS] = tpState;
+    sendArray[TP_SEND_MODE_STATUS] = mode;
+    set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
+    set4Byte(sendArray, TP_SEND_DEBUG, debugVal);
+    if (isBitSet(cmdState, CMD_STATE_STREAM)) {
+      set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
+      set4Byte(sendArray, TP_SEND_B_VAL, (int) (gaXAngle * 100.0f));
+      set2Byte(sendArray, TP_SEND_C_VAL, (int) (wheelSpeedFps * 100.f));
+      set2Byte(sendArray, TP_SEND_D_VAL, (int) (gyroXAngleDelta * 100.f));
+      set2Byte(sendArray, TP_SEND_E_VAL, (int) (coSpeed * 100.f));
+      set2Byte(sendArray, TP_SEND_F_VAL, (int) (tp4ControllerSpeed * 100.f));
+      set2Byte(sendArray, TP_SEND_G_VAL, (int) (tp4TargetAngle * 100.f));
+      set2Byte(sendArray, TP_SEND_H_VAL, (int) (tp4AngleErrorW * 100.f));
+      set2Byte(sendArray, TP_SEND_I_VAL, (int) (tp4ISpeed * 100.f));
+      set2Byte(sendArray, TP_SEND_J_VAL, (int) (tp4Fps * 100.f));
+      sendTXFrame(XBEE_PC, sendArray, TP_SEND_MAX); 
+    }
+    else {
+      sendTXFrame(XBEE_PC, sendArray, TP_SEND_A_VAL); 
+    }
+  } 
+} // end aTp4() 
+
+
 
 void tp4Steer() {
   float speedAdjustment = 0.0f;
@@ -141,7 +174,7 @@ void tp4Steer() {
   }
 
   if (!straightMode) {
-//    speedAdjustment = controllerX * 1.0 - (coSpeed * 0.1); // factor for turning rate.
+    //    speedAdjustment = controllerX * 1.0 - (coSpeed * 0.1); // factor for turning rate.
     speedAdjustment = controllerX * 0.6; // factor for turning rate.
   }
 
@@ -150,43 +183,6 @@ void tp4Steer() {
 }
 
 
-
-void tp4Home() {
-
-  tp4HomeSpeed = 0.0f;
-  if (home == 0L) {
-    return;
-  }
-  long distanceError = home - (tickDistanceRight + tickDistanceLeft);
-  tp4HomeSpeed = (distanceError * .0005);
-  
-  
-//  if (tp4IsHome) {
-//    // first check to see if we need to exit this mode
-//    if ((abs(controllerY) > 0.05) || (abs(gaXAngle) > 15.0)) {
-//      tp4IsHome = false;
-//      homeTime = 0;
-//      debugBoolean("tp4IsHome: ", tp4IsHome);
-//    }
-//    else {
-//      long distanceError = tp4HomeDistance - (tickDistanceRight + tickDistanceLeft);
-//      tp4HomeSpeed = (distanceError * .0005);
-//    }
-//  }
-//  else if ((abs(controllerY) <= 0.05) && (abs(gaXAngle) <= 15.0)) {
-//    if (homeTime > 150) { // Wait at least a second.
-//      tp4IsHome = true;
-//      tp4HomeDistance = tickDistanceRight + tickDistanceLeft;
-//      debugBoolean("tp4IsHome: ", tp4IsHome);
-//    } 
-//    else {
-//      homeTime++;
-//    }
-//  } 
-//  else {
-//    homeTime = 0;
-//  }
-}
 
 float getRotation() {
   float rotateError = rotateTarget - gyroZAngle;
@@ -198,5 +194,7 @@ float getRotation() {
   rotationRate = constrain(rotationRate, -2.0f, 2.0f);
   return rotationRate;
 }
+
+
 
 

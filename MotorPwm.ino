@@ -9,45 +9,6 @@
 //  a pw of 255 requres and input value of 257
 
 
-long threshRight = 0;
-long threshLeft = 0;
-/*********************************************************
- *
- * motorInit()
- *
- *    Set motor to initial state when the arduino
- *    starts for the first time.
- *
- *********************************************************/
-void motorInit() {
-  // set the encoder pins that are connected to an interrupt
-  pinMode(MOT_RIGHT_ENCA, INPUT);  // interrupt
-  pinMode(MOT_LEFT_ENCA, INPUT);  // interrupt
-
-  // Set the remaining encoder pins  
-  pinMode(MOT_RIGHT_ENCB, INPUT);
-  pinMode(MOT_LEFT_ENCB, INPUT);
-
-  // Set the INA and INB control pins
-  pinMode(MOT_RIGHT_INA, OUTPUT);
-  pinMode(MOT_RIGHT_INB, OUTPUT);
-  pinMode(MOT_LEFT_INA, OUTPUT);
-  pinMode(MOT_LEFT_INB, OUTPUT);
-
-  // Set the Pulse width modulation pins
-  pinMode(MOT_RIGHT_PWM, OUTPUT);
-  pinMode(MOT_LEFT_PWM, OUTPUT);
-
-  // Set the motors to coast
-  digitalWrite(MOT_RIGHT_INA, LOW);
-  digitalWrite(MOT_RIGHT_INB, LOW); 
-  digitalWrite(MOT_RIGHT_PWM, LOW); 
-  digitalWrite(MOT_LEFT_INA, LOW);
-  digitalWrite(MOT_LEFT_INB, LOW); 
-  digitalWrite(MOT_LEFT_PWM, LOW); 
-}
-
-
 
 /*********************************************************
  *
@@ -57,8 +18,24 @@ void motorInit() {
  *
  *********************************************************/
 void motorInitPwm() {
-  attachInterrupt(0, interruptPwmRight, CHANGE);
-  attachInterrupt(1, interruptPwmLeft, CHANGE);
+  // Set the pin modes
+  pinMode(MOT_RIGHT_INA, OUTPUT);
+  pinMode(MOT_LEFT_INA, OUTPUT);
+  pinMode(MOT_RIGHT_INB, OUTPUT);
+  pinMode(MOT_LEFT_INB, OUTPUT);
+  pinMode(MOT_RIGHT_PWM, OUTPUT);
+  pinMode(MOT_LEFT_PWM, OUTPUT);
+
+  // Set the motors to coast
+  digitalWrite(MOT_RIGHT_INA, LOW);
+  digitalWrite(MOT_RIGHT_INB, LOW); 
+  analogWrite(MOT_RIGHT_PWM, 0); 
+  digitalWrite(MOT_LEFT_INA, LOW);
+  digitalWrite(MOT_LEFT_INB, LOW); 
+  analogWrite(MOT_LEFT_PWM, 0); 
+
+  attachInterrupt(MOT_RIGHT_ENCA, interruptPwmRight, CHANGE);
+  attachInterrupt(MOT_LEFT_ENCA, interruptPwmLeft, CHANGE);
 }
 
 
@@ -73,7 +50,7 @@ void motorInitPwm() {
 void interruptPwmRight() {
   unsigned long lastTickTime = tickTimeRight;
   tickTimeRight = micros();
-  if (digitalRead(MOT_RIGHT_ENCA) != digitalRead(MOT_RIGHT_ENCB)) {
+  if (digitalRead(MOT_RIGHT_ENCA) == digitalRead(MOT_RIGHT_ENCB)) {
     tickPeriodRight = (long) tickTimeRight - (long) lastTickTime;
     tickDistanceRight++;
   } 
@@ -86,7 +63,7 @@ void interruptPwmRight() {
 void interruptPwmLeft() {
   unsigned long lastTickTime = tickTimeLeft;
   tickTimeLeft = micros();
-  if (digitalRead(MOT_LEFT_ENCA) == digitalRead(MOT_LEFT_ENCB)) {
+  if (digitalRead(MOT_LEFT_ENCA) != digitalRead(MOT_LEFT_ENCB)) {
     tickPeriodLeft = (long) tickTimeLeft - (long) lastTickTime;
     tickDistanceLeft++;
   } 
@@ -115,8 +92,8 @@ void setPwmSpeed(int motor, int pw) {
   pw = constrain(pw, -257, +257); // constrain
   if (motor == MOTOR_RIGHT) { // Right motor
     pwm = MOT_RIGHT_PWM;
-    ina = MOT_RIGHT_INA; 
-    inb = MOT_RIGHT_INB;
+    ina = MOT_RIGHT_INB; 
+    inb = MOT_RIGHT_INA;
   } 
   else { // left motor
     pwm = MOT_LEFT_PWM;
@@ -125,7 +102,7 @@ void setPwmSpeed(int motor, int pw) {
   }
 
   // turn off motors if in halt state
-  if(runState != STATE_RUNNING) {
+  if((tpState & TP_STATE_RUN_READY) == 0) {
     digitalWrite(ina, LOW); // Brake
     digitalWrite(inb, LOW);
     analogWrite(pwm, 0);
@@ -182,7 +159,6 @@ void readSpeedRight() {
   else {
     fpsRight = (ENC_FACTOR / (float) tickPeriodRight);
   }
-  tpcsRight = FPS_TO_TPCS * fpsRight;
 }
 
 void readSpeedLeft() {
@@ -199,7 +175,6 @@ void readSpeedLeft() {
   else {
     fpsLeft =  (ENC_FACTOR / (float) tickPeriodLeft);
   }
-  tpcsLeft = FPS_TO_TPCS * fpsLeft;
 }
 
 
@@ -217,6 +192,6 @@ void readSpeed() {
   readSpeedLeft();
   tickDistance = tickDistanceRight + tickDistanceLeft;
   wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
-  speedTpcs = (tpcsRight + tpcsLeft)/2.0f;
 }
+
 

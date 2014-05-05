@@ -37,33 +37,33 @@ int gyroMtXRaw = 0;
  *
  ******************************************************/
 void mtInit() {
-  
+
   // Set up IMU
-//  compass.init(LSM303DLHC_DEVICE, 0);
-//  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
-//  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
-//  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
-//  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
-//  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
-//  gyro.writeReg(L3G_CTRL_REG2, 0x09); // Highpass 0.09
+  //  compass.init(LSM303DLHC_DEVICE, 0);
+  //  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
+  //  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
+  //  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
+  //  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
+  //  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
+  //  gyro.writeReg(L3G_CTRL_REG2, 0x09); // Highpass 0.09
 
   // TODO revisit these parameters
-//***test  gyro.writeReg(L3G_CTRL_REG2, 0x00); // 250 dps full scale
-//***test  gyro.writeReg(L3G_CTRL_REG5, 0x10); // high-pass enable
-//***test  gyro.writeReg(L3G_CTRL_REG2, 0x03); // high-pass frequency
-//***test  gyro.writeReg(L3G_CTRL_REG4, 0x20); // 2000 dps full scale
+  //***test  gyro.writeReg(L3G_CTRL_REG2, 0x00); // 250 dps full scale
+  //***test  gyro.writeReg(L3G_CTRL_REG5, 0x10); // high-pass enable
+  //***test  gyro.writeReg(L3G_CTRL_REG2, 0x03); // high-pass frequency
+  //***test  gyro.writeReg(L3G_CTRL_REG4, 0x20); // 2000 dps full scale
 
-  accelgyro.initialize();
-//  accelgyro.setDLPFMode(6);
+//  imu9150.initialize();
+  //  accelgyro.setDLPFMode(6);
   delay(100);
-//  debugStr((char*) (accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed"), " ");
+  //  debugStr((char*) (accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed"), " ");
 
   attachInterrupt(MOT_RIGHT_ENCA, mtIsrRight, CHANGE);
   detachInterrupt(MOT_RIGHT_ENCA);
   setMotor(MOTOR_RIGHT, COAST);
   mtIntIndex = 0;
   mtSeqIndex = 0;
-  mtRun = true;
+//  mtRun = true;
   mtTimeTrigger = 0L;
 }
 
@@ -81,7 +81,7 @@ void mtIsrRight() {
   if (mtIntIndex < MOTOR_INTS) {
     mtIntIndex++;
   }
-  
+
   // put in the encoder interrupt
   unsigned long t = micros() & 0xFFFFFFF8;  // mask off lower 3 bits
   if (digitalRead(MOT_RIGHT_ENCA) == digitalRead(MOT_RIGHT_ENCB)) {
@@ -103,60 +103,60 @@ void mtIsrRight() {
  *
  ******************************************************/
 void a_mt() {
-//  // Read the gyro
-////  gyro.readX();   
-////  gyroMtXRaw = gyro.g.x;  // 
-//    gyroMtXRaw = accelgyro.getRotationX();
-//
-//  // check time & go to next sequence  
-//  int motorCmd = MOTOR_BRAKE;
-//  int motorData = DATAFLAG_MOTOR_BRAKE;
-//  unsigned long t = micros();
-//  if (t > mtTimeTrigger) {
-//    unsigned long dur = mtDurArray[mtSeqIndex];
-//    int motorState = mtMotorStateArray[mtSeqIndex];
-//    if ((mtSeqIndex >= MOTOR_SEQS) || (motorState == END_MARKER)) {
-//      detachInterrupt(0);
-//      MOTOR_PORT_RIGHT = MOTOR_COAST;
-//      mtRun = false;
-//      mtDump();
-//      return;
-//    }
-//
-//    switch (motorState) { // get const for motor and data
-//    case FWD:
-//      motorData = DATAFLAG_MOTOR_FWD;
-//      motorCmd = MOTOR_FWD;
-//      break;
-//    case BKWD:
-//      motorData = DATAFLAG_MOTOR_BKWD;
-//      motorCmd = MOTOR_BKWD;
-//      break;
-//    case BRAKE:
-//      motorData = DATAFLAG_MOTOR_BRAKE;
-//      motorCmd = MOTOR_BRAKE;
-//      break;
-//    case COAST:
-//    case STOP:
-//      motorData = DATAFLAG_MOTOR_COAST;
-//      motorCmd = MOTOR_COAST;
-//      break;
-//    default:
-//      motorData = DATAFLAG_MOTOR_FWD;
-//      debugInt("Bad motorState: ", motorCmd);
-//      break;
-//    }
-//
-//    // Put in array if room.
-//    if (mtIntIndex < MOTOR_INTS) { 
-//      noInterrupts();
-//      mtIntArray[mtIntIndex++] = (t & 0xFFFFFFF8L) | motorData;   // Mark the mtIntArray
-//      interrupts();
-//    }
-//    mtTimeTrigger = t + dur;
-//    MOTOR_PORT_RIGHT = motorCmd;  
-//    mtSeqIndex++;
-//  }
+  //  // Read the gyro
+  ////  gyro.readX();   
+  ////  gyroMtXRaw = gyro.g.x;  // 
+  //    gyroMtXRaw = accelgyro.getRotationX();
+  //
+  //  // check time & go to next sequence  
+  //  int motorCmd = MOTOR_BRAKE;
+  //  int motorData = DATAFLAG_MOTOR_BRAKE;
+  //  unsigned long t = micros();
+  //  if (t > mtTimeTrigger) {
+  //    unsigned long dur = mtDurArray[mtSeqIndex];
+  //    int motorState = mtMotorStateArray[mtSeqIndex];
+  //    if ((mtSeqIndex >= MOTOR_SEQS) || (motorState == END_MARKER)) {
+  //      detachInterrupt(0);
+  //      MOTOR_PORT_RIGHT = MOTOR_COAST;
+  //      mtRun = false;
+  //      mtDump();
+  //      return;
+  //    }
+  //
+  //    switch (motorState) { // get const for motor and data
+  //    case FWD:
+  //      motorData = DATAFLAG_MOTOR_FWD;
+  //      motorCmd = MOTOR_FWD;
+  //      break;
+  //    case BKWD:
+  //      motorData = DATAFLAG_MOTOR_BKWD;
+  //      motorCmd = MOTOR_BKWD;
+  //      break;
+  //    case BRAKE:
+  //      motorData = DATAFLAG_MOTOR_BRAKE;
+  //      motorCmd = MOTOR_BRAKE;
+  //      break;
+  //    case COAST:
+  //    case STOP:
+  //      motorData = DATAFLAG_MOTOR_COAST;
+  //      motorCmd = MOTOR_COAST;
+  //      break;
+  //    default:
+  //      motorData = DATAFLAG_MOTOR_FWD;
+  //      debugInt("Bad motorState: ", motorCmd);
+  //      break;
+  //    }
+  //
+  //    // Put in array if room.
+  //    if (mtIntIndex < MOTOR_INTS) { 
+  //      noInterrupts();
+  //      mtIntArray[mtIntIndex++] = (t & 0xFFFFFFF8L) | motorData;   // Mark the mtIntArray
+  //      interrupts();
+  //    }
+  //    mtTimeTrigger = t + dur;
+  //    MOTOR_PORT_RIGHT = motorCmd;  
+  //    mtSeqIndex++;
+  //  }
 }
 
 /******************************************************
@@ -168,10 +168,11 @@ void a_mt() {
  ******************************************************/
 void mtDump() {
   for (int i = 0; i < mtIntIndex; i++) {
-    send5(CMD_DATA, mtIntArray[i]);
+//    send5(CMD_DATA, mtIntArray[i]);
     delay(20);
   }
-  send2(CMD_END_DATA, mtIntIndex);
+//  send2(CMD_END_DATA, mtIntIndex);
 }
+
 
 

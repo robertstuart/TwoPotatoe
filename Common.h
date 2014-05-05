@@ -1,6 +1,9 @@
+const unsigned long NO_DEBUG = 0xFFFFFFFF;  // If received, not displayed.
+
+
 // Modes of operation
 const int MODE_PID1           = 0;  // Original pid on board
-const int MODE_MOTOR_PW       = 1;  // pw values sent from controller
+const int MODE_PWM_SPEED      = 1;  // pw values sent from controller
 const int MODE_DRIVE          = 2;  // sequences batch-loaded from controller
 const int MODE_TP4            = 3;  // Motor speed controlled from interrupts
 const int MODE_TP_SPEED       = 4;  // on-board motor speed
@@ -8,29 +11,32 @@ const int MODE_TP_SEQUENCE    = 5;  // sequences batch-loaded from controller
 const int MODE_MT_SEQUNCE     = 6;  // motor test
 const int MODE_IMU            = 7;
 
-// States for tp
-const int STATE_RESTING         = 0;  // motors off, not trying to run
-const int STATE_READY           = 1;  // will move to RUN state when upright and gravity
-const int STATE_RUNNING         = 2;  // running, will move to READY if not upright or no gravity
+// Status bits in the tpState byte
+const int TP_STATE_RUN_READY       = 1; //B00000001;  // Ready.  Reflects the RUN command.
+const int TP_STATE_RUNNING         = 2; //B00000010;  // Motor running: is READY, UPRIGHT & ONGROUND
+const int TP_STATE_UPRIGHT         = 4; //B00000100;  // Status: tp is upright (not tipped over).
+const int TP_STATE_ON_GROUND       = 8; //B00001000;  // Status: pressure sensor indicates standing.
+const int TP_STATE_DUMPING         = 16; //B00010000;  // Collecting or dumping data.
+const int TP_STATE_HC_ACTIVE       = 32; //B00100000;  // Status: Hand Controller connected
+const int TP_STATE_PC_ACTIVE       = 64; //B01000000;  // Status: PC connected
+const int TP_STATE_STREAMING       = 128; //B10000000;  // TP is streaming data
+
+// Command bits in the cmdState byte
+const int CMD_STATE_RUN =        1; //B00000001;  // Command run or be idle
+const int CMD_STATE_PWR =        2; //B00000010;  // zero turns off battery power
+const int CMD_STATE_HOME =       4; //B00000100;  // tells tp to stay in one spot
+const int CMD_STATE_STREAM =     8; //B00001000;  // Stream data.
+const int CMD_STATE_DUMP =       16; //B00010000;  // Collect data while true, then dump
 
 // value sets
 const int VAL_SET_A           = 0;
 const int VAL_SET_B           = 1;
 const int VAL_SET_C           = 2;
 
-// substates of the run state
-const int RUNSTATE_NORMAL       = 0;
-const int RUNSTATE_DOCKING      = 1;
-const int RUNSTATE_DOCKED       = 2;  // needed?
-const int RUNSTATE_SEEKING_HOME = 3;
-const int RUNSTATE_HOME         = 4;
-
-
-
 // For commands that have two states, (0x20) bit indicates the state
-const int CMD_HC_SOURCE =   B01000000;
-const int CMD_PARAM =       B00100000;  // Start for parameterized commands
-const int CMD_SINGLE_FLAG = B00010000;  // Indicate true or false for single-byte commands
+const int CMD_HC_SOURCE =   64; //B01000000;
+const int CMD_PARAM =       32; //B00100000;  // Start for parameterized commands
+const int CMD_SINGLE_FLAG = 16; //B00010000;  // Indicate true or false for single-byte commands
 
 
 // ----------------- Command constants sent from TP --------------------
@@ -39,6 +45,45 @@ const int CMD_QUERY =                            0;
 const int CMD_SEQUENCE_END =                     1;
 const int CMD_UPLOAD_START =                     2;
 const int CMD_STREAM_STATUS =                    3;
+
+// XBee MY addresses
+const int XBEE_TWOPOTATOE =  0x7770;
+const int XBEE_PC =          0x7771;
+const int XBEE_HC =          0x7772;
+
+// XBee data packet bytes. Constant indicates positon i byte array.
+const int TP_SEND_MSG_TYPE =       0;  // 1-byte, type of remaining message
+const int TP_SEND_STATE_STATUS =   1;  // 1-byte, Status bits
+const int TP_SEND_MODE_STATUS =    2;  // 1-byte, Mode from MODE_XXX
+const int TP_SEND_VALSET_STATUS =  3;  // 1-byte, from VAL_SET_XXX
+const int TP_SEND_BATTERY =        4;  // 2-byte, battery volt * 100
+const int TP_SEND_DEBUG =          6;  // 4-byte debug value
+const int TP_SEND_A_VAL =         10;  // 4-byte
+const int TP_SEND_B_VAL =         14;  // 4-byte
+const int TP_SEND_C_VAL =         18;  // 2-byte
+const int TP_SEND_D_VAL =         20;  // 2-byte
+const int TP_SEND_E_VAL =         22;  // 2-byte
+const int TP_SEND_F_VAL =         24;  // 2-byte
+const int TP_SEND_G_VAL =         26;  // 2-byte
+const int TP_SEND_H_VAL =         28;  // 2-byte
+const int TP_SEND_I_VAL =         30;  // 2-byte
+const int TP_SEND_J_VAL =         31;  // 2-byte
+const int TP_SEND_MAX           = 33;
+
+const int TP_RCV_MSG_TYPE =        0;  // 1-byte, type of remaining message
+const int TP_RCV_X =               1;  // 1-byte x joystick
+const int TP_RCV_Y =               2;  // 1-byte y joystick
+const int TP_RCV_CMD =             3;  // 1-byte, "run" and "power" commands
+const int TP_RCV_MODE =            4;  // 1-byte, mode command
+const int TP_RCV_VALSET =          5;  // 1-byte valset 
+const int TP_RCV_T_VALSET =        6;  // 2-byte valset value
+const int TP_RCV_U_VALSET =        8;  // 2-byte valset value
+const int TP_RCV_V_VALSET =       10;  // 2-byte valset value
+const int TP_RCV_W_VALSET =       12;  // 2-byte valset value
+const int TP_RCV_X_VALSET =       14;  // 2-byte valset value
+const int TP_RCV_Y_VALSET =       16;  // 2-byte valset value
+const int TP_RCV_Z_VALSET =       18;  // 2-byte valset value
+const int TP_RCV_MAX =            20;
 
 // Parameterized commands;
 const int CMD_BATTVOLT_VAL =       (CMD_PARAM +  1);
@@ -59,7 +104,7 @@ const int CMD_GRAVITY            = (CMD_PARAM + 15);
 const int CMD_RUN_STATE_STATUS   = (CMD_PARAM + 16);
 const int CMD_MODE_STATUS        = (CMD_PARAM + 17);
 const int CMD_HC_VAL             = (CMD_PARAM + 18);
-const int CMD_VAL_SET_STAT       = (CMD_PARAM + 19);
+const int CMD_VSET_STATUS        = (CMD_PARAM + 19);
 const int CMD_DATA               = (CMD_PARAM + 20); 
 const int CMD_END_DATA           = (CMD_PARAM + 21); 
 
@@ -73,11 +118,11 @@ const int CMD_SEQ_LOAD =                         3;
 const int CMD_SEQ_START =                        4;
 const int CMD_PWR =                              5;
 const int CMD_STREAM =                           6;
-                                        // limit 15
+// limit 15
 
 // Parameterized commands
-const int CMD_DEBUG_SET          = (CMD_PARAM +  0);
-const int CMD_DEBUG_UNSET        = (CMD_PARAM +  1);
+const int CMD_xxxxxxxxx          = (CMD_PARAM +  0);
+const int CMD_xxxxxxxxxxx        = (CMD_PARAM +  1);
 const int CMD_T_SET              = (CMD_PARAM +  2);
 const int CMD_U_SET              = (CMD_PARAM +  3);
 const int CMD_V_SET              = (CMD_PARAM +  4);
@@ -94,7 +139,9 @@ const int CMD_UP_END             = (CMD_PARAM + 14);
 const int CMD_RUN_STATE          = (CMD_PARAM + 15);
 const int CMD_ROTATE             = (CMD_PARAM + 16);
 const int CMD_VAL_SET            = (CMD_PARAM + 17);
-                                       // limit 31
+// limit 31
+
+// Event interface
 
 
 

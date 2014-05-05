@@ -1,12 +1,22 @@
 void motorInitTp() {
+  // Set the pin modes
+  pinMode(MOT_RIGHT_INA, OUTPUT);
+  pinMode(MOT_LEFT_INA, OUTPUT);
+  pinMode(MOT_RIGHT_INB, OUTPUT);
+  pinMode(MOT_LEFT_INB, OUTPUT);
+  pinMode(MOT_RIGHT_PWM, OUTPUT);
+  pinMode(MOT_LEFT_PWM, OUTPUT);
+
+  setMotor(MOTOR_RIGHT, COAST);
+  setMotor(MOTOR_LEFT, COAST);
+
   setTargetSpeedRight(0.0);
   setTargetSpeedLeft(0.0);
+
   attachInterrupt(MOT_RIGHT_ENCA, encoderIsrRight, CHANGE);
   attachInterrupt(MOT_LEFT_ENCA, encoderIsrLeft, CHANGE);
   Timer4.attachInterrupt(timer4Isr);
   Timer5.attachInterrupt(timer5Isr);
-  setMotor(MOTOR_RIGHT, COAST);
-  setMotor(MOTOR_LEFT, COAST);
 }
 
 
@@ -21,7 +31,7 @@ void motorInitTp() {
 void encoderIsrRight() {
   unsigned long lastTickTime = tickTimeRight;
   tickTimeRight = micros();
-  if (digitalRead(MOT_RIGHT_ENCA) != digitalRead(MOT_RIGHT_ENCB)) {
+  if (digitalRead(MOT_RIGHT_ENCA) == digitalRead(MOT_RIGHT_ENCB)) {
     tickPeriodRight = (long) tickTimeRight - (long) lastTickTime;
     tickDistanceRight++;
   } 
@@ -29,7 +39,7 @@ void encoderIsrRight() {
     tickPeriodRight = (long) lastTickTime - (long) tickTimeRight;
     tickDistanceRight--;
   }
-  if (runState != STATE_RUNNING) {
+  if ((tpState & TP_STATE_RUNNING) == 0) {
     setMotor(MOTOR_RIGHT, COAST);
     return;
   } 
@@ -71,7 +81,7 @@ void encoderIsrRight() {
     }
   } // end BKWD
   else { // STOP
-      setMotor(MOTOR_RIGHT, BRAKE);
+    setMotor(MOTOR_RIGHT, BRAKE);
   }
 } // end encoderIsrRight()
 
@@ -82,14 +92,14 @@ void encoderIsrLeft() {
   unsigned long lastTickTime = tickTimeLeft;
   tickTimeLeft = micros();
   if (digitalRead(MOT_LEFT_ENCA) == digitalRead(MOT_LEFT_ENCB)) {
-    tickPeriodLeft = (long) tickTimeLeft - (long) lastTickTime;
-    tickDistanceLeft++;
-  } 
-  else {
     tickPeriodLeft = (long) lastTickTime - (long) tickTimeLeft;
     tickDistanceLeft--;
+  } 
+  else {
+    tickPeriodLeft = (long) tickTimeLeft - (long) lastTickTime;
+    tickDistanceLeft++;
   }
-  if (runState != STATE_RUNNING) {
+  if ((tpState & TP_STATE_RUNNING) == 0) {
     setMotor(MOTOR_LEFT, COAST);
     return;
   } 
@@ -133,7 +143,7 @@ void encoderIsrLeft() {
   else { // STOP
     setMotor(MOTOR_LEFT, BRAKE);
   }
-} // end encoderIsrLeft()
+} // end encoderIsrLeft();
 
 
 /*********************************************************
@@ -147,7 +157,7 @@ void encoderIsrLeft() {
 void timer4Isr() {
   Timer4.stop();
   if (timerStateRight == TIMER_PULSE) {
-     setMotor(MOTOR_RIGHT, COAST);
+    setMotor(MOTOR_RIGHT, COAST);
 
     if (waitPeriodRight > 0) {
       Timer4.start(waitPeriodRight);
@@ -194,7 +204,7 @@ void timer5Isr() {
  *
  *********************************************************/
 void checkMotorRight() {
-  if (runState != STATE_RUNNING) {
+  if ((tpState & TP_STATE_RUNNING) == 0) {
     noInterrupts();
     setMotor(MOTOR_RIGHT, COAST);
     interrupts(); 
@@ -211,7 +221,7 @@ void checkMotorRight() {
         Timer4.start(1800);
       }
       noInterrupts();
-      setMotor(MOTOR_RIGHT, COAST);
+      setMotor(MOTOR_RIGHT, FWD);
       interrupts();    
     }
     else if (targetDirectionRight == BKWD) {
@@ -235,7 +245,7 @@ void checkMotorRight() {
 
 /************************ checkMotorLeft *************************/
 void checkMotorLeft() {
-  if (runState != STATE_RUNNING) {
+  if ((tpState & TP_STATE_RUNNING) == 0) {
     noInterrupts();
     setMotor(MOTOR_LEFT, COAST);
     interrupts(); 
@@ -354,41 +364,42 @@ void setMotor(int motor, int state) {
   int pinInA;
   int pinInB;
   int pinPwm;
-  
+
   if (motor == MOTOR_RIGHT) {
     pinInA = MOT_RIGHT_INA;
     pinInB = MOT_RIGHT_INB;
     pinPwm = MOT_RIGHT_PWM;
   }
   else {
-    pinInA = MOT_LEFT_INA;
-    pinInB = MOT_LEFT_INB;
+    pinInA = MOT_LEFT_INB; // Reversed
+    pinInB = MOT_LEFT_INA;
     pinPwm = MOT_LEFT_PWM;
   }
-  
+
   switch(state) {
-    case FWD:
-      digitalWrite(pinInA, HIGH);
-      digitalWrite(pinInB, LOW);
-      digitalWrite(pinPwm, HIGH);
-      break;
-    case BKWD:
-      digitalWrite(pinInA, LOW);
-      digitalWrite(pinInB, HIGH);
-      digitalWrite(pinPwm, HIGH);
-      break;
-    case COAST:
-      digitalWrite(pinInA, LOW);
-      digitalWrite(pinInB, LOW);
-      digitalWrite(pinPwm, LOW);
-      break;
-    case BRAKE:
-      digitalWrite(pinInA, HIGH);
-      digitalWrite(pinInB, HIGH);
-      digitalWrite(pinPwm, HIGH);
-      break;
+  case FWD:
+    digitalWrite(pinInA, HIGH);
+    digitalWrite(pinInB, LOW);
+    digitalWrite(pinPwm, HIGH);
+    break;
+  case BKWD:
+    digitalWrite(pinInA, LOW);
+    digitalWrite(pinInB, HIGH);
+    digitalWrite(pinPwm, HIGH);
+    break;
+  case COAST:
+    digitalWrite(pinInA, LOW);
+    digitalWrite(pinInB, LOW);
+    digitalWrite(pinPwm, LOW);
+    break;
+  case BRAKE:
+    digitalWrite(pinInA, HIGH);
+    digitalWrite(pinInB, HIGH);
+    digitalWrite(pinPwm, HIGH);
+    break;
   }
 }
+
 
 
 

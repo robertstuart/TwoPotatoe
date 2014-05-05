@@ -1,12 +1,14 @@
 
-const int MAX_BATT_COUNT = 100;  // Number of consecutive bad reading before action.
-const float BATTERY_WARNING = 10.9f;  // about 10% capacity
-const float BATTERY_CRITICAL = 10.0f; // about 1% cap
-const int AUDIO_SEQ_MAX = 50;
+const int BATTERY_WARNING = 1090;  // about 10% capacity (centivolts)
+const int BATTERY_CRITICAL = 1000; // about 1% cap (centivolts)
 
-// Timigs for tasks
-const int BATTERY_INTERVAL = 500;  // milliseconds between battery reading
-const int ERROR_INTERVAL = 1000;  // milliseconds between error reports
+const byte* blinkPattern = BLINK_FY;
+int blinkPatternSize = sizeof(BLINK_FY);
+int blinkPtr = 0;
+int beepCycleCount = 0;
+boolean beepStat = false;
+int *beepSequence;
+int beepPtr = 0;
 
 unsigned long batteryTimer = 0;
 boolean flip = false;
@@ -23,97 +25,62 @@ unsigned long gravityTrigger = 0L;
 unsigned long errorTrigger = 0L;
 unsigned int taskPtr = 0;
 unsigned int pingTpHCCount = 0;
+unsigned long uprightTime = 0L;
+unsigned long onGroundTime = 0L;
+unsigned long warningTrigger = 0;
+unsigned long batteryLastGood = 0;
 
-byte blinkPattern1[] = {1,2,2,2,2,2,2,2}; // red on, flash green
-byte blinkPattern2[] = {2,1,1,1,1,1,1,1}; // green on, flash red
-byte blinkPattern3[] = {2,2,1,1}; // rapid red-green
-byte blinkPattern4[] = {3,3,3,3,0,0,0,0}; // both slow flash
-byte* blinkPattern = blinkPattern1;
-int blinkState = 99; // force change
-int blinkPtr = 0;
-int patternSize = 1;
 
-const byte TASK_NONE = 0;
-const byte TASK_PING = 1;
-const byte TASK_BLINK = 2;
-const byte TASK_BATT = 3;
-const byte TASK_ERROR = 4;
-const byte TASK_TONE = 5;
-const byte TASK_RUNSTATE = 6;
-const byte TASK_MODE = 7;
-const byte TASK_VALSET = 8;
-
-int beepCount = 0;
-boolean beepStat = false;
-
-byte taskList[] = {0,TASK_TONE,0,TASK_RUNSTATE,0,TASK_BLINK,0,0,TASK_BATT,0,
-                   0,TASK_TONE,0,TASK_MODE    ,0,TASK_BLINK,0,0,0,0,
-                   0,TASK_TONE,0,TASK_RUNSTATE,0,TASK_BLINK,0,0,TASK_ERROR,0,
-                   0,TASK_TONE,0,TASK_RUNSTATE,0,TASK_BLINK,0,0,0,0,
-                   0,TASK_TONE,0,TASK_VALSET  ,0,TASK_BLINK,0,0,0,0};
-                   
-
-/***************************************************************
+/*********************************************************
  *
- * tasks()
+ * setRunningState()
  *
- *       call misc. tasks periodically
- *       This routine is called in the main loop with the
- *       algorithm which is normally 100/sec.
- *       only do one before returning to main loop
+ *     Set the TP_STATE_RUNNING bit if the following are true:
+ *         TP_STATE_RUN_READY is true
+ *         TP_STATE_UPRIGHT is true
+ *         TP_STATE_ON_GROUND is true
+ *         TP_STATE_MOTOR_FAULT ????
  *
- ***************************************************************/
- void tasks() {
-   safeAngle();
-   gravity();
-   
-   taskPtr = ++taskPtr % sizeof(taskList);
-   switch (taskList[taskPtr]) {
-     case TASK_NONE:
-       break;
-     case TASK_BLINK:
-       break;
-     case TASK_BATT:
-       battery();
-       break;
-     case TASK_ERROR:
-       break;
-     case TASK_TONE:
-       blink();
-       break;
-     case TASK_RUNSTATE:
-       break;
-     case TASK_MODE:
-       break;
-     case TASK_VALSET:
-       break;
-     default:
-       break;
-   }
- 
-//   taskMilliseconds = millis();
-//   
-//   safeAngle();
-//   gravity();
-//   
-//   if (taskMilliseconds > batteryTrigger) {
-//     batteryTrigger = taskMilliseconds + BATTERY_INTERVAL;
-//     battery();
-//     return;
-//   }
-//   
-//   if (taskMilliseconds > blinkTrigger) {
-//     blink();
-//     return;
-//   }
-//   
-//   if (taskMilliseconds > errorTrigger) {
-//     errorTrigger = taskMilliseconds + ERROR_INTERVAL;
-//     errorReport();
-//     return;
-//   }
- }
+ *      Set x and y to zero if there is no connection to 
+ *      a controller or STATE_MOTOR_FAULT is true.
+ *
+ *      Set blinking according to the above states.
+ *
+ *********************************************************/
+void setRunningState() {
+  byte* blinkState = BLINK_SBYG;
 
+  // Set the bit
+  if (     ((tpState & TP_STATE_RUN_READY) != 0)
+    && ((tpState & TP_STATE_UPRIGHT) != 0)
+    && ((tpState & TP_STATE_ON_GROUND) != 0)) {           
+    tpState = tpState | TP_STATE_RUNNING;
+  }
+  else {
+    tpState = tpState & ~TP_STATE_RUNNING;
+  }
+
+  // set x, y, and blink state
+  if (!(tpState & (TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE))) {
+    //  if ((!isHcConnected) && (!isPcConnected)) {
+    controllerY = 0.0f;
+    controllerX = 0.0f;
+    blinkState = BLINK_SBYG;  // Slow blinking if no connection
+  }
+  else if ((tpState & TP_STATE_RUNNING) != 0) {
+    blinkState = BLINK_B_FR; // Blue, flash Red if running.
+  }
+  else if ((tpState & TP_STATE_RUN_READY) > 0) {
+    blinkState = BLINK_FRG; // Flash red-blue if ready to go.
+  }
+  else {
+    blinkState = BLINK_R_FB; // Red-flashBlue if idle (none of the above).
+  }
+
+  if (blinkState != blinkPattern) {
+    setBlink(blinkState);
+  }
+}
 
 
 /*********************************************************
@@ -121,22 +88,59 @@ byte taskList[] = {0,TASK_TONE,0,TASK_RUNSTATE,0,TASK_BLINK,0,0,TASK_BATT,0,
  * safeAngle()
  *
  *     Check to see if we have fallen sidways or forwards.
- *     If so, turn off motors.
+ *     If so, unset the STATE_UPRIGHT bit.
+ *     Otherwise, set the bit.
  *
  *********************************************************/
 void safeAngle() {
-  if ((abs(gaXAngle) > 45.0) || ((abs(gaYAngle) > 35))) {
-    tipCount++;
-    if (tipCount > 2) {
-      upright = false;
+  if ((abs(gaXAngle) > 45.0) || ((abs(gaYAngle) > 35))) {  // Not at a safe angle?
+    if (timeMilliseconds > (uprightTime + 100)) { // more that 1/10 of a second?
+      tpState = tpState & ~TP_STATE_UPRIGHT;
     }
   }
   else {
-    tipCount = 0;
-    upright = true;
+    tpState = tpState | TP_STATE_UPRIGHT;
+    uprightTime = timeMilliseconds;
   }
 }  // End upright().
 
+
+/*********************************************************
+ *
+ * gravity()
+ *
+ *     Check to see if we sitting on the ground.
+ *     If so, set the STATE_UPRIGHT bit.
+ *     Otherwise, unset the bit.
+ *
+ *********************************************************/
+void gravity() {
+  pressure = analogRead(PRESSURE_PIN);
+  if (pressure > 300) {  // Not on ground?
+    if (timeMilliseconds > (onGroundTime + 100)) {  // more that 1/10 of a second?
+      tpState = tpState & ~TP_STATE_ON_GROUND;
+    }
+  }
+  else {
+    tpState = tpState | TP_STATE_ON_GROUND;
+    onGroundTime = timeMilliseconds;
+  }
+}
+
+/*********************************************************
+ *
+ * controllerConnected()
+ *
+ *     If we haven't received a command for more than a second,
+ *     we will assume that the controller is not connected.
+ *
+ *********************************************************/
+void controllerConnected() {
+  byte hcBit =  ((tHc + 500) > timeMilliseconds) ? TP_STATE_HC_ACTIVE : 0;
+  byte pcBit =  ((tPc + 500) > timeMilliseconds) ? TP_STATE_PC_ACTIVE : 0;
+  byte tmp = tpState & (~(TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE)); // Clear bits
+  tpState = tmp | hcBit | pcBit;
+}
 
 
 
@@ -144,160 +148,135 @@ void safeAngle() {
  *
  * battery()
  *
- *       check battery, send out status, turn off if too low
+ *       check battery, set batteryVoltage, turn off if too low
  *
  ***************************************************************/
 void battery() {
 
   // Send out the battery voltage
   int sensorValue = analogRead(BATTERY_PIN);
-  batteryVoltage = sensorValue * BATT_ATOD_MULTIPLIER;
- 
+  batteryVolt = 100 * (((float) sensorValue) * BATT_ATOD_MULTIPLIER);
+  
   // Check for warning condition.
-  if (batteryVoltage < BATTERY_WARNING) {
-    warningCount++;
-    if (warningCount > MAX_BATT_COUNT) {
-//      beep(100, 1000);
-      warningCount = 0;
+  if (batteryVolt < BATTERY_WARNING) {
+    // Continuously low for a second?
+    if ((batteryLastGood + 1000) < timeMilliseconds) {
+      if (timeMilliseconds > warningTrigger) {
+        beep(BEEP_WARBLE);
+        warningTrigger += 60000;
+      }
     }
   } 
   else {
-    warningCount = 0;
+    batteryLastGood = timeMilliseconds;
   }
 
   // Check for critical condition.
-  if (batteryVoltage < BATTERY_CRITICAL) {
-    criticalCount++;
-    if (criticalCount > MAX_BATT_COUNT) {
+  if (batteryVolt < BATTERY_CRITICAL) {
+    if ((timeMilliseconds + 10000) > warningTrigger) {
       digitalWrite(PWR_PIN, LOW);  // Power down TwoPotatoe
     }
   } 
-  else {
-    criticalCount = 0;
-  }
+}
+
+// Set the blink pattern
+void setBlink(byte* pattern) {
+  blinkPattern = pattern;
+  blinkPtr = 0;
 }
 
 
 
 /***************************************************************
  *
- * blink()
- *
- *       blink the LEDs
+ * led()  Call at least 10/sec
  *
  ***************************************************************/
- void blink() {
-   // Change the blinking pattern if the state has changed.
-   if (runState != blinkState) {
-     blinkState = runState;
-     blinkPtr = 0;
-     switch (runState) {
-       case STATE_RESTING:
-         blinkPattern = blinkPattern2;
-         patternSize = sizeof(blinkPattern2);
-         break;
-       case STATE_READY:
-         blinkPattern = blinkPattern3;
-         patternSize = sizeof(blinkPattern3);
-         break;
-       case STATE_RUNNING:
-         blinkPattern = blinkPattern1;
-         patternSize = sizeof(blinkPattern1);
-         break;
-      default:
-        break;
-     }
-   }
-   
-   // blink
-   blinkPtr = ++blinkPtr % patternSize;
-   byte blink = blinkPattern[blinkPtr];
-   if (blink & 1) {
-     digitalWrite(BLUE_LED_PIN, HIGH);
-   }
-   else {
-     digitalWrite(BLUE_LED_PIN, LOW);
-   }
-   if (blink & 2) {
-     digitalWrite(RED_LED_PIN, HIGH);
-   }
-   else {
-     digitalWrite(RED_LED_PIN, LOW);
-   }
- }
-
-
-void gravity() {
-    pressure = analogRead(PRESSURE_PIN);
-    if (pressure > 300) {
-      if (pressureCount > 2) {
-        sitting = false;
-      } 
-      else {
-        pressureCount++;
-      }
+void led() {
+  if (timeMilliseconds > blinkTrigger) {
+    int b = LOW, y = LOW, r = LOW;
+    blinkTrigger += 100;  // 10 per second
+    byte blink = blinkPattern[blinkPtr++];
+    if (blinkPattern[blinkPtr] == END_MARKER) {
+      blinkPtr = 0;
     }
-    else {
-      pressureCount = 0;
-      sitting = true;
+
+    if (blink & 1) {
+      b = HIGH;
+    }   
+    if (blink & 2) {
+      y = HIGH;
     }
+    if (blink & 4) {
+      r = HIGH;
+    }
+
+    digitalWrite(BLUE_LED_PIN, b);
+    digitalWrite(YELLOW_LED_PIN, y);
+    digitalWrite(RED_LED_PIN, r);
+  }
 }
 
-//
-//void audio() {
-//  if (audioSeqIndex < audioSeqCount)  {
-//    tone(AUDIO_PIN, audioSeqPitch[audioSeqIndex]);
-//    audioTrigger = taskMilliseconds + audioSeqDur[audioSeqIndex++];
-//  }
-//  else { // sequence complete
-//    noTone(AUDIO_PIN);
-//    audioTrigger = INT_MAX;
-//  }
-//}
 
-//void siren() {
-//  for (int x = 0; x < 5; x++) {
-//    for (int y = 500; y < 1000; y++) {
-//      tone(AUDIO_PIN, y);
-//      delay(2);
-//    }    
-//  }
-//
-//  //  for (int x = 0; x < 5; x++) {
-//  //    for (int i = 1000; i > 0 ; i -= 5) {
-//  //      delayMicroseconds(500 + i);
-//  //      analogWrite(DAC0, 50);
-//  //      delayMicroseconds(500 + i);
-//  //      analogWrite(DAC0, 0);
-//  //    }
-//  //  }
-//}
 
-//void audioStart(int pitch[], int dur[], size)
-//
-//
-//// Sends out a single beep
-//void beep(int pitch, int duration) {
-//  beepPitch[0] = pitch;
-//  beepDur[0] = duration;
-//  audioStart(*beepPitch, *beepDur, 1);
-//}
-
-void beep(int freq, int dur) {
-  beepCount = 0;
+void beep(int seq[]) {
+  beepPtr = 0;
+  beepSequence = seq;
   Timer3.attachInterrupt(beepIsr);
-  Timer3.start(300);
+  setBeep();
 }
 
-void beepIsr() {
-  if (beepCount++ > 500) {
+void setBeep() {
+  int freq = beepSequence[beepPtr];
+  if (freq != 0) {
+    int halfCycle = (1000000 /2) / freq;
+    int dur = beepSequence[beepPtr + 1];
+    beepCycleCount = (dur * 1000)/halfCycle;
+    Timer3.start(halfCycle);
+    beepPtr +=2;
+  }
+  else {
     Timer3.stop();
     Timer3.detachInterrupt();
     digitalWrite(SPEAKER_PIN, LOW);
+  }
+}
+
+void beepIsr() {
+  if (--beepCycleCount <= 0) {
+    setBeep();
   }
   beepStat = !beepStat;
   digitalWrite(SPEAKER_PIN, beepStat);
 }
 
 
+/***************************************************************
+ *
+ * cmdBits()  Deal with the POWER, RUN, & STREAM bits
+ *
+ ***************************************************************/
+void cmdBits() {
+  if ((cmdState & CMD_STATE_PWR) == 0) {
+    digitalWrite(PWR_PIN, LOW);
+  }
+  byte runBit =  ((cmdState & CMD_STATE_RUN) == 0) ? 0 : TP_STATE_RUN_READY;
+  byte stBit =   ((cmdState & CMD_STATE_STREAM) == 0) ? 0 : TP_STATE_STREAMING;
+  byte tmpTpState = tpState & (~(TP_STATE_RUN_READY | TP_STATE_STREAMING)); // Clear bits
+  tpState = tmpTpState | runBit | stBit;
+}
+
+
+
+boolean isBitClear(int test, byte b) {
+  return ((test & b) == 0);
+}
+boolean isBitSet(int test, byte b) {
+  return ((test & b) != 0);
+}
+
+void debugFloat(char msg[], float f) {
+  Serial.print(msg);
+  Serial.println(f);
+}
 
