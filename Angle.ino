@@ -32,9 +32,11 @@ void angleInit() {
 }
 
 void getGyroAccel(int* ax, int* ay, int* az, int* gx, int* gy, int* gz) {
+  flushSerial();
   compass.readAcc();
+  flushSerial();
   gyro.read();
-//  Serial.println(compass.a.x);
+  flushSerial();
   *ax = compass.a.x;
   *ay = compass.a.y;
   *az = compass.a.z;
@@ -66,35 +68,35 @@ float getTpAngle() {
   gyroXAngleDelta = (gyroXRate * actualLoopTime)/1000000; // degrees changed during period
   gyroXAngle = gyroXAngle + gyroXAngleDelta;   // Not used.  Only for debuggin purposes
   float gyroXWeightedAngle = gyroXAngleDelta + gaXAngle;  // used in weighting final angle
-  //  accelXAngle = ((atan2(-compass.a.y, compass.a.z))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
+//  accelXAngle = ((atan2(-compass.a.y, compass.a.z))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
   accelXAngle = ((atan2(-ay, az))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
   constrain(accelXAngle, -90.0f, 90.0f);
   gaXAngle = (gyroXWeightedAngle * GYRO_WEIGHT) + (accelXAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
-
-  // Add in tick data to improve angle measurement
-  long tickDistance = tickDistanceRight + tickDistanceLeft;
-  int tickSpeed = (tickDistance - oldTickDistance);
-  tickAngle = (oldTickSpeed - tickSpeed) + ((*currentValSet).t * oldTickAngle);
-  oldTickDistance = tickDistance;
-  oldTickSpeed = tickSpeed;
-  oldTickAngle = tickAngle;
-  gatXAngle = (tickAngle * (*currentValSet).u) + gaXAngle;
-
-  // compute the Y plane to check for falling sideways
-  gyroYRaw = gy;
-  gyroYRate = gyroYRaw * GYRO_SENS;
-  float gyroYAngleDelta = (gyroYRate * actualLoopTime)/1000000;
-  gyroYAngle = gyroYAngle + gyroYAngleDelta; // not used
-  float gyroYWeightedAngle = gyroYAngleDelta + gaYAngle;
-  //  accelYAngle = atan2(compass.a.x, compass.a.z) * RAD_TO_DEG;
-  accelYAngle = atan2(ax, az) * RAD_TO_DEG;
-  gaYAngle = (gyroYWeightedAngle * GYRO_WEIGHT) + (accelYAngle * (1 - GYRO_WEIGHT));
-
-  // compute Z plane to measure turns
-  gyroZRaw = -gz;
-  gyroZRate = (gyroZRaw - driftZ) * GYRO_SENS;
-  float gyroZAngleDelta = (gyroZRate * actualLoopTime)/1000000;
-  gyroZAngle = gyroZAngle + gyroZAngleDelta; 
+//
+//  // Add in tick data to improve angle measurement
+//  long tickDistance = tickDistanceRight + tickDistanceLeft;
+//  int tickSpeed = (tickDistance - oldTickDistance);
+//  tickAngle = (oldTickSpeed - tickSpeed) + ((*currentValSet).t * oldTickAngle);
+//  oldTickDistance = tickDistance;
+//  oldTickSpeed = tickSpeed;
+//  oldTickAngle = tickAngle;
+//  gatXAngle = (tickAngle * (*currentValSet).u) + gaXAngle;
+//
+//  // compute the Y plane to check for falling sideways
+//  gyroYRaw = gy;
+//  gyroYRate = gyroYRaw * GYRO_SENS;
+//  float gyroYAngleDelta = (gyroYRate * actualLoopTime)/1000000;
+//  gyroYAngle = gyroYAngle + gyroYAngleDelta; // not used
+//  float gyroYWeightedAngle = gyroYAngleDelta + gaYAngle;
+//  //  accelYAngle = atan2(compass.a.x, compass.a.z) * RAD_TO_DEG;
+//  accelYAngle = atan2(ax, az) * RAD_TO_DEG;
+//  gaYAngle = (gyroYWeightedAngle * GYRO_WEIGHT) + (accelYAngle * (1 - GYRO_WEIGHT));
+//
+//  // compute Z plane to measure turns
+//  gyroZRaw = -gz;
+//  gyroZRate = (gyroZRaw - driftZ) * GYRO_SENS;
+//  float gyroZAngleDelta = (gyroZRate * actualLoopTime)/1000000;
+//  gyroZAngle = gyroZAngle + gyroZAngleDelta; 
 }
 
 //

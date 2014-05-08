@@ -12,21 +12,21 @@ const int MODE_MT_SEQUNCE     = 6;  // motor test
 const int MODE_IMU            = 7;
 
 // Status bits in the tpState byte
-const int TP_STATE_RUN_READY       = 1; //B00000001;  // Ready.  Reflects the RUN command.
-const int TP_STATE_RUNNING         = 2; //B00000010;  // Motor running: is READY, UPRIGHT & ONGROUND
-const int TP_STATE_UPRIGHT         = 4; //B00000100;  // Status: tp is upright (not tipped over).
-const int TP_STATE_ON_GROUND       = 8; //B00001000;  // Status: pressure sensor indicates standing.
-const int TP_STATE_DUMPING         = 16; //B00010000;  // Collecting or dumping data.
-const int TP_STATE_HC_ACTIVE       = 32; //B00100000;  // Status: Hand Controller connected
-const int TP_STATE_PC_ACTIVE       = 64; //B01000000;  // Status: PC connected
-const int TP_STATE_STREAMING       = 128; //B10000000;  // TP is streaming data
+const int TP_STATE_RUN_READY       = 0B00000001;  // Ready.  Reflects the RUN command.
+const int TP_STATE_RUNNING         = 0B00000010;  // Motor running: is READY, UPRIGHT & ONGROUND
+const int TP_STATE_UPRIGHT         = 0B00000100;  // Status: tp is upright (not tipped over).
+const int TP_STATE_ON_GROUND       = 0B00001000;  // Status: pressure sensor indicates standing.
+const int TP_STATE_DUMPING         = 0B00010000;  // Collecting or dumping data.
+const int TP_STATE_HC_ACTIVE       = 0B00100000;  // Status: Hand Controller connected
+const int TP_STATE_PC_ACTIVE       = 0B01000000;  // Status: PC connected
+const int TP_STATE_STREAMING       = 0B10000000;  // TP is streaming data
 
 // Command bits in the cmdState byte
-const int CMD_STATE_RUN =        1; //B00000001;  // Command run or be idle
-const int CMD_STATE_PWR =        2; //B00000010;  // zero turns off battery power
-const int CMD_STATE_HOME =       4; //B00000100;  // tells tp to stay in one spot
-const int CMD_STATE_STREAM =     8; //B00001000;  // Stream data.
-const int CMD_STATE_DUMP =       16; //B00010000;  // Collect data while true, then dump
+const int CMD_STATE_RUN =        0B00000001;  // Command run or be idle
+const int CMD_STATE_PWR =        0B00000010;  // zero turns off battery power
+const int CMD_STATE_HOME =       0B00000100;  // tells tp to stay in one spot
+const int CMD_STATE_STREAM =     0B00001000;  // Stream data.
+const int CMD_STATE_DUMP =       0B00010000;  // Collect data while true, then dump
 
 // value sets
 const int VAL_SET_A           = 0;

@@ -1,3 +1,4 @@
+#include <DueTimer.h>
 
 const int BATTERY_WARNING = 1090;  // about 10% capacity (centivolts)
 const int BATTERY_CRITICAL = 1000; // about 1% cap (centivolts)
@@ -33,7 +34,7 @@ unsigned long batteryLastGood = 0;
 
 /*********************************************************
  *
- * setRunningState()
+ * setTp4RunningState()
  *
  *     Set the TP_STATE_RUNNING bit if the following are true:
  *         TP_STATE_RUN_READY is true
@@ -47,7 +48,7 @@ unsigned long batteryLastGood = 0;
  *      Set blinking according to the above states.
  *
  *********************************************************/
-void setRunningState() {
+void setTp4RunningState() {
   byte* blinkState = BLINK_SBYG;
 
   // Set the bit
@@ -62,7 +63,6 @@ void setRunningState() {
 
   // set x, y, and blink state
   if (!(tpState & (TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE))) {
-    //  if ((!isHcConnected) && (!isPcConnected)) {
     controllerY = 0.0f;
     controllerX = 0.0f;
     blinkState = BLINK_SBYG;  // Slow blinking if no connection
@@ -130,9 +130,6 @@ void gravity() {
 /*********************************************************
  *
  * controllerConnected()
- *
- *     If we haven't received a command for more than a second,
- *     we will assume that the controller is not connected.
  *
  *********************************************************/
 void controllerConnected() {
@@ -278,5 +275,9 @@ boolean isBitSet(int test, byte b) {
 void debugFloat(char msg[], float f) {
   Serial.print(msg);
   Serial.println(f);
+}
+void debugInt(char msg[], int i) {
+  Serial.print(msg);
+  Serial.println(i);
 }
 

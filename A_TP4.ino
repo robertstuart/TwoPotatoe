@@ -4,6 +4,7 @@
  * 
  * 
  ************************************************************************/
+unsigned long lasttime, gap;
 
 
 float tp4FpsLeft = 0.0f;
@@ -48,10 +49,11 @@ void aTp4Run() {
   motorInitTp();
   while(mode == MODE_TP4) { // main loop
     readXBee();  // Read commands from PC or Hand Controller
-    checkMotorRight();
-    checkMotorLeft();
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
+    flushSerial();
+    checkMotorRight();
+    checkMotorLeft();
     dump();
 
     // Do the timed loop
@@ -60,15 +62,14 @@ void aTp4Run() {
       loopSec = ((float) actualLoopTime)/1000000.0; 
       timeTrigger += 10000; // 100 per second
       oldTimeTrigger = timeMicroseconds;
-      aTp4();     // Run the algorithm and control motors
-
-      // Misc. tasks.    
+      
+      aTp4(); 
       battery();
       led();
       safeAngle();
       gravity();
       controllerConnected();
-      setRunningState();
+      setTp4RunningState();
       cmdBits();
       //    checkDrift();
     } // end timed loop
@@ -111,14 +112,13 @@ void aTp4() {
   tp4Steer();
   setTargetSpeedRight(tp4FpsRight);
   setTargetSpeedLeft(tp4FpsLeft);
-  //  setTargetSpeedRight(pid2FpsTwsRight);
-  //  setTargetSpeedLeft(pid2FpsTwsLeft);
 
   // Send
   tp4LoopCounter = ++tp4LoopCounter % 5;
   if (  ((tp4LoopCounter == 0) 
         || ((tpState & TP_STATE_STREAMING) != 0)) 
-        && ((tpState & TP_STATE_DUMPING) == 0)) {
+        && ((tpState & TP_STATE_DUMPING) == 0)) 
+  {
     sendArray[TP_SEND_STATE_STATUS] = tpState;
     sendArray[TP_SEND_MODE_STATUS] = mode;
     set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);

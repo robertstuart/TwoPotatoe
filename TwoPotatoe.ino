@@ -1,11 +1,10 @@
 /* ---------------------- TwoPotatoe ---------------------- */
+
 #include <stdlib.h>
 #include "Common.h"
-#include <DueTimer.h>
 
-#define SERIAL Serial3
+#define MYSER Serial3
 const byte RESET[] = {0xFE, 0x00, 0x04, 0x08, 0x0, 0x46, 0x52, 0x5F};
-const int TPSTATE_MSG_RECEIVED = 0;
 unsigned int mode = MODE_TP4;
 
 // set motor to test
@@ -237,6 +236,7 @@ unsigned int tpPw = 2000;
 unsigned int actualLoopTime; // Time since the last
 float controllerX = 0.0; // +1.0 to -1.0 from controller
 float controllerY = 0.0;  // Y value set by message from controller
+int signalStrength = 0;
 
 int gyroXRaw;  // Vertical plane parallel to wheels
 float gyroXRate;
@@ -285,17 +285,14 @@ float oldTickAngle = 0.0f;
 int unknownCmdErrors = 0;
 
 int lamp;
-unsigned long tHc;  // Milliseconds of last command received.
-unsigned long tPc;  // Milliseconds of last command received.
+unsigned long tHc = 0L;
+unsigned long tPc = 0L;
 
 const int MAX_PACKET_SIZE = 100;
 
-byte rcvArray[MAX_PACKET_SIZE + 1];
 byte sendArray[MAX_PACKET_SIZE + 1];
 unsigned int packetByteCount = 0;
 unsigned int dataPtr = 0;
-unsigned int packetLength = 0;
-unsigned int dataLength = 0;
 int packetValue;   // int value
 boolean isPacketInProgress = false;
 unsigned int packetSource;
@@ -316,10 +313,10 @@ boolean isHcCommand = false;
  *********************************************************/
 void setup() {
 
-  //  SERIAL.begin(115200);
+  //  MYSER.begin(115200);
   // XBee, See bottom of this page for settings.
-  SERIAL.begin(57600);  // 113000 Rate matched by testing.
-  Serial.begin(9600); // for debugging output
+  MYSER.begin(57600);  // 113000 Rate matched by testing.
+  Serial.begin(115200); // for debugging output
   //  resetXBee();
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
   pinMode(YELLOW_LED_PIN,OUTPUT);
@@ -503,43 +500,52 @@ void aPwmSpeedRun() {
  *
  *********************************************************/
 void aTpSpeedRun() { 
-  //  timeTrigger = timeMicroseconds = micros();
-  //  timeMilliseconds = timeMicroseconds / 1000;
-  //  motorInitTp();
-  //  setTargetSpeedRight(0.0f);
-  //  setTargetSpeedLeft(0.0f);
-  //  setBlink(BLINK_FB);
-  //
-  //  while(mode == MODE_TP_SPEED) { // main loop
-  //    readXBee();  // Read commands from PC or Hand Controller
-  //    checkMotorRight();
-  //    checkMotorLeft();
-  //    led();
-  //    timeMicroseconds = micros();
-  //    timeMillisecondstimeMilliseconds = timeMicroseconds / 1000;
-  //
-  //    // Do the timed loop
-  //    if(timeMicroseconds > timeTrigger) {  
-  //      timeTrigger += 100000;  // 10 per second
-  //
-  //      // Set the RUNNING bit if the READY bit is set.
-  //      if ((runState & STATE_READY) == 0) {
-  //        runState = runState & (~STATE_RUNNING); // unset the bit
-  //      }
-  //      else {
-  //        runState = runState | STATE_RUNNING; // set the bit
-  //      }
-  //      setTargetSpeedRight(remoteTpR);
-  //      setTargetSpeedLeft(remoteTpL);
-  //      readSpeed();
-  //      streamValueArray[0] = tickDistanceRight;
-  //      streamValueArray[1] = tickDistanceLeft;
-  //      streamValueArray[2] = (long) (fpsRight * 100.0);
-  //      streamValueArray[3] = (long) (fpsLeft * 100.0);     
-  //      battery();  
-  //      monitorPwmSpeed();
-  //    }
-  //  }
+  timeTrigger = timeMicroseconds = micros();
+  timeMilliseconds = timeMicroseconds / 1000;
+  motorInitTp();
+  setTargetSpeedRight(0.0f);
+  setTargetSpeedLeft(0.0f);
+  setBlink(BLINK_FB);
+
+  while(mode == MODE_TP_SPEED) { // main loop
+    readXBee();  // Read commands from PC or Hand Controller
+    led();
+    timeMicroseconds = micros();
+    timeMilliseconds = timeMicroseconds / 1000;
+    checkMotorRight();
+    checkMotorLeft();
+
+    // Do the timed loop
+    if(timeMicroseconds > timeTrigger) {  
+      timeTrigger += 100000;  // 10 per second
+
+      // Set the RUNNING bit if the READY bit is set.
+      cmdBits();  
+      if ((tpState & TP_STATE_RUN_READY) == 0) {
+        tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
+      }
+      else {
+          tpState = tpState | TP_STATE_RUNNING; // set the bit
+      }
+      setTargetSpeedRight(remoteTpR);
+      setTargetSpeedLeft(remoteTpL);
+      readSpeed();      
+      battery();
+      
+      // Send the packet
+      sendArray[TP_SEND_STATE_STATUS] = tpState;
+      sendArray[TP_SEND_MODE_STATUS] = mode;
+      set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
+      set4Byte(sendArray, TP_SEND_DEBUG, debugVal);
+      set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
+      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
+      int right = (int) (fpsRight * 100.0);
+      set2Byte(sendArray, TP_SEND_C_VAL, right);
+      int left = (int) (fpsLeft * 100.0);
+      set2Byte(sendArray, TP_SEND_D_VAL, left);
+      sendTXFrame(XBEE_PC, sendArray, TP_SEND_E_VAL);  
+    }
+  }
 }
 
 

@@ -1,7 +1,10 @@
-byte frameHeader[] = {
+byte transmitBuffer[120] = {
   0x7E, 0, 0}; // Start delimiter, count MSB, count LSB
 byte tXframeDataHeader[] = {
   0x01, 0, 0, 0, 0x01}; // API id, Frame id, dest MSB, dest LSB, Options
+int transmitBufferLength = 0;
+int transmitBufferPtr = 0;
+unsigned long transmitNextWriteTime = 0UL;
  
 /*********************************************************
  *
@@ -36,8 +39,8 @@ void sendFrame(byte cmdDataHeader[], int cmdDataHeaderLength, byte cmdData[], in
   unsigned int sum = 0;
 
   // Set the length in bytes 2 & 3.
-  frameHeader[1] = 0;
-  frameHeader[2] = cmdDataHeaderLength + cmdDataLength;
+  transmitBuffer[1] = 0;
+  transmitBuffer[2] = cmdDataHeaderLength + cmdDataLength;
 
   // Compute the checksum.
   for (int i = 0; i < cmdDataHeaderLength; i++) {
@@ -46,15 +49,29 @@ void sendFrame(byte cmdDataHeader[], int cmdDataHeaderLength, byte cmdData[], in
   for (int i = 0; i < cmdDataLength; i++) {
     sum += cmdData[i];
   }
+  byte checkSum = 0xFF - sum;
+  
+  // Copy to a single buffer and start the first byte of the transmit.
+  for (int i = 0; i < cmdDataHeaderLength; i++) {
+    transmitBuffer[i + 3] = cmdDataHeader[i];
+  }
+  for (int i = 0; i < cmdDataLength; i++) {
+    transmitBuffer[i + 3 + cmdDataHeaderLength] = cmdData[i];
+  }
 
-  SERIAL.write(frameHeader, 3);
-  if (cmdDataHeaderLength > 0) {
-    SERIAL.write(cmdDataHeader, cmdDataHeaderLength);
+  transmitBufferPtr = 0;
+  transmitBufferLength = 3 + cmdDataHeaderLength + cmdDataLength;
+  transmitBuffer[transmitBufferLength] = checkSum;
+  transmitNextWriteTime = 0UL;
+  flushSerial();
+}
+
+
+void flushSerial() {
+  if ((timeMicroseconds > transmitNextWriteTime) && (transmitBufferPtr <= transmitBufferLength)) {
+    transmitNextWriteTime = timeMicroseconds + 170;
+    MYSER.write(transmitBuffer[transmitBufferPtr++]);
   }
-  if (cmdDataLength > 0) {
-    SERIAL.write(cmdData, cmdDataLength);
-  }
-  SERIAL.write(0xFF - sum);
 }
 
 
@@ -98,3 +115,18 @@ void dump() {
   }
 }
 
+
+
+/*********************************************************
+ *
+ * flushSerial()
+ *
+ *     Sends another byte out from the output buffer.
+ *     Only sends a byte when there has been 
+ *     200 microseconds since the last send.
+ *     This is necessary since the Due does not have
+ *     a transmit buffer.
+ *
+ *********************************************************/
+void fluxhSerial() {
+}
