@@ -57,8 +57,6 @@ void getGyroAccel(int* ax, int* ay, int* az, int* gx, int* gy, int* gz) {
  *********************************************************/
 float sumGyroRate;
 float getTpAngle() {
-  int ax, ay, az;
-  int gx, gy, gz;
 
   getGyroAccel(&ax, &ay, &az, &gx, &gy, &gz);
 

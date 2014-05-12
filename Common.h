@@ -50,40 +50,70 @@ const int CMD_STREAM_STATUS =                    3;
 const int XBEE_TWOPOTATOE =  0x7770;
 const int XBEE_PC =          0x7771;
 const int XBEE_HC =          0x7772;
+const int XBEE_BROADCAST =   0xFFFF;
 
 // XBee data packet bytes. Constant indicates positon i byte array.
-const int TP_SEND_MSG_TYPE =       0;  // 1-byte, type of remaining message
+
+// Messages sent by TP
+const int TP_SEND_PACKET_TYPE =    0;  // 1-byte, type of remaining message
 const int TP_SEND_STATE_STATUS =   1;  // 1-byte, Status bits
 const int TP_SEND_MODE_STATUS =    2;  // 1-byte, Mode from MODE_XXX
 const int TP_SEND_VALSET_STATUS =  3;  // 1-byte, from VAL_SET_XXX
 const int TP_SEND_BATTERY =        4;  // 2-byte, battery volt * 100
 const int TP_SEND_DEBUG =          6;  // 4-byte debug value
-const int TP_SEND_A_VAL =         10;  // 4-byte
-const int TP_SEND_B_VAL =         14;  // 4-byte
-const int TP_SEND_C_VAL =         18;  // 2-byte
-const int TP_SEND_D_VAL =         20;  // 2-byte
-const int TP_SEND_E_VAL =         22;  // 2-byte
-const int TP_SEND_F_VAL =         24;  // 2-byte
-const int TP_SEND_G_VAL =         26;  // 2-byte
-const int TP_SEND_H_VAL =         28;  // 2-byte
-const int TP_SEND_I_VAL =         30;  // 2-byte
-const int TP_SEND_J_VAL =         31;  // 2-byte
-const int TP_SEND_MAX           = 33;
+const int TP_SEND_MSG_ACK =       10;  // 1-byte ack of TP_RCV_MSG_TYPE
+const int TP_SEND_MSG_ACKVAL =    11;  // 2-byte ack of TP_RCV_MSG_VAL
+const int TP_SEND_A_VAL =         13;  // 4-byte
+const int TP_SEND_B_VAL =         17;  // 4-byte
+const int TP_SEND_C_VAL =         21;  // 2-byte
+const int TP_SEND_D_VAL =         23;  // 2-byte
+const int TP_SEND_E_VAL =         25;  // 2-byte
+const int TP_SEND_F_VAL =         27;  // 2-byte
+const int TP_SEND_G_VAL =         29;  // 2-byte
+const int TP_SEND_H_VAL =         31;  // 2-byte
+const int TP_SEND_I_VAL =         33;  // 2-byte
+const int TP_SEND_J_VAL =         35;  // 2-byte
+const int TP_SEND_MAX =           37;
 
-const int TP_RCV_MSG_TYPE =        0;  // 1-byte, type of remaining message
+const int TP_RCV_PACKET_TYPE =     0;  // 1-byte, type of remaining message
 const int TP_RCV_X =               1;  // 1-byte x joystick
 const int TP_RCV_Y =               2;  // 1-byte y joystick
 const int TP_RCV_CMD =             3;  // 1-byte, "run" and "power" commands
 const int TP_RCV_MODE =            4;  // 1-byte, mode command
 const int TP_RCV_VALSET =          5;  // 1-byte valset 
-const int TP_RCV_T_VALSET =        6;  // 2-byte valset value
-const int TP_RCV_U_VALSET =        8;  // 2-byte valset value
-const int TP_RCV_V_VALSET =       10;  // 2-byte valset value
-const int TP_RCV_W_VALSET =       12;  // 2-byte valset value
-const int TP_RCV_X_VALSET =       14;  // 2-byte valset value
-const int TP_RCV_Y_VALSET =       16;  // 2-byte valset value
-const int TP_RCV_Z_VALSET =       18;  // 2-byte valset value
-const int TP_RCV_MAX =            20;
+const int TP_RCV_MSG_TYPE =        6;  // 1-byte message type
+const int TP_RCV_MSG_VAL =         7;  // 2-byte message value
+const int TP_RCV_MAX =             9;
+
+// Values that can go in the TP_RCV_MSG_TYPE byte
+const int TP_RCV_MSG_NULL =        0;  // no message
+const int TP_RCV_MSG_T_VAL =       1;  // 
+const int TP_RCV_MSG_U_VAL =       2;  // 
+const int TP_RCV_MSG_V_VAL =       3;  // 
+const int TP_RCV_MSG_W_VAL =       4;  // 
+const int TP_RCV_MSG_X_VAL =       5;  // 
+const int TP_RCV_MSG_Y_VAL =       6;  // 
+const int TP_RCV_MSG_Z_VAL =       7;  // 
+const int TP_RCV_MSG_POWER =       8;  // 
+const int TP_RCV_MSG_HOME =        9;  // 
+const int TP_RCV_MSG_LIGHTS =     10;  // 1st 3 bits of val
+const int TP_RCV_MSG_STREAM =     11;  // no message
+const int TP_RCV_MSG_RATE =       12;  // 0 = 20/sec, 1 = 100/sec
+const int TP_RCV_MSG_COLLECT =    13;  // 1 = on, 0 = off;
+const int TP_RCV_MSG_ROTATE =     14;    
+const int TP_RCV_MSG_START =      15;  // Run loaded sequence.
+const int TP_RCV_MSG_RESET =      16;  // Reset/Start/Stop something
+const int TP_RCV_MSG_MODE =       17;  // Reset/Start/Stop something
+const int TP_RCV_MSG_VALSET =     18;  // Reset/Start/Stop something
+
+//const int TP_RCV_T_VALSET =        6;  // 2-byte valset value
+//const int TP_RCV_U_VALSET =        8;  // 2-byte valset value
+//const int TP_RCV_V_VALSET =       10;  // 2-byte valset value
+//const int TP_RCV_W_VALSET =       12;  // 2-byte valset value
+//const int TP_RCV_X_VALSET =       14;  // 2-byte valset value
+//const int TP_RCV_Y_VALSET =       16;  // 2-byte valset value
+//const int TP_RCV_Z_VALSET =       18;  // 2-byte valset value
+//const int TP_RCV_MAX =            20;
 
 // Parameterized commands;
 const int CMD_BATTVOLT_VAL =       (CMD_PARAM +  1);

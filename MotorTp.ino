@@ -4,10 +4,12 @@
 
 #define MOTOR_PULSE_LENGTH 1500L
 
-unsigned long timerOffTimeRight = 0L;
-unsigned long timerOffTimeLeft = 0L;
-unsigned long timerIdleTimeRight = 0L;
-unsigned long timerIdleTimeLeft = 0L;
+unsigned long timerPulseEndRight = 0L;
+unsigned long timerWaitEndRight = 0L;
+unsigned long timerPulseEndLeft = 0L;
+unsigned long timerWaitEndLeft = 0L;
+int timerStateRight = TIMER_IDLE;
+int timerStateLeft = TIMER_IDLE;
 
 void motorInitTp() {
   // Set the pin modes
@@ -59,35 +61,40 @@ void encoderIsrRight() {
   } 
 
   // Pulse if we are TIMER_IDLE & off target. 
-  if (timerStateRight == TIMER_IDLE) {
+  if (timerStateRight != TIMER_WAIT) {
     if (targetDirectionRight == FWD) {
       if ((tickPeriodRight > targetTickPeriodRight) || (tickPeriodRight <= 0)) { // Too slow?
-        timerOffTimeRight = tickTimeRight + MOTOR_PULSE_LENGTH;
+        timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
         timerStateRight = TIMER_PULSE;
         setMotor(MOTOR_RIGHT, FWD);
       }
       else if (tickPeriodRight < targetBrakePeriodRight) { // Brake?
         setMotor(MOTOR_RIGHT, BRAKE);
+        timerStateRight = TIMER_IDLE;
       } 
       else { // between target & brake.  Coast.
         setMotor(MOTOR_RIGHT, COAST);
+        timerStateRight = TIMER_IDLE;
       }
     } // end FWD
     else if (targetDirectionRight == BKWD) {
       if ((tickPeriodRight < targetTickPeriodRight) || (tickPeriodRight >= 0)) { // Too slow?
-        timerOffTimeRight = tickTimeRight + MOTOR_PULSE_LENGTH;
+        timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
         timerStateRight = TIMER_PULSE;
         setMotor(MOTOR_RIGHT, BKWD);
       }
       else if (tickPeriodRight > targetBrakePeriodRight) { // Brake?
         setMotor(MOTOR_RIGHT, BRAKE);
+        timerStateRight = TIMER_IDLE;
       }
       else { // coast
         setMotor(MOTOR_RIGHT, COAST);
+        timerStateRight = TIMER_IDLE;
       }
     } // end BKWD
     else { // STOP
       setMotor(MOTOR_RIGHT, BRAKE);
+      timerStateRight = TIMER_IDLE;
     }
   } // end if(timerStateRight == TIMER_IDLE)
 } // end encoderIsrRight()
@@ -115,35 +122,40 @@ void encoderIsrLeft() {
   } 
 
   // Pulse if we are behind. (only fwd at the moment.)
-  if (timerStateLeft == TIMER_IDLE) {
+  if (timerStateLeft != TIMER_WAIT) {
     if (targetDirectionLeft == FWD) {
       if ((tickPeriodLeft > targetTickPeriodLeft) || (tickPeriodLeft <= 0)) { // Too slow?
-        timerOffTimeLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
+        timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
         timerStateLeft = TIMER_PULSE;
         setMotor(MOTOR_LEFT, FWD);
       }
       else if (tickPeriodLeft < targetBrakePeriodLeft) { // Brake?
         setMotor(MOTOR_LEFT, BRAKE);
+        timerStateLeft = TIMER_IDLE;
       } 
       else { // between target & brake.  Coast.
         setMotor(MOTOR_LEFT, COAST);
+        timerStateLeft = TIMER_IDLE;
       }
     } // end FWD
     else if (targetDirectionLeft == BKWD) {
       if ((tickPeriodLeft < targetTickPeriodLeft)  || (tickPeriodLeft >= 0)) { // Too slow?
-        timerOffTimeLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
+        timerWaitEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
         timerStateLeft = TIMER_PULSE;
         setMotor(MOTOR_LEFT, BKWD);
       }
       else if (tickPeriodLeft > targetBrakePeriodLeft) { // Brake?
         setMotor(MOTOR_LEFT, BRAKE);
+        timerStateLeft = TIMER_IDLE;
       }
       else { // coast
         setMotor(MOTOR_LEFT, COAST);
+        timerStateLeft = TIMER_IDLE;
       }
     } // end BKWD
     else { // STOP
       setMotor(MOTOR_LEFT, BRAKE);
+      timerStateLeft = TIMER_IDLE;
     }
   }
 } // end encoderIsrLeft();
@@ -215,22 +227,22 @@ void checkMotorRight() {
   }
   else {
     switch (timerStateRight) {
-    case TIMER_PULSE:
-      if (timeMicroseconds > timerOffTimeRight) {
+    case TIMER_PULSE: // Pulse in progress
+      if (timeMicroseconds > timerPulseEndRight) {
         timerStateRight = TIMER_WAIT;
-        timerIdleTimeRight = timerOffTimeRight + waitPeriodRight;
+        timerWaitEndRight = timeMicroseconds + waitPeriodRight;
         setMotor(MOTOR_RIGHT, COAST);
       }
       break;
-    case TIMER_WAIT:
-      if (timeMicroseconds > timerIdleTimeRight) {
+    case TIMER_WAIT: // Pulse finished, In timout period.
+      if (timeMicroseconds > timerWaitEndRight) {
         timerStateRight = TIMER_IDLE;
       }
       break;
-    case TIMER_IDLE:
+    case TIMER_IDLE: // Ready to start a new pulse if necessary.
       if (timeMicroseconds > (tickTimeRight + abs(targetTickPeriodRight * 2))) {
         timerStateRight = TIMER_PULSE;
-        timerOffTimeRight = tickTimeRight + MOTOR_PULSE_LENGTH;
+        timerPulseEndRight = timeMicroseconds + MOTOR_PULSE_LENGTH;
         if (targetDirectionRight == FWD) {
           setMotor(MOTOR_RIGHT, FWD);
         }
@@ -257,21 +269,21 @@ void checkMotorLeft() {
   else {
     switch (timerStateLeft) {
     case TIMER_PULSE:
-      if (timeMicroseconds > timerOffTimeLeft) {
+      if (timeMicroseconds > timerPulseEndLeft) {
         timerStateLeft = TIMER_WAIT;
-        timerIdleTimeLeft = timerOffTimeLeft + waitPeriodLeft;
+        timerWaitEndLeft = timeMicroseconds + waitPeriodLeft;
         setMotor(MOTOR_LEFT, COAST);
       }
       break;
     case TIMER_WAIT:
-      if (timeMicroseconds > timerIdleTimeLeft) {
+      if (timeMicroseconds > timerWaitEndLeft) {
         timerStateLeft = TIMER_IDLE;
       }
       break;
     case TIMER_IDLE:
       if (timeMicroseconds > (tickTimeLeft + abs(targetTickPeriodLeft * 2))) {
         timerStateLeft = TIMER_PULSE;
-        timerOffTimeLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
+        timerPulseEndLeft = timeMicroseconds + MOTOR_PULSE_LENGTH;
         if (targetDirectionLeft == FWD) {
           setMotor(MOTOR_LEFT, FWD);
         }
@@ -379,44 +391,32 @@ void setMotor(int motor, int state) {
 
   switch(state) {
   case FWD:
-//    digitalWrite(pinInA, HIGH);
     g_APinDescription[pinInA].pPort -> PIO_SODR = g_APinDescription[pinInA].ulPin; // HIGH
-//    digitalWrite(pinInB, LOW);
     g_APinDescription[pinInB].pPort -> PIO_CODR = g_APinDescription[pinInB].ulPin; // LOW
-//    digitalWrite(pinPwm, HIGH);
     g_APinDescription[pinPwm].pPort -> PIO_SODR = g_APinDescription[pinPwm].ulPin; // HIGH
     break;
   case BKWD:
-//    digitalWrite(pinInA, LOW);
     g_APinDescription[pinInA].pPort -> PIO_CODR = g_APinDescription[pinInA].ulPin; // LOW
-//    digitalWrite(pinInB, HIGH);
     g_APinDescription[pinInB].pPort -> PIO_SODR = g_APinDescription[pinInB].ulPin; // HIGH
-//    digitalWrite(pinPwm, HIGH);
     g_APinDescription[pinPwm].pPort -> PIO_SODR = g_APinDescription[pinPwm].ulPin; // HIGH
     break;
   case COAST:
     g_APinDescription[pinInA].pPort -> PIO_CODR = g_APinDescription[pinInA].ulPin; // LOW
-//    digitalWrite(pinInA, LOW);
     g_APinDescription[pinInB].pPort -> PIO_CODR = g_APinDescription[pinInB].ulPin; // LOW
-//    digitalWrite(pinInB, LOW);
     g_APinDescription[pinPwm].pPort -> PIO_CODR = g_APinDescription[pinPwm].ulPin; // LOW
-//    digitalWrite(pinPwm, LOW);
     break;
   case BRAKE:
     g_APinDescription[pinInA].pPort -> PIO_SODR = g_APinDescription[pinInA].ulPin; // HIGH
-//    digitalWrite(pinInA, HIGH);
     g_APinDescription[pinInB].pPort -> PIO_SODR = g_APinDescription[pinInB].ulPin; // HIGH
-//    digitalWrite(pinInB, HIGH);
     g_APinDescription[pinPwm].pPort -> PIO_SODR = g_APinDescription[pinPwm].ulPin; // HIGH
-//    digitalWrite(pinPwm, HIGH);
     break;
   }
 }
-// example: digitalWriteDirect(10, HIGH)
-inline void digitalWriteDirect(int pin, boolean val){
-  if(val) g_APinDescription[pin].pPort -> PIO_SODR = g_APinDescription[pin].ulPin;
-  else    g_APinDescription[pin].pPort -> PIO_CODR = g_APinDescription[pin].ulPin;
-}
+//// example: digitalWriteDirect(10, HIGH)
+//inline void digitalWriteDirect(int pin, boolean val){
+//  if(val) g_APinDescription[pin].pPort -> PIO_SODR = g_APinDescription[pin].ulPin;
+//  else    g_APinDescription[pin].pPort -> PIO_CODR = g_APinDescription[pin].ulPin;
+//}
 
 
 

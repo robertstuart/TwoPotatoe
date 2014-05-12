@@ -27,6 +27,7 @@ void readXBee() {
     switch(packetInProgress) {
     case PACKET_DELIM:
       if (b == 0x7E) {
+debugVal = timeMicroseconds - tStart;
         packetByteCount = 0;
         packetInProgress = PACKET_MSB;
       }
@@ -106,19 +107,13 @@ int doRx(int b) {
     // Data or checksum after this point.
     default:
       if (dataPtr == dataLength)	{ // Checksum?
-        if (packetSource == XBEE_PC) {
-          tPc = timeMilliseconds;
-        }
-        else {
-          tHc = timeMilliseconds;
-        }
         newPacket();
-        return PACKET_DELIM;
+        return PACKET_DELIM;  // end of RX packet
       } else if (dataPtr <= 100) {
         packetByteArray[dataPtr++] = (byte) b;
       }
   } 
-  return PACKET_RX;
+  return PACKET_RX; // still in RX packet
 } // end doRX()
 	
     
@@ -131,43 +126,59 @@ int doRx(int b) {
  *
  * newPacket()
  *
- *     A new RX packet has been received from the Hand Controller
- *     or the PC.  
+ *     A new RX packet has been received from the 
+ *     Hand Controller or PC.  
  *
  *********************************************************/
-void newPacket() {
-  
+void newPacket() {  
+  if (packetSource == XBEE_PC) {
+    tPc = timeMilliseconds;
+  }
+  else {
+    tHc = timeMilliseconds;
+  }
   controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
   controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
   cmdState = packetByteArray[TP_RCV_CMD];  
   mode = packetByteArray[TP_RCV_MODE];
   setValSet(packetByteArray[TP_RCV_VALSET]);
-  switch (mode) {
-  case MODE_PWM_SPEED:
-    if (dataLength >= (TP_RCV_V_VALSET)) { 
-      remotePwR = get2Byte(TP_RCV_T_VALSET);
-      remotePwL = get2Byte(TP_RCV_U_VALSET);
-    }
-    break;
-  case MODE_TP_SPEED:
-    if (dataLength >= (TP_RCV_V_VALSET)) { 
-      remoteTpR = ((float) get2Byte(TP_RCV_T_VALSET)) * 0.01;
-      remoteTpL = ((float) get2Byte(TP_RCV_U_VALSET)) * 0.01;
-    }
-    break;
-  case MODE_TP4:
-    if (dataLength >= (TP_RCV_MAX)) {
-      (*currentValSet).t = ((float) get2Byte(TP_RCV_T_VALSET)) * 0.01;    
-      (*currentValSet).u = ((float) get2Byte(TP_RCV_U_VALSET)) * 0.01;    
-      (*currentValSet).v = ((float) get2Byte(TP_RCV_V_VALSET)) * 0.01;    
-      (*currentValSet).w = ((float) get2Byte(TP_RCV_W_VALSET)) * 0.01;    
-      (*currentValSet).x = ((float) get2Byte(TP_RCV_X_VALSET)) * 0.01;    
-      (*currentValSet).y = ((float) get2Byte(TP_RCV_Y_VALSET)) * 0.01;    
-      (*currentValSet).z = ((float) get2Byte(TP_RCV_Z_VALSET)) * 0.01;    
-    }  
-    break; 
-  }  // End switch(mode)
+  int msgType = packetByteArray[TP_RCV_MSG_TYPE];
+  int msgVal = packetByteArray[TP_RCV_MSG_VAL];
+  doMessage(msgType, msgVal);
+  
+//  switch (mode) {
+//  case MODE_PWM_SPEED:
+//    if (dataLength >= (TP_RCV_V_VALSET)) { 
+//      remotePwR = get2Byte(TP_RCV_T_VALSET);
+//      remotePwL = get2Byte(TP_RCV_U_VALSET);
+//    }
+//    break;
+//  case MODE_TP_SPEED:
+//    if (dataLength >= (TP_RCV_V_VALSET)) { 
+//      remoteTpR = ((float) get2Byte(TP_RCV_T_VALSET)) * 0.01;
+//      remoteTpL = ((float) get2Byte(TP_RCV_U_VALSET)) * 0.01;
+//    }
+//    break;
+//  case MODE_TP4:
+//    if (dataLength >= (TP_RCV_MAX)) {
+//      (*currentValSet).t = ((float) get2Byte(TP_RCV_T_VALSET)) * 0.01;    
+//      (*currentValSet).u = ((float) get2Byte(TP_RCV_U_VALSET)) * 0.01;    
+//      (*currentValSet).v = ((float) get2Byte(TP_RCV_V_VALSET)) * 0.01;    
+//      (*currentValSet).w = ((float) get2Byte(TP_RCV_W_VALSET)) * 0.01;    
+//      (*currentValSet).x = ((float) get2Byte(TP_RCV_X_VALSET)) * 0.01;    
+//      (*currentValSet).y = ((float) get2Byte(TP_RCV_Y_VALSET)) * 0.01;    
+//      (*currentValSet).z = ((float) get2Byte(TP_RCV_Z_VALSET)) * 0.01;    
+//    }  
+//    break; 
+//  }  // End switch(mode)
 }
+
+void doMessage(int type, int val) {
+  // do something
+}
+
+
+
 
 
 void setValSet(int newValSet) {

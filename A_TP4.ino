@@ -114,39 +114,44 @@ void aTp4() {
   setTargetSpeedLeft(tp4FpsLeft);
 
   // Send
-  tp4LoopCounter = ++tp4LoopCounter % 5;
-  if (  ((tp4LoopCounter == 0) 
-        || ((tpState & TP_STATE_STREAMING) != 0)) 
-        && ((tpState & TP_STATE_DUMPING) == 0)) 
-  {
+  if ((++tp4LoopCounter % 5) == 0) {
     sendArray[TP_SEND_STATE_STATUS] = tpState;
     sendArray[TP_SEND_MODE_STATUS] = mode;
     set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
     set4Byte(sendArray, TP_SEND_DEBUG, debugVal);
     if (isBitSet(cmdState, CMD_STATE_STREAM)) {
       set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
-      set4Byte(sendArray, TP_SEND_B_VAL, (int) (gaXAngle * 100.0f));
-      set2Byte(sendArray, TP_SEND_C_VAL, (int) (wheelSpeedFps * 100.f));
-      set2Byte(sendArray, TP_SEND_D_VAL, (int) (gyroXAngleDelta * 100.f));
-      set2Byte(sendArray, TP_SEND_E_VAL, (int) (coSpeed * 100.f));
-      set2Byte(sendArray, TP_SEND_F_VAL, (int) (tp4ControllerSpeed * 100.f));
-      set2Byte(sendArray, TP_SEND_G_VAL, (int) (tp4TargetAngle * 100.f));
-      set2Byte(sendArray, TP_SEND_H_VAL, (int) (tp4AngleErrorW * 100.f));
-      set2Byte(sendArray, TP_SEND_I_VAL, (int) (tp4ISpeed * 100.f));
-      set2Byte(sendArray, TP_SEND_J_VAL, (int) (tp4Fps * 100.f));
-      sendTXFrame(XBEE_PC, sendArray, TP_SEND_MAX); 
-    }
+      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight + tickDistanceLeft);
+      set2Byte(sendArray, TP_SEND_C_VAL, gyroXRate);
+      set2Byte(sendArray, TP_SEND_D_VAL, ay);
+      set2Byte(sendArray, TP_SEND_E_VAL, az);
+      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_F_VAL); 
+    } 
     else {
-      sendTXFrame(XBEE_PC, sendArray, TP_SEND_A_VAL); 
+      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_A_VAL); 
     }
-  } 
+
+//      set4Byte(sendArray, TP_SEND_B_VAL, (int) (gaXAngle * 100.0f));
+//      set2Byte(sendArray, TP_SEND_C_VAL, (int) (wheelSpeedFps * 100.f));
+//      set2Byte(sendArray, TP_SEND_D_VAL, (int) (gyroXAngleDelta * 100.f));
+//      set2Byte(sendArray, TP_SEND_E_VAL, (int) (coSpeed * 100.f));
+//      set2Byte(sendArray, TP_SEND_F_VAL, (int) (tp4ControllerSpeed * 100.f));
+//      set2Byte(sendArray, TP_SEND_G_VAL, (int) (tp4TargetAngle * 100.f));
+//      set2Byte(sendArray, TP_SEND_H_VAL, (int) (tp4AngleErrorW * 100.f));
+//      set2Byte(sendArray, TP_SEND_I_VAL, (int) (tp4ISpeed * 100.f));
+//      set2Byte(sendArray, TP_SEND_J_VAL, (int) (tp4Fps * 100.f));
+//      sendTXFrame(XBEE_PC, sendArray, TP_SEND_MAX); 
+    }
+//    else {
+//      sendTXFrame(XBEE_PC, sendArray, TP_SEND_A_VAL); 
+//    }
+//  } 
 } // end aTp4() 
 
 
 
 void tp4Steer() {
   float speedAdjustment = 0.0f;
-
   boolean controllerZero = abs(controllerX) < 0.05;
 
   // Adjust straightMode status

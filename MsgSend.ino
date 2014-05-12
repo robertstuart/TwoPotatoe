@@ -1,7 +1,7 @@
 byte transmitBuffer[120] = {
   0x7E, 0, 0}; // Start delimiter, count MSB, count LSB
 byte tXframeDataHeader[] = {
-  0x01, 0, 0, 0, 0x01}; // API id, Frame id, dest MSB, dest LSB, Options
+  0x01, 0,0xFF, 0xFF, 0x04}; // API id, Frame id, dest MSB, dest LSB, Options (broadcast)
 int transmitBufferLength = 0;
 int transmitBufferPtr = 0;
 unsigned long transmitNextWriteTime = 0UL;
@@ -19,8 +19,8 @@ unsigned long transmitNextWriteTime = 0UL;
  *
  *********************************************************/
 void sendTXFrame(int dest, byte rfData[], int rfDataLength) {  
-  tXframeDataHeader[2] = dest/256;    // MSB
-  tXframeDataHeader[3] = dest & 0xFF; // LSB
+//  tXframeDataHeader[2] = dest/256;    // MSB wrong index?
+//  tXframeDataHeader[3] = dest & 0xFF; // LSB
   sendFrame(tXframeDataHeader, 5, rfData, rfDataLength);
 }
 
@@ -67,10 +67,26 @@ void sendFrame(byte cmdDataHeader[], int cmdDataHeaderLength, byte cmdData[], in
 }
 
 
+/*********************************************************
+ *
+ * flushSerial()
+ *
+ *     Sends another byte out from the output buffer.
+ *     Only sends a byte when there has been 
+ *     200 microseconds since the last send.
+ *     This is necessary since the Due does not have
+ *     a transmit buffer.
+ *
+ *********************************************************/
 void flushSerial() {
-  if ((timeMicroseconds > transmitNextWriteTime) && (transmitBufferPtr <= transmitBufferLength)) {
+  if ((transmitBufferPtr <= transmitBufferLength) && (timeMicroseconds > transmitNextWriteTime))  {
+if (transmitBufferPtr == transmitBufferLength) {
+  tStart = timeMicroseconds;
+}
+    tStart = timeMicroseconds;
     transmitNextWriteTime = timeMicroseconds + 170;
     MYSER.write(transmitBuffer[transmitBufferPtr++]);
+
   }
 }
 
@@ -117,16 +133,4 @@ void dump() {
 
 
 
-/*********************************************************
- *
- * flushSerial()
- *
- *     Sends another byte out from the output buffer.
- *     Only sends a byte when there has been 
- *     200 microseconds since the last send.
- *     This is necessary since the Due does not have
- *     a transmit buffer.
- *
- *********************************************************/
-void fluxhSerial() {
-}
+

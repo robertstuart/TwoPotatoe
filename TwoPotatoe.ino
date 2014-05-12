@@ -134,37 +134,38 @@ valSet;
 valSet tp4A = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
   0.0,    // u tick angle added in.  ~0-2.0. 
-  1.0,    // v rotation subtraction, 0-2.0?
+  1.13,    // v rotation subtraction, 0-2.0?
   0.2,    // w cos smoothing rate.  0-1.0
   2.0,    // x CO speed error to angle factor
   0.09,   // Y Target angle to WS
-  0.85}; // z accelerometer offset
+  -2.7}; // z accelerometer offset
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
   0.0,    // u tick angle added in.  ~0-2.0. 
-  1.0,    // v rotation subtraction, 0-2.0?
+ 1.13,    // v rotation subtraction, 0-2.0?
   0.3,    // w cos smoothing rate.  0-1.0
   3.0,    // x CO speed error to angle factor
   0.15,   // Y Target angle to WS
-  0.85}; // z accelerometer offset
+  -2.7}; // z accelerometer offset
 
 valSet tp4C = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
   0.0,    // u tick angle added in.  ~0-2.0. 
-  1.0,    // v rotation subtraction, 0-2.0?
+ 1.13,    // v rotation subtraction, 0-2.0?
   0.3,    // w cos smoothing rate.  0-1.0
   3.0,    // x CO speed error to angle factor
   0.15,   // Y Target angle to WS
-  0.85}; // z accelerometer offset
+  -2.7}; // z accelerometer offset
 
 valSet *currentValSet = &tp4A;
 int vSetStatus = VAL_SET_A;
 
-int timerStateRight = TIMER_IDLE;
-int timerStateLeft = TIMER_IDLE;
-
 int msgState = MSG_STATE_TIMER_WAIT;
+  int ax, ay, az;
+  int gx, gy, gz;
+
+unsigned long tStart = 0;
 
 // Speed and position variables
 long tickDistanceRight = 0L;
@@ -459,6 +460,7 @@ void aPwmSpeedRun() {
     led();
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
+    flushSerial();
 
     // Timed loop
     if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
@@ -487,7 +489,7 @@ void aPwmSpeedRun() {
       set2Byte(sendArray, TP_SEND_C_VAL, right);
       int left = (int) (fpsLeft * 100.0);
       set2Byte(sendArray, TP_SEND_D_VAL, left);
-      sendTXFrame(XBEE_PC, sendArray, TP_SEND_E_VAL);  
+      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_E_VAL);  
     } // End if(time) 
   } // End while(mode)
 } // End aPwmSpeedRun()
@@ -512,6 +514,7 @@ void aTpSpeedRun() {
     led();
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
+    flushSerial();
     checkMotorRight();
     checkMotorLeft();
 
@@ -543,7 +546,7 @@ void aTpSpeedRun() {
       set2Byte(sendArray, TP_SEND_C_VAL, right);
       int left = (int) (fpsLeft * 100.0);
       set2Byte(sendArray, TP_SEND_D_VAL, left);
-      sendTXFrame(XBEE_PC, sendArray, TP_SEND_E_VAL);  
+      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_E_VAL);  
     }
   }
 }
