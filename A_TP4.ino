@@ -125,7 +125,9 @@ void aTp4() {
       set2Byte(sendArray, TP_SEND_C_VAL, gyroXRate);
       set2Byte(sendArray, TP_SEND_D_VAL, ay);
       set2Byte(sendArray, TP_SEND_E_VAL, az);
-      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_F_VAL); 
+//      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_F_VAL); 
+      set2Byte(sendArray, TP_SEND_F_VAL, blinkPattern[blinkPtr]);
+      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_G_VAL); 
     } 
     else {
       sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_A_VAL); 

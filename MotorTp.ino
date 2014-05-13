@@ -121,7 +121,6 @@ void encoderIsrLeft() {
     return;
   } 
 
-  // Pulse if we are behind. (only fwd at the moment.)
   if (timerStateLeft != TIMER_WAIT) {
     if (targetDirectionLeft == FWD) {
       if ((tickPeriodLeft > targetTickPeriodLeft) || (tickPeriodLeft <= 0)) { // Too slow?
@@ -140,7 +139,7 @@ void encoderIsrLeft() {
     } // end FWD
     else if (targetDirectionLeft == BKWD) {
       if ((tickPeriodLeft < targetTickPeriodLeft)  || (tickPeriodLeft >= 0)) { // Too slow?
-        timerWaitEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
+        timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
         timerStateLeft = TIMER_PULSE;
         setMotor(MOTOR_LEFT, BKWD);
       }

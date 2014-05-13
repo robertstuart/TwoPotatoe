@@ -165,8 +165,6 @@ int msgState = MSG_STATE_TIMER_WAIT;
   int ax, ay, az;
   int gx, gy, gz;
 
-unsigned long tStart = 0;
-
 // Speed and position variables
 long tickDistanceRight = 0L;
 long tickDistanceLeft = 0L;
@@ -304,6 +302,10 @@ int txAckFrame = 0;
 int debugVal = NO_DEBUG;
 
 boolean isHcCommand = false;
+
+const byte* blinkPattern = BLINK_FY;
+int blinkPatternSize = sizeof(BLINK_FY);
+int blinkPtr = 0;
 
 /*********************************************************
  *

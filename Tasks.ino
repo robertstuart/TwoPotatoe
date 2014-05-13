@@ -3,9 +3,6 @@
 const int BATTERY_WARNING = 1090;  // about 10% capacity (centivolts)
 const int BATTERY_CRITICAL = 1000; // about 1% cap (centivolts)
 
-const byte* blinkPattern = BLINK_FY;
-int blinkPatternSize = sizeof(BLINK_FY);
-int blinkPtr = 0;
 int beepCycleCount = 0;
 boolean beepStat = false;
 int *beepSequence;
@@ -68,7 +65,7 @@ void setTp4RunningState() {
     blinkState = BLINK_SBYG;  // Slow blinking if no connection
   }
   else if ((tpState & TP_STATE_RUNNING) != 0) {
-    blinkState = BLINK_B_FR; // Blue, flash Red if running.
+    blinkState = BLINK_FRG; // Blue, flash Red if running.
   }
   else if ((tpState & TP_STATE_RUN_READY) > 0) {
     blinkState = BLINK_FRG; // Flash red-blue if ready to go.

@@ -80,10 +80,6 @@ void sendFrame(byte cmdDataHeader[], int cmdDataHeaderLength, byte cmdData[], in
  *********************************************************/
 void flushSerial() {
   if ((transmitBufferPtr <= transmitBufferLength) && (timeMicroseconds > transmitNextWriteTime))  {
-if (transmitBufferPtr == transmitBufferLength) {
-  tStart = timeMicroseconds;
-}
-    tStart = timeMicroseconds;
     transmitNextWriteTime = timeMicroseconds + 170;
     MYSER.write(transmitBuffer[transmitBufferPtr++]);
 

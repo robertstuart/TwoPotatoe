@@ -83,6 +83,8 @@ const int TP_RCV_MODE =            4;  // 1-byte, mode command
 const int TP_RCV_VALSET =          5;  // 1-byte valset 
 const int TP_RCV_MSG_TYPE =        6;  // 1-byte message type
 const int TP_RCV_MSG_VAL =         7;  // 2-byte message value
+const int TP_RCV_AVAL =            5;
+const int TP_RCV_BVAL =            7;
 const int TP_RCV_MAX =             9;
 
 // Values that can go in the TP_RCV_MSG_TYPE byte
