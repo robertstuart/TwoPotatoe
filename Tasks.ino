@@ -65,13 +65,18 @@ void setTp4RunningState() {
     blinkState = BLINK_SBYG;  // Slow blinking if no connection
   }
   else if ((tpState & TP_STATE_RUNNING) != 0) {
-    blinkState = BLINK_FRG; // Blue, flash Red if running.
+    blinkState = BLINK_F_RG; // Blue, flash Red if running.
   }
   else if ((tpState & TP_STATE_RUN_READY) > 0) {
     blinkState = BLINK_FRG; // Flash red-blue if ready to go.
   }
-  else {
-    blinkState = BLINK_R_FB; // Red-flashBlue if idle (none of the above).
+  else { // idle (none of the above).
+    if (mode == MODE_TP5) {
+      blinkState = BLINK_R_FB; 
+    }
+    else {
+      blinkState = BLINK_B_FR;
+    }
   }
 
   if (blinkState != blinkPattern) {
@@ -242,22 +247,6 @@ void beepIsr() {
   }
   beepStat = !beepStat;
   digitalWrite(SPEAKER_PIN, beepStat);
-}
-
-
-/***************************************************************
- *
- * cmdBits()  Deal with the POWER, RUN, & STREAM bits
- *
- ***************************************************************/
-void cmdBits() {
-  if ((cmdState & CMD_STATE_PWR) == 0) {
-    digitalWrite(PWR_PIN, LOW);
-  }
-  byte runBit =  ((cmdState & CMD_STATE_RUN) == 0) ? 0 : TP_STATE_RUN_READY;
-  byte stBit =   ((cmdState & CMD_STATE_STREAM) == 0) ? 0 : TP_STATE_STREAMING;
-  byte tmpTpState = tpState & (~(TP_STATE_RUN_READY | TP_STATE_STREAMING)); // Clear bits
-  tpState = tmpTpState | runBit | stBit;
 }
 
 

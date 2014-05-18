@@ -1,27 +1,26 @@
 /************************************************************************
- * ----- TP4 -----
- *    Algorithm using the TP motor controller
+ * ----- TP5 -----
+ *    Algorithm using the MC5 motor controller
  * 
  * 
  ************************************************************************/
-float tp4FpsLeft = 0.0f;
-float tp4FpsRight = 0.0f;
-float tp4RawIError = 0.0f; 
-float tp4ErrorSpeedFps = 0.0f;
-float tp4ISpeed = 0.0f;
-float tp4Fps = 0.0f;
-float coSpeed = 0.0f;
-float oldCospeed = 0.0f; 
-float tp4AngleErrorW = 0.0f;
-float oldGyroZAngle = 0.0f;
-boolean tp4IsHome = false;
-//long tp4HomeDistance = 0L;
-float tp4HomeSpeed = 0.0f;
-long tp4AccumDistanceError = 0l;
-float tp4ControllerSpeed = 0;
-int homeTime = 0;
-float loopSec = 0.0f;
-unsigned int tp4LoopCounter = 0;
+
+float tp5FpsLeft = 0.0f;
+float tp5FpsRight = 0.0f;
+float tp5RawIError = 0.0f; 
+float tp5ErrorSpeedFps = 0.0f;
+float tp5ISpeed = 0.0f;
+float tp5Fps = 0.0f;
+float tp5CoSpeed = 0.0f;
+float tp5OldCospeed = 0.0f; 
+float tp5AngleErrorW = 0.0f;
+boolean tp5IsHome = false;
+//long tp5HomeDistance = 0L;
+float tp5HomeSpeed = 0.0f;
+long tp5AccumDistanceError = 0l;
+float tp5ControllerSpeed = 0;
+float tp5LoopSec = 0.0f;
+unsigned int tp5LoopCounter = 0;
 
 
 // Set up IMU
@@ -38,13 +37,13 @@ unsigned int tp4LoopCounter = 0;
  * 
  * 
  ************************************************************************/
-void aTp4Run() {
+void aTp5Run() {
   timeMicroseconds = timeTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
-  tp4RawIError = 0.0f;
+  tp5RawIError = 0.0f;
   motorInitTp();
-  while(mode == MODE_TP4) { // main loop
+  while(mode == MODE_TP5) { // main loop
     readXBee();  // Read commands from PC or Hand Controller
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
@@ -56,11 +55,11 @@ void aTp4Run() {
     // Do the timed loop
     if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
       actualLoopTime = timeMicroseconds - oldTimeTrigger;
-      loopSec = ((float) actualLoopTime)/1000000.0; 
+      tp5LoopSec = ((float) actualLoopTime)/1000000.0; 
       timeTrigger += 10000; // 100 per second
       oldTimeTrigger = timeMicroseconds;
       
-      aTp4(); 
+      aTp5(); 
       battery();
       led();
       safeAngle();
@@ -75,56 +74,52 @@ void aTp4Run() {
 
 
 /************************************************************************
- *  aTp4() 
+ *  aTp5() 
  *    
  * 
  * 
  ************************************************************************/
-void aTp4() {
+void aTp5() {
   readSpeed();
-  getTpAngle();
+  getTp5Angle();
 
-  // compute the coSpeed
+  // compute the tp5CoSpeed
   float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
-  coSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * oldCospeed); // smooth it out a little
-  oldCospeed = coSpeed;
+  tp5CoSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
+  tp5OldCospeed = tp5CoSpeed;
 
-  tp4ControllerSpeed = controllerY * 3.0; //+-3.0 fps
+  tp5ControllerSpeed = controllerY * 3.0; //+-3.0 fps
 
   // find the speed error
-  float tp4SpeedError = tp4ControllerSpeed - coSpeed;
+  float tp5SpeedError = tp5ControllerSpeed - tp5CoSpeed;
 
   // compute a weighted angle to eventually correct the speed error
-  float tp4TargetAngle = tp4SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
+  float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  float tp4AngleError = gaXAngle - tp4TargetAngle;
-  tp4AngleErrorW = tp4AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  float tp5AngleError = gaXAngle - tp5TargetAngle;
+  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
 
   // Add the angle error to the base speed to get the target speed.
-  tp4Fps = tp4AngleErrorW + coSpeed;
-  tp4FpsRight = tp4FpsLeft = tp4Fps;
+  tp5Fps = tp5AngleErrorW + tp5CoSpeed;
+  tp5FpsRight = tp5FpsLeft = tp5Fps;
 
-  tp4Steer();
-  setTargetSpeedRight(tp4FpsRight);
-  setTargetSpeedLeft(tp4FpsLeft);
+  tp5Steer();
+  setTargetSpeedRight(tp5FpsRight);
+  setTargetSpeedLeft(tp5FpsLeft);
 
   // Send
-  if (((++tp4LoopCounter % 5) == 0) || ((tpState & TP_STATE_STREAMING) != 0)) {
+  if (((++tp5LoopCounter % 5) == 0) || ((tpState & TP_STATE_STREAMING) != 0)) {
     sendArray[TP_SEND_STATE_STATUS] = tpState;
     sendArray[TP_SEND_MODE_STATUS] = mode;
     set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
     set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
-//    sendArray[TP_SEND_MSG_ACK, ackMsgType);
-//    set2Byte(sendArray, TP_SEND_MSG_ACKVAL, ackMsgVal);
-    
     if (isBitSet(tpState, TP_STATE_STREAMING)) {
       set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
       set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight + tickDistanceLeft);
       set2Byte(sendArray, TP_SEND_C_VAL, gyroXRate);
       set2Byte(sendArray, TP_SEND_D_VAL, ay);
       set2Byte(sendArray, TP_SEND_E_VAL, az);
-//      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_F_VAL); 
       set2Byte(sendArray, TP_SEND_F_VAL, blinkPattern[blinkPtr]);
       sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_G_VAL); 
     } 
@@ -132,11 +127,11 @@ void aTp4() {
       sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_A_VAL); 
     }
   } 
-} // end aTp4() 
+} // end aTp5() 
 
 
 
-void tp4Steer() {
+void tp5Steer() {
   float speedAdjustment = 0.0f;
   boolean controllerZero = abs(controllerX) < 0.05;
 
@@ -146,7 +141,7 @@ void tp4Steer() {
       straightMode = false;  // take it out of straightmode
     } 
     else if (isRotating) {
-      speedAdjustment = getRotation();
+      speedAdjustment = tp5GetRotation();
     }
     else if ((tickDistanceRight - tickDistanceLeft) < tpPositionDiff) {
       speedAdjustment = -.1;
@@ -165,17 +160,17 @@ void tp4Steer() {
   }
 
   if (!straightMode) {
-    //    speedAdjustment = controllerX * 1.0 - (coSpeed * 0.1); // factor for turning rate.
+    //    speedAdjustment = controllerX * 1.0 - (tp5CoSpeed * 0.1); // factor for turning rate.
     speedAdjustment = controllerX * 0.6; // factor for turning rate.
   }
 
-  tp4FpsLeft += speedAdjustment;
-  tp4FpsRight -= speedAdjustment;
+  tp5FpsLeft += speedAdjustment;
+  tp5FpsRight -= speedAdjustment;
 }
 
 
 
-float getRotation() {
+float tp5GetRotation() {
   float rotateError = rotateTarget - gyroZAngle;
   if (abs(rotateError) < 1.0f) {
     isRotating = false;

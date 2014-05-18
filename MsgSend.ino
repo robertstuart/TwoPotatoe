@@ -37,7 +37,6 @@ void sendTXFrame(int dest, byte rfData[], int rfDataLength) {
  *********************************************************/
 void sendFrame(byte cmdDataHeader[], int cmdDataHeaderLength, byte cmdData[], int cmdDataLength) {
   unsigned int sum = 0;
-
   // Set the length in bytes 2 & 3.
   transmitBuffer[1] = 0;
   transmitBuffer[2] = cmdDataHeaderLength + cmdDataLength;
@@ -115,16 +114,16 @@ void set4Byte(byte array[], int index, int value) {
  *
  *********************************************************/
 void dump() {
-  if (    isBitClear(cmdState, CMD_STATE_DUMP) 
-      && (isBitClear(tpState, TP_STATE_DUMPING))) {
-        return;
-  }
-      
-    // Are we are collecting data.
-    if ( isBitSet(cmdState, CMD_STATE_DUMP) 
-        && (isBitSet(tpState, TP_STATE_DUMPING))) {
-      
-  }
+//  if (    isBitClear(cmdState, CMD_STATE_DUMP) 
+//      && (isBitClear(tpState, TP_STATE_DUMPING))) {
+//        return;
+//  }
+//      
+//    // Are we are collecting data.
+//    if ( isBitSet(cmdState, CMD_STATE_DUMP) 
+//        && (isBitSet(tpState, TP_STATE_DUMPING))) {
+//      
+//  }
 }
 
 

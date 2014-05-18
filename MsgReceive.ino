@@ -41,17 +41,17 @@ void readXBee() {
       break;
     case PACKET_API_ID:
       switch (b) {
-        case 0x81:
-          packetInProgress = PACKET_RX;
-          break;
-        case 0x89:
-          packetInProgress = PACKET_TXS;
-          break;
-        case 0x8A:
-          packetInProgress = PACKET_MS;
-          break;
-        default:
-          packetInProgress = PACKET_DELIM;
+      case 0x81:
+        packetInProgress = PACKET_RX;
+        break;
+      case 0x89:
+        packetInProgress = PACKET_TXS;
+        break;
+      case 0x8A:
+        packetInProgress = PACKET_MS;
+        break;
+      default:
+        packetInProgress = PACKET_DELIM;
       }
       break;
     case PACKET_RX:
@@ -66,8 +66,8 @@ void readXBee() {
     } // end switch(packetInProgress)
   } // end while(dataReady)
 }  // end readXBee()
-    
-    
+
+
 int doMs(int b) {
   if (packetByteCount++ < 2) {
     return PACKET_MS;
@@ -80,8 +80,8 @@ int doTxs(int b) {
   case 0:
     return PACKET_TXS;
   case 1:
-//    pcAck = (b == 0) ? true : false;
-// debugInt("pcAck: ", b);
+    //    pcAck = (b == 0) ? true : false;
+    // debugInt("pcAck: ", b);
     return PACKET_TXS;
   }
   return PACKET_DELIM;
@@ -90,35 +90,36 @@ int doTxs(int b) {
 // Data packet in progress
 int doRx(int b) {
   switch (packetByteCount++) {
-    case 0:
-      packetSource = b * 256;
-      break;
-    case 1:
-      packetSource += b;
-      break;
-    case 2:
-      signalStrength = b;
-      break;
-    case 3: // Options
-      dataLength = packetLength - 5;  // Subtract out non-data bytes.
-      dataPtr = 0;
-      break;
+  case 0:
+    packetSource = b * 256;
+    break;
+  case 1:
+    packetSource += b;
+    break;
+  case 2:
+    signalStrength = b;
+    break;
+  case 3: // Options
+    dataLength = packetLength - 5;  // Subtract out non-data bytes.
+    dataPtr = 0;
+    break;
     // Data or checksum after this point.
-    default:
-      if (dataPtr == dataLength)	{ // Checksum?
-        newPacket();
-        return PACKET_DELIM;  // end of RX packet
-      } else if (dataPtr <= 100) {
-        packetByteArray[dataPtr++] = (byte) b;
-      }
+  default:
+    if (dataPtr == dataLength)	{ // Checksum?
+      newPacket();
+      return PACKET_DELIM;  // end of RX packet
+    } 
+    else if (dataPtr <= 100) {
+      packetByteArray[dataPtr++] = (byte) b;
+    }
   } 
   return PACKET_RX; // still in RX packet
 } // end doRX()
-	
-    
-    
-    
- 
+
+
+
+
+
 
 
 /*********************************************************
@@ -136,30 +137,45 @@ void newPacket() {
   else {
     tHc = timeMilliseconds;
   }
-  
-    controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
-    controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
-    cmdState = packetByteArray[TP_RCV_CMD];  
-    mode = packetByteArray[TP_RCV_MODE];
-    setValSet(packetByteArray[TP_RCV_VALSET]);
-    int msgType = packetByteArray[TP_RCV_MSG_TYPE];
-    int msgVal = packetByteArray[TP_RCV_MSG_VAL];
-    doMessage(msgType, msgVal);
-    
-  switch (mode) {
-  case MODE_TP4:
-    break;
-  case MODE_TP_SPEED:
-    remoteTpR = ((float) get2Byte(TP_RCV_AVAL)) * 0.01;
-    remoteTpL = ((float) get2Byte(TP_RCV_BVAL)) * 0.01;
-    break; 
-  }  // End switch(mode)
-  
-  
+
+  controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
+  controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
+  int msgType = packetByteArray[TP_RCV_MSG_TYPE];
+  if (msgType != TP_RCV_MSG_NULL) {
+    doMessage(msgType, get2Byte(TP_RCV_MSG_VAL));
+  }
 }
 
 void doMessage(int type, int val) {
-  // do something
+debugVal = val;
+  ackMsgType = type;
+  ackMsgVal = val;
+  switch (type) {
+  case TP_RCV_MSG_MODE:
+    mode = val;
+    break;
+  case TP_RCV_MSG_POWER:
+    digitalWrite(PWR_PIN, LOW);
+    break;
+  case TP_RCV_MSG_STREAM:
+    if (val != 0) {
+      tpState = tpState | TP_STATE_STREAMING;
+    }
+    else {
+      tpState = tpState & (~TP_STATE_STREAMING);
+    }
+    break;
+  case TP_RCV_MSG_RUN:
+    if (val != 0) {
+      tpState = tpState | TP_STATE_RUN_READY;
+    }
+    else {
+      tpState = tpState & (~TP_STATE_RUN_READY);
+    }
+    break;
+  default:
+    break;    
+  }
 }
 
 
@@ -188,14 +204,15 @@ void setValSet(int newValSet) {
     }
   }
 }
- 
+
 int get1Byte(int offset) {
   return (int) (packetByteArray[offset] - 127);
 }
 int get2Byte(int offset) {
-  int value = packetByteArray[offset +1] & 0xFF;
+  unsigned int value = packetByteArray[offset +1] & 0xFF;
   value += packetByteArray[offset] * 256;
   return (value - 32767);
 }
+
 
 

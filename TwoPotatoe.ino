@@ -109,6 +109,8 @@ byte BLINK_B_FR[] = {
   2,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash red
 byte BLINK_FRG[] = {
   4,1,END_MARKER};               // rapid red-green
+byte BLINK_F_RG[] = {
+  4,4,4,4,1,END_MARKER};               // red, flash green
 byte BLINK_SBYG[] = {
   7,7,7,7,0,0,0,0,END_MARKER};  // blink all slow flash
 byte BLINK_FY[] = {
@@ -185,6 +187,7 @@ float fpsRight = 0.0f; // right feet per second
 float fpsLeft = 0.0f;  // left feet per second
 float wheelSpeedFps = 0.0f;
 float speedTpcs = 0.0f;
+unsigned long lasttime, gap;
 
 unsigned long waitPeriodRight = 0UL;  // Wait beyond beginning of pulse!!!
 unsigned long waitPeriodLeft = 0UL;  // Wait beyond beginning of pulse!!!
@@ -226,7 +229,7 @@ float dError = 0.0;
 float pid = 0.0;
 
 int tpState = 0; // contains STATE_READY, STATE_RUNNING,STATE_UPRIGHT, STATE_ON_GROUND, STATE_MOTOR_FAULT bits
-int cmdState = CMD_STATE_PWR;  // READY, PWR, & HOME command bits
+int cmdState = 0;  // READY, PWR, & HOME command bits
 
 long home = 0L;  // home tpPosition, zero indicates no home position.
 unsigned int pressure = 0; // pressure sensor value
@@ -248,7 +251,7 @@ int driftX = 0;
 int driftZ = 0;
 float accelXAngle = 0.0;  // Vertical plane parallel to wheels
 float gaXAngle = 0.0f;
-float gatXAngle = 0.0f;
+float gaXTickAngle = 0.0f;
 
 int gyroYRaw = 0;
 float gyroYRate;
@@ -300,6 +303,8 @@ boolean isTxStatusMessage = false;
 int txAckFrame = 0;
 
 int debugVal = NO_DEBUG;
+int ackMsgType = TP_RCV_MSG_NULL;
+int ackMsgVal = 0;
 
 boolean isHcCommand = false;
 
@@ -370,6 +375,9 @@ void loop() { //Main Loop
   switch (mode) {
   case MODE_TP4:
     aTp4Run();
+    break;
+  case MODE_TP5:
+    aTp5Run();
     break;
   case MODE_IMU:
     aImuRun();
@@ -470,7 +478,6 @@ void aPwmSpeedRun() {
 
       readSpeed();
       battery(); 
-      cmdBits();
       if ((tpState & TP_STATE_RUN_READY) == 0) {
         tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
       }
@@ -484,7 +491,7 @@ void aPwmSpeedRun() {
       sendArray[TP_SEND_STATE_STATUS] = tpState;
       sendArray[TP_SEND_MODE_STATUS] = mode;
       set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
-      set4Byte(sendArray, TP_SEND_DEBUG, debugVal);
+      set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
       set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
       set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
       int right = (int) (fpsRight * 100.0);
@@ -525,7 +532,6 @@ void aTpSpeedRun() {
       timeTrigger += 100000;  // 10 per second
 
       // Set the RUNNING bit if the READY bit is set.
-      cmdBits();  
       if ((tpState & TP_STATE_RUN_READY) == 0) {
         tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
       }
@@ -541,7 +547,7 @@ void aTpSpeedRun() {
       sendArray[TP_SEND_STATE_STATUS] = tpState;
       sendArray[TP_SEND_MODE_STATUS] = mode;
       set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
-      set4Byte(sendArray, TP_SEND_DEBUG, debugVal);
+      set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
       set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
       set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
       int right = (int) (fpsRight * 100.0);
