@@ -137,9 +137,9 @@ valSet tp4A = {
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
   0.0,    // u tick angle added in.  ~0-2.0. 
   1.13,    // v rotation subtraction, 0-2.0?
-  0.2,    // w cos smoothing rate.  0-1.0
+  0.3,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
-  0.09,   // Y Target angle to WS
+  0.09,   // Y Target angle to WS 
   -2.7}; // z accelerometer offset
 
 valSet tp4B = { 
@@ -251,7 +251,17 @@ int driftX = 0;
 int driftZ = 0;
 float accelXAngle = 0.0;  // Vertical plane parallel to wheels
 float gaXAngle = 0.0f;
+
+// TP5 angle variables
 float gaXTickAngle = 0.0f;
+float oldDeltaOverBase = 0.0;
+int deltaStorePtr = 0;
+long oldTp5TickDistance = 0L;
+float tp5IntTickRate = 0.0;
+float deltaSum = 0.0;
+float deltaOverBase = 0.0;
+long tp5TickDistance = 0L;
+int tp5TickRate = 0;
 
 int gyroYRaw = 0;
 float gyroYRate;

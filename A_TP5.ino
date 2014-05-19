@@ -22,6 +22,7 @@ float tp5ControllerSpeed = 0;
 float tp5LoopSec = 0.0f;
 unsigned int tp5LoopCounter = 0;
 
+float oldGaXAngle = 0.0;
 
 // Set up IMU
 //  compass.init(LSM303DLHC_DEVICE, 0);
@@ -82,9 +83,14 @@ void aTp5Run() {
 void aTp5() {
   readSpeed();
   getTp5Angle();
+  
+  float tp5AngleDelta = gaXAngle - oldGaXAngle;
+  oldGaXAngle = gaXAngle;
+  float rateCos = wheelSpeedFps + tp5AngleDelta * .001;
+  
 
   // compute the tp5CoSpeed
-  float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
+//  float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
   tp5CoSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
   tp5OldCospeed = tp5CoSpeed;
 
@@ -115,13 +121,15 @@ void aTp5() {
     set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
     set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
     if (isBitSet(tpState, TP_STATE_STREAMING)) {
-      set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
-      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight + tickDistanceLeft);
-      set2Byte(sendArray, TP_SEND_C_VAL, gyroXRate);
-      set2Byte(sendArray, TP_SEND_D_VAL, ay);
-      set2Byte(sendArray, TP_SEND_E_VAL, az);
-      set2Byte(sendArray, TP_SEND_F_VAL, blinkPattern[blinkPtr]);
-      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_G_VAL); 
+      set4Byte(sendArray, TP_SEND_A_VAL, tp5TickDistance);
+      set4Byte(sendArray, TP_SEND_B_VAL, gyroXAngle * 100.0);
+      set2Byte(sendArray, TP_SEND_C_VAL, tp5TickRate);
+      set2Byte(sendArray, TP_SEND_D_VAL, tp5IntTickRate * 100.0);
+      set2Byte(sendArray, TP_SEND_E_VAL, deltaOverBase * 100.0);
+      set2Byte(sendArray, TP_SEND_F_VAL, deltaSum * 100.0);
+      set2Byte(sendArray, TP_SEND_G_VAL, gaXTickAngle * 100.0);
+      set2Byte(sendArray, TP_SEND_H_VAL, gaXAngle * 100.0);
+      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_I_VAL); 
     } 
     else {
       sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_A_VAL); 

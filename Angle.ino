@@ -87,11 +87,8 @@ float getTpAngle() {
 }
 
 
-float deltaStore[8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-int deltaStorePtr = 0;
-long oldTp5TickDistance = 0L;
-float tp5IntTickRate = 0.0;
-float deltaSum = 0.0;
+float old1DeltaOverBase = 0.0;
+float old2DeltaOverBase = 0.0;
 
 float getTp5Angle() {
   getGyroAccel(&ax, &ay, &az, &gx, &gy, &gz);
@@ -106,16 +103,16 @@ float getTp5Angle() {
   gaXAngle = (gyroXWeightedAngle * GYRO_WEIGHT) + (accelXAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
   
   // Add the tick information to compensate for gyro information being 40ms late.
-  long tp5TickDistance = tickDistanceLeft + tickDistanceRight;
+  tp5TickDistance = tickDistanceLeft + tickDistanceRight;
+  tp5TickRate = oldTp5TickDistance - tp5TickDistance;
   oldTp5TickDistance = tp5TickDistance;
-  int tp5TickRate = oldTp5TickDistance - tp5TickDistance;
-  float tp5IntTickRate = (((float)(tp5TickRate - tp5IntTickRate)) * .2) + tp5IntTickRate;
-  float deltaOverBase = tp5TickRate - tp5IntTickRate;
+  tp5IntTickRate = (((float)(tp5TickRate - tp5IntTickRate)) * .2) + tp5IntTickRate;
+  deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
   deltaSum += deltaOverBase;
-  deltaSum -= deltaStore[deltaStorePtr];
-  deltaStore[deltaStorePtr++] = deltaOverBase;
-  deltaStorePtr = deltaStorePtr % 8;
+  deltaSum -= old2DeltaOverBase;
   gaXTickAngle = gaXAngle + deltaSum;
+  old2DeltaOverBase = old1DeltaOverBase;
+  old1DeltaOverBase = deltaOverBase;
   
   // compute the Y plane to check for falling sideways
   gyroYRaw = gy;

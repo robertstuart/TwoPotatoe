@@ -146,8 +146,14 @@ void newPacket() {
   }
 }
 
+
+
+/*********************************************************
+ *
+ * doMessage()
+ *
+ *********************************************************/
 void doMessage(int type, int val) {
-debugVal = val;
   ackMsgType = type;
   ackMsgVal = val;
   switch (type) {
