@@ -137,7 +137,7 @@ valSet tp4A = {
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
   0.0,    // u tick angle added in.  ~0-2.0. 
   1.13,    // v rotation subtraction, 0-2.0?
-  0.3,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
+  0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.09,   // Y Target angle to WS 
   -2.7}; // z accelerometer offset

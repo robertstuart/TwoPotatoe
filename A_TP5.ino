@@ -21,8 +21,9 @@ long tp5AccumDistanceError = 0l;
 float tp5ControllerSpeed = 0;
 float tp5LoopSec = 0.0f;
 unsigned int tp5LoopCounter = 0;
-
-float oldGaXAngle = 0.0;
+float tp5LpfCos = 0.0;
+float tp5LpfCosOld = 0.0;
+float oldGaXTickAngle = 0.0;
 
 // Set up IMU
 //  compass.init(LSM303DLHC_DEVICE, 0);
@@ -84,30 +85,30 @@ void aTp5() {
   readSpeed();
   getTp5Angle();
   
-  float tp5AngleDelta = gaXAngle - oldGaXAngle;
-  oldGaXAngle = gaXAngle;
-  float rateCos = wheelSpeedFps + tp5AngleDelta * .001;
+  float tp5AngleDelta = gaXTickAngle - oldGaXTickAngle;
+  oldGaXTickAngle = gaXTickAngle;
   
-
-  // compute the tp5CoSpeed
+  // compute the Center of Oscillation Speed (COS)
+  float tp5Cos = wheelSpeedFps + (tp5AngleDelta * 1.4);
 //  float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
-  tp5CoSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
-  tp5OldCospeed = tp5CoSpeed;
+//  tp5CoSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
+  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.2); // smooth it out a little
+  tp5LpfCosOld = tp5LpfCos;
 
   tp5ControllerSpeed = controllerY * 3.0; //+-3.0 fps
 
   // find the speed error
-  float tp5SpeedError = tp5ControllerSpeed - tp5CoSpeed;
+  float tp5SpeedError = tp5ControllerSpeed - tp5LpfCos;
 
   // compute a weighted angle to eventually correct the speed error
   float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  float tp5AngleError = gaXAngle - tp5TargetAngle;
+  float tp5AngleError = gaXTickAngle - tp5TargetAngle;
   tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
 
   // Add the angle error to the base speed to get the target speed.
-  tp5Fps = tp5AngleErrorW + tp5CoSpeed;
+  tp5Fps = tp5AngleErrorW + tp5LpfCos;
   tp5FpsRight = tp5FpsLeft = tp5Fps;
 
   tp5Steer();
@@ -122,10 +123,10 @@ void aTp5() {
     set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
     if (isBitSet(tpState, TP_STATE_STREAMING)) {
       set4Byte(sendArray, TP_SEND_A_VAL, tp5TickDistance);
-      set4Byte(sendArray, TP_SEND_B_VAL, gyroXAngle * 100.0);
+      set4Byte(sendArray, TP_SEND_B_VAL, wheelSpeedFps * 100.0);
       set2Byte(sendArray, TP_SEND_C_VAL, tp5TickRate);
       set2Byte(sendArray, TP_SEND_D_VAL, tp5IntTickRate * 100.0);
-      set2Byte(sendArray, TP_SEND_E_VAL, deltaOverBase * 100.0);
+      set2Byte(sendArray, TP_SEND_E_VAL, tp5AngleDelta * 100.0);
       set2Byte(sendArray, TP_SEND_F_VAL, deltaSum * 100.0);
       set2Byte(sendArray, TP_SEND_G_VAL, gaXTickAngle * 100.0);
       set2Byte(sendArray, TP_SEND_H_VAL, gaXAngle * 100.0);
