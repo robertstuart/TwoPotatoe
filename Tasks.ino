@@ -95,8 +95,8 @@ void setTp4RunningState() {
  *
  *********************************************************/
 void safeAngle() {
-  if ((abs(gaXAngle) > 45.0) || ((abs(gaYAngle) > 35))) {  // Not at a safe angle?
-    if (timeMilliseconds > (uprightTime + 100)) { // more that 1/10 of a second?
+  if ((abs(gaPitchAngle) > 45.0) || ((abs(gaRollAngle) > 35))) {  // Not at a safe angle?
+    if (timeMilliseconds > (uprightTime + 50)) { // more that 1/20th of a second?
       tpState = tpState & ~TP_STATE_UPRIGHT;
     }
   }
@@ -188,6 +188,17 @@ void setBlink(byte* pattern) {
 
 /***************************************************************
  *
+ * compass()  Read the compass
+ *
+ ***************************************************************/
+ void myCompass() {
+   
+ }
+ 
+ 
+ 
+/***************************************************************
+ *
  * led()  Call at least 10/sec
  *
  ***************************************************************/
@@ -215,6 +226,8 @@ void led() {
     digitalWrite(RED_LED_PIN, r);
   }
 }
+
+
 
 
 

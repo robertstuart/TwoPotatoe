@@ -164,8 +164,13 @@ valSet *currentValSet = &tp4A;
 int vSetStatus = VAL_SET_A;
 
 int msgState = MSG_STATE_TIMER_WAIT;
-  int ax, ay, az;
-  int gx, gy, gz;
+
+int aPitch, aRoll, aYaw;
+int gPitch, gRoll, gYaw;
+int mPitch, mRoll, mYaw;
+float mPitchVec, mRollVec, mYawVec;
+float headX, headY;
+float magHeading;
 
 // Speed and position variables
 long tickDistanceRight = 0L;
@@ -240,20 +245,21 @@ float controllerX = 0.0; // +1.0 to -1.0 from controller
 float controllerY = 0.0;  // Y value set by message from controller
 int signalStrength = 0;
 
-int gyroXRaw;  // Vertical plane parallel to wheels
-float gyroXRate;
-float gyroXAngle = 0.0;
-int gyroXDriftCount = 0;
-long gyroXRawSum;
-long gyroZRawSum;
+int gyroPitchRaw;  // Vertical plane parallel to wheels
+float gyroPitchRate;
+float gyroPitchAngle = 0.0;
+float gyroPitchAngleDelta = 0.0;
+int gyroPitchDriftCount = 0;
+long gyroPitchRawSum;
 int driftCount;
-int driftX = 0;
-int driftZ = 0;
-float accelXAngle = 0.0;  // Vertical plane parallel to wheels
-float gaXAngle = 0.0f;
+int driftPitch = 0;
+int driftRoll = 0;
+int driftYaw = 0;
+float accelPitchAngle = 0.0;  // Vertical plane parallel to wheels
+float gaPitchAngle = 0.0f;
 
 // TP5 angle variables
-float gaXTickAngle = 0.0f;
+float gaPitchTickAngle = 0.0f;
 float oldDeltaOverBase = 0.0;
 int deltaStorePtr = 0;
 long oldTp5TickDistance = 0L;
@@ -263,18 +269,19 @@ float deltaOverBase = 0.0;
 long tp5TickDistance = 0L;
 int tp5TickRate = 0;
 
-int gyroYRaw = 0;
-float gyroYRate;
-float gyroYAngle = 0.0f;
-float accelYAngle = 0.0f;
-float gaYAngle = 0.0f;
+int gyroRollRaw = 0;
+float gyroRollRate;
+float gyroRollAngle = 0.0f;
+float accelRollAngle = 0.0f;
+float gaRollAngle = 0.0f;
 
-float gyroZRaw = 0.0f;
-float gyroZRate = 0.0f;
-float gyroZAngle = 0.0f;
+float gyroYawRaw = 0.0f;
+float gyroYawRate = 0.0f;
+float gyroYawAngle = 0.0f;
+float gyroYawRawSum = 0.0;
 
 long oldTickRate = 0;
-float oldtpAngle1 = 0.0;
+float oldtpAngle = 0.0;
 float tpAngle1Rate = 0.0;
 boolean straightMode = false;
 
@@ -322,6 +329,14 @@ const byte* blinkPattern = BLINK_FY;
 int blinkPatternSize = sizeof(BLINK_FY);
 int blinkPtr = 0;
 
+/* roll pitch and yaw angles computed by iecompass */
+int iPhi, iThe, iPsi; 
+/* magnetic field readings corrected for hard iron effects and PCB orientation */
+int iBfx, iBfy, iBfz;
+/* hard iron estimate */
+int iVx, iVy, iVz;
+
+
 /*********************************************************
  *
  * setup()
@@ -366,7 +381,7 @@ void setup() {
     mode = MODE_PWM_SPEED;
   } 
   else {
-    mode = MODE_TP4;
+    mode = MODE_TP5;
   }
 } // end setup()
 
@@ -579,12 +594,12 @@ void aTpSpeedRun() {
  *********************************************************/
 void checkDrift() {
   if (driftCount > 0) {
-    gyroXRawSum += gyroXRaw;
-    gyroZRawSum += gyroZRaw;
+
+    gyroYawRawSum += gyroYawRaw;
     driftCount--;
     if (driftCount == 0) {
-      driftX = gyroXRawSum / DRIFT_COUNT;
-      driftZ = gyroZRawSum / DRIFT_COUNT;
+      driftPitch = gyroPitchRawSum / DRIFT_COUNT;
+      driftYaw = gyroYawRawSum / DRIFT_COUNT;
     }  
   }
 }
@@ -647,7 +662,7 @@ void initTpSequence() {
   runSequenceCount = 0;
   seqDur = wsDurArray[0];
   seqWs = wsArray[0];
-  gyroXAngle = 0.0f;
+  gyroPitchAngle = 0.0f;
   tickDistanceRight = tickDistanceLeft = 0L;
 }
 void runTpSequence() {

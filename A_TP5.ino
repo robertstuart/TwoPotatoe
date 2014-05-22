@@ -23,7 +23,7 @@ float tp5LoopSec = 0.0f;
 unsigned int tp5LoopCounter = 0;
 float tp5LpfCos = 0.0;
 float tp5LpfCosOld = 0.0;
-float oldGaXTickAngle = 0.0;
+float oldGaPitchTickAngle = 0.0;
 
 // Set up IMU
 //  compass.init(LSM303DLHC_DEVICE, 0);
@@ -85,8 +85,8 @@ void aTp5() {
   readSpeed();
   getTp5Angle();
   
-  float tp5AngleDelta = gaXTickAngle - oldGaXTickAngle;
-  oldGaXTickAngle = gaXTickAngle;
+  float tp5AngleDelta = gaPitchTickAngle - oldGaPitchTickAngle;
+  oldGaPitchTickAngle = gaPitchTickAngle;
   
   // compute the Center of Oscillation Speed (COS)
   float tp5Cos = wheelSpeedFps + (tp5AngleDelta * 1.4);
@@ -104,7 +104,7 @@ void aTp5() {
   float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  float tp5AngleError = gaXTickAngle - tp5TargetAngle;
+  float tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
   tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
 
   // Add the angle error to the base speed to get the target speed.
@@ -122,14 +122,14 @@ void aTp5() {
     set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
     set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
     if (isBitSet(tpState, TP_STATE_STREAMING)) {
-      set4Byte(sendArray, TP_SEND_A_VAL, tp5TickDistance);
-      set4Byte(sendArray, TP_SEND_B_VAL, wheelSpeedFps * 100.0);
-      set2Byte(sendArray, TP_SEND_C_VAL, tp5TickRate);
-      set2Byte(sendArray, TP_SEND_D_VAL, tp5IntTickRate * 100.0);
-      set2Byte(sendArray, TP_SEND_E_VAL, tp5AngleDelta * 100.0);
-      set2Byte(sendArray, TP_SEND_F_VAL, deltaSum * 100.0);
-      set2Byte(sendArray, TP_SEND_G_VAL, gaXTickAngle * 100.0);
-      set2Byte(sendArray, TP_SEND_H_VAL, gaXAngle * 100.0);
+      set4Byte(sendArray, TP_SEND_A_VAL, gaPitchTickAngle * 100.0);
+      set4Byte(sendArray, TP_SEND_B_VAL, gaRollAngle * 100.0);
+      set2Byte(sendArray, TP_SEND_C_VAL, magHeading * 100.0);
+      set2Byte(sendArray, TP_SEND_D_VAL, mPitchVec * 100.0);
+      set2Byte(sendArray, TP_SEND_E_VAL, mRollVec * 100.0);
+      set2Byte(sendArray, TP_SEND_F_VAL, mYawVec * 100.0);
+      set2Byte(sendArray, TP_SEND_G_VAL, headX * 100.0);
+      set2Byte(sendArray, TP_SEND_H_VAL, headY * 100.0);
       sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_I_VAL); 
     } 
     else {
@@ -180,7 +180,7 @@ void tp5Steer() {
 
 
 float tp5GetRotation() {
-  float rotateError = rotateTarget - gyroZAngle;
+  float rotateError = rotateTarget - gyroYawAngle;
   if (abs(rotateError) < 1.0f) {
     isRotating = false;
     tpPositionDiff = tickDistanceRight - tickDistanceLeft;

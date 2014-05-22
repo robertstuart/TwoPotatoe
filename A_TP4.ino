@@ -98,7 +98,7 @@ void aTp4() {
   float tp4TargetAngle = tp4SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  float tp4AngleError = gaXAngle - tp4TargetAngle;
+  float tp4AngleError = gaPitchAngle - tp4TargetAngle;
   tp4AngleErrorW = tp4AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
 
   // Add the angle error to the base speed to get the target speed.
@@ -121,9 +121,9 @@ void aTp4() {
     if (isBitSet(tpState, TP_STATE_STREAMING)) {
       set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
       set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight + tickDistanceLeft);
-      set2Byte(sendArray, TP_SEND_C_VAL, gyroXRate);
-      set2Byte(sendArray, TP_SEND_D_VAL, ay);
-      set2Byte(sendArray, TP_SEND_E_VAL, az);
+      set2Byte(sendArray, TP_SEND_C_VAL, gyroPitchRate);
+      set2Byte(sendArray, TP_SEND_D_VAL, aRoll);
+      set2Byte(sendArray, TP_SEND_E_VAL, aYaw);
 //      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_F_VAL); 
       set2Byte(sendArray, TP_SEND_F_VAL, blinkPattern[blinkPtr]);
       sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_G_VAL); 
@@ -176,7 +176,7 @@ void tp4Steer() {
 
 
 float getRotation() {
-  float rotateError = rotateTarget - gyroZAngle;
+  float rotateError = rotateTarget - gyroYawAngle;
   if (abs(rotateError) < 1.0f) {
     isRotating = false;
     tpPositionDiff = tickDistanceRight - tickDistanceLeft;
