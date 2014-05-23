@@ -39,6 +39,7 @@ unsigned int tp4LoopCounter = 0;
  * 
  ************************************************************************/
 void aTp4Run() {
+  txRateDivider = 5;  // 20/sec
   timeMicroseconds = timeTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
@@ -109,29 +110,23 @@ void aTp4() {
   setTargetSpeedRight(tp4FpsRight);
   setTargetSpeedLeft(tp4FpsLeft);
 
-  // Send
-  if (((++tp4LoopCounter % 5) == 0) || ((tpState & TP_STATE_STREAMING) != 0)) {
-    sendArray[TP_SEND_STATE_STATUS] = tpState;
-    sendArray[TP_SEND_MODE_STATUS] = mode;
-    set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
-    set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
-//    sendArray[TP_SEND_MSG_ACK, ackMsgType);
-//    set2Byte(sendArray, TP_SEND_MSG_ACKVAL, ackMsgVal);
+  sendArray[TP_SEND_STATE_STATUS] = tpState;
+  sendArray[TP_SEND_MODE_STATUS] = mode;
+  set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
+  set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
     
-    if (isBitSet(tpState, TP_STATE_STREAMING)) {
-      set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
-      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight + tickDistanceLeft);
-      set2Byte(sendArray, TP_SEND_C_VAL, gyroPitchRate);
-      set2Byte(sendArray, TP_SEND_D_VAL, aRoll);
-      set2Byte(sendArray, TP_SEND_E_VAL, aYaw);
-//      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_F_VAL); 
-      set2Byte(sendArray, TP_SEND_F_VAL, blinkPattern[blinkPtr]);
-      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_G_VAL); 
-    } 
-    else {
-      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_A_VAL); 
-    }
+  if (isStateBitSet(TP_STATE_STREAMING)) {
+    set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
+    set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight + tickDistanceLeft);
+    set2Byte(sendArray, TP_SEND_C_VAL, gyroPitchRate);
+    set2Byte(sendArray, TP_SEND_D_VAL, aRoll);
+    set2Byte(sendArray, TP_SEND_E_VAL, aYaw);
+    set2Byte(sendArray, TP_SEND_F_VAL, blinkPattern[blinkPtr]);
+    sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_G_VAL); 
   } 
+  else {
+    sendTXFrame(XBEE_BROADCAST, sendArray, 0); 
+  }
 } // end aTp4() 
 
 

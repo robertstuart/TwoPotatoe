@@ -131,18 +131,21 @@ int doRx(int b) {
  *
  *********************************************************/
 void newPacket() {  
-  if (packetSource == XBEE_PC) {
-    tPc = timeMilliseconds;
+  if (packetSource == XBEE_PC) tPc = timeMilliseconds;
+  else tHc = timeMilliseconds;
+  
+  int msgType = packetByteArray[TP_RCV_MSG_TYPE];
+  if (msgType < TP_BLOCK_ZERO) {
+    if (!isRouteInProgress) {
+      controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
+      controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
+    }
+    if (msgType != TP_RCV_MSG_NULL) {
+      doMessage(msgType, get2Byte(TP_RCV_MSG_VAL));
+    }
   }
   else {
-    tHc = timeMilliseconds;
-  }
-
-  controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
-  controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
-  int msgType = packetByteArray[TP_RCV_MSG_TYPE];
-  if (msgType != TP_RCV_MSG_NULL) {
-    doMessage(msgType, get2Byte(TP_RCV_MSG_VAL));
+    doRouteBlock();
   }
 }
 
@@ -164,19 +167,30 @@ void doMessage(int type, int val) {
     digitalWrite(PWR_PIN, LOW);
     break;
   case TP_RCV_MSG_STREAM:
-    if (val != 0) {
-      tpState = tpState | TP_STATE_STREAMING;
-    }
-    else {
-      tpState = tpState & (~TP_STATE_STREAMING);
-    }
+    if (val != 0) setStateBit(TP_STATE_STREAMING, true);
+    else setStateBit(TP_STATE_STREAMING, false);
+    break;
+  case TP_RCV_MSG_RATE:
+    if (val != 0) txRateHL = true;
+    else txRateHL = false;;
     break;
   case TP_RCV_MSG_RUN:
+    if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
+    else setStateBit(TP_STATE_RUN_READY, false);
+    break;
+  case TP_RCV_MSG_BLOCK: // Starting or ending block of data
+    if (val != 0) isBlockInProgress = true;
+    else isBlockInProgress = false;
+    break;
+  case TP_RCV_MSG_ROUTE: // Starting or ending route
     if (val != 0) {
-      tpState = tpState | TP_STATE_RUN_READY;
+      isRouteInProgress = true;
+      routeActionPtr = 0;
+      setNewRouteAction();
     }
     else {
-      tpState = tpState & (~TP_STATE_RUN_READY);
+      isRouteInProgress = false;
+//      controllerY = 0.0;
     }
     break;
   default:
@@ -185,6 +199,34 @@ void doMessage(int type, int val) {
 }
 
 
+/*********************************************************
+ *
+ * doRouteBlock()
+ *
+ *********************************************************/
+void doRouteBlock() {
+  isBlockInProgress = true;
+  byte c = packetByteArray[1];
+  if (c == 'B') {
+    routeActionPtr = 0;
+    routeCurrentAction = 0;
+  }
+  else if (c == 'E') {
+    isBlockInProgress = false;
+    routeActionSize = routeActionPtr;
+    routeActionPtr = 0;
+    txRateHL = false;
+    txRateDivider = 5;
+    txRateCounter = 0;
+  }
+  else {
+    actionArray[routeActionPtr] = c;
+    aValArray[routeActionPtr] = get2Byte(2);
+    bValArray[routeActionPtr] = get2Byte(4);
+    routeActionPtr++;
+    routeActionSize++;
+  }
+}
 
 
 

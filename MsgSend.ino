@@ -18,10 +18,20 @@ unsigned long transmitNextWriteTime = 0UL;
  *     array value.
  *
  *********************************************************/
-void sendTXFrame(int dest, byte rfData[], int rfDataLength) {  
-//  tXframeDataHeader[2] = dest/256;    // MSB wrong index?
-//  tXframeDataHeader[3] = dest & 0xFF; // LSB
-  sendFrame(tXframeDataHeader, 5, rfData, rfDataLength);
+void sendTXFrame(int dest, byte rfData[], int rfDataLength) { 
+  if (isBlockInProgress) return;
+  if (txRateCounter++ >= txRateDivider) {
+    txRateCounter = 0;
+    sendArray[TP_SEND_STATE_STATUS] = tpState;
+    sendArray[TP_SEND_MODE_STATUS] = mode;
+    set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
+    set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
+    sendArray[TP_SEND_MSG_ACK] = ackMsgType;
+    set2Byte(sendArray, TP_SEND_MSG_ACKVAL, ackMsgVal);
+    
+    if (rfDataLength == 0) rfDataLength = TP_SEND_A_VAL;
+    sendFrame(tXframeDataHeader, 5, rfData, rfDataLength);
+  }
 }
 
 

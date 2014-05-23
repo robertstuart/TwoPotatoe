@@ -60,8 +60,8 @@ void setTp4RunningState() {
 
   // set x, y, and blink state
   if (!(tpState & (TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE))) {
-    controllerY = 0.0f;
-    controllerX = 0.0f;
+//    controllerY = 0.0f;
+//    controllerX = 0.0f;
     blinkState = BLINK_SBYG;  // Slow blinking if no connection
   }
   else if ((tpState & TP_STATE_RUNNING) != 0) {
@@ -262,13 +262,22 @@ void beepIsr() {
   digitalWrite(SPEAKER_PIN, beepStat);
 }
 
-
+void setStateBit(byte by, boolean bo) {
+  if (bo) tpState = tpState | by;
+  else tpState = tpState & (~by);
+}
 
 boolean isBitClear(int test, byte b) {
   return ((test & b) == 0);
 }
+boolean isStateBitClear(byte b) {
+  return ((tpState & b) == 0);
+}
 boolean isBitSet(int test, byte b) {
   return ((test & b) != 0);
+}
+boolean isStateBitSet(byte b) {
+  return ((tpState & b) != 0);
 }
 
 void debugFloat(char msg[], float f) {

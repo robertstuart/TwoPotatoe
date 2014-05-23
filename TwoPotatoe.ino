@@ -35,6 +35,10 @@ const int MSG_STATE_HC_NAK = 5;
 
 const int ACK_PC = 100; // Message frames >= this have been sent to PC
 
+
+const float SPEED_MULTIPLIER = 3.0;
+
+
 #define BRAKE 2
 #define FWD 1
 #define COAST 0
@@ -163,6 +167,19 @@ valSet tp4C = {
 valSet *currentValSet = &tp4A;
 int vSetStatus = VAL_SET_A;
 
+// TODO do this with an array of structures
+byte actionArray[100];
+int aValArray[100];
+int bValArray[100];
+int routeActionPtr = 0;
+int routeActionSize = 0;
+boolean isRouteInProgress = false;
+boolean isBlockInProgress = false;
+int routeCurrentAction = 0;
+float routeTargetHeading = 0.0;
+long routeTargetTickDistance = 0L;
+long routeTargetTime = 0L;
+
 int msgState = MSG_STATE_TIMER_WAIT;
 
 int aPitch, aRoll, aYaw;
@@ -266,7 +283,6 @@ long oldTp5TickDistance = 0L;
 float tp5IntTickRate = 0.0;
 float deltaSum = 0.0;
 float deltaOverBase = 0.0;
-long tp5TickDistance = 0L;
 int tp5TickRate = 0;
 
 int gyroRollRaw = 0;
@@ -293,6 +309,9 @@ float rotateTarget = 0.0;
 boolean isRotating = false;
 //
 unsigned int byteCountErrorsHc = 0;
+int txRateDivider = 5;
+boolean txRateHL = false;
+int txRateCounter = 0;
 
 int batteryVolt = 0;
 float gyroXAngleDelta = 0;
@@ -483,6 +502,7 @@ void aImuRun() {
  *
  *********************************************************/
 void aPwmSpeedRun() { 
+  txRateDivider = 5;  // 20/sec
   timeTrigger = timeMicroseconds = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   motorInitPwm();
@@ -513,10 +533,6 @@ void aPwmSpeedRun() {
       setPwmSpeed(MOTOR_LEFT, remotePwL);
 
       // Fill out the sendArray and send it.
-      sendArray[TP_SEND_STATE_STATUS] = tpState;
-      sendArray[TP_SEND_MODE_STATUS] = mode;
-      set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
-      set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
       set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
       set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
       int right = (int) (fpsRight * 100.0);
@@ -536,6 +552,7 @@ void aPwmSpeedRun() {
  *
  *********************************************************/
 void aTpSpeedRun() { 
+  txRateDivider = 5;  // 20/sec
   timeTrigger = timeMicroseconds = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   motorInitTp();
@@ -569,10 +586,6 @@ void aTpSpeedRun() {
       battery();
       
       // Send the packet
-      sendArray[TP_SEND_STATE_STATUS] = tpState;
-      sendArray[TP_SEND_MODE_STATUS] = mode;
-      set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
-      set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
       set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
       set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
       int right = (int) (fpsRight * 100.0);

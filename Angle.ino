@@ -126,9 +126,9 @@ float getTp5Angle() {
   gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
   
   // Add the tick information to compensate for gyro information being 40ms late.
-  tp5TickDistance = tickDistanceLeft + tickDistanceRight;
-  tp5TickRate = oldTp5TickDistance - tp5TickDistance;
-  oldTp5TickDistance = tp5TickDistance;
+  tickDistance = tickDistanceLeft + tickDistanceRight;
+  tp5TickRate = oldTp5TickDistance - tickDistance;
+  oldTp5TickDistance = tickDistance;
   tp5IntTickRate = (((float)(tp5TickRate - tp5IntTickRate)) * .2) + tp5IntTickRate;
   deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
   deltaSum += deltaOverBase;

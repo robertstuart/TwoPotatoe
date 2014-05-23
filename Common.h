@@ -83,4 +83,10 @@ const int TP_RCV_MSG_RESET =      16;  //
 const int TP_RCV_MSG_MODE =       17;  //
 const int TP_RCV_MSG_VALSET =     18;  // 
 const int TP_RCV_MSG_RUN    =     19;  // Run/Idle
+const int TP_RCV_MSG_BLOCK  =     20;  //
+const int TP_RCV_MSG_ROUTE  =     21;  // 
+
+// Block types.  Must be non-overlapping with TP_RCV_MSG_xxx
+const int TP_BLOCK_ZERO     =    100;  // Must be greater than this
+const int TP_BLOCK_ROUTE    =    101;
 
