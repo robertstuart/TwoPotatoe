@@ -90,3 +90,5 @@ const int TP_RCV_MSG_ROUTE  =     21;  //
 const int TP_BLOCK_ZERO     =    100;  // Must be greater than this
 const int TP_BLOCK_ROUTE    =    101;
 
+// Character definitions for route actions
+

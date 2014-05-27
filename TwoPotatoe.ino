@@ -72,6 +72,10 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define UNSIGNED_LONG_MAX 4294967295UL 
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
+#define TICKS_PER_360 3030
+#define TICKS_PER_180 1515
+#define TICKS_PER_DEGREE 8.4166
+//#define TICKS_PER_180 1515
 
 // Constants for IMU
 #define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
@@ -79,7 +83,6 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
 #define TICK_WEIGHT 0.98    // Weight for tick compared to accelerometer
-#define TICKS_PER_DEGREE 30.3f
 #define TICKS_PER_FOOT 1600
 #define FPS_ANGLE_RATE (-TICKS_PER_FOOT / (TICKS_PER_DEGREE * 100.0f))
 #define RADIANS_PER_DEGREE 0.0174
@@ -210,6 +213,8 @@ float fpsLeft = 0.0f;  // left feet per second
 float wheelSpeedFps = 0.0f;
 float speedTpcs = 0.0f;
 unsigned long lasttime, gap;
+float tickHeading = 0.0;
+long tickMagCorrection = 0L;
 
 unsigned long waitPeriodRight = 0UL;  // Wait beyond beginning of pulse!!!
 unsigned long waitPeriodLeft = 0UL;  // Wait beyond beginning of pulse!!!

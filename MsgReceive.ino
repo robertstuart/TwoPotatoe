@@ -182,7 +182,7 @@ void doMessage(int type, int val) {
     if (val != 0) isBlockInProgress = true;
     else isBlockInProgress = false;
     break;
-  case TP_RCV_MSG_ROUTE: // Starting or ending route
+  case TP_RCV_MSG_ROUTE: // Starting route
     if (val != 0) {
       isRouteInProgress = true;
       routeActionPtr = 0;
@@ -205,8 +205,13 @@ void doMessage(int type, int val) {
  *
  *********************************************************/
 void doRouteBlock() {
+  int aVal, bVal;
   isBlockInProgress = true;
   byte c = packetByteArray[1];
+//char cc[] = " ";
+//cc[0]= c;
+//Serial.print(cc); 
+//Serial.print(routeActionPtr);
   if (c == 'B') {
     routeActionPtr = 0;
     routeCurrentAction = 0;
@@ -221,11 +226,18 @@ void doRouteBlock() {
   }
   else {
     actionArray[routeActionPtr] = c;
-    aValArray[routeActionPtr] = get2Byte(2);
-    bValArray[routeActionPtr] = get2Byte(4);
+    aVal = get2Byte(2);
+    bVal = get2Byte(4);
+//Serial.print("  ");
+//Serial.print(aVal);
+//Serial.print("  ");
+//Serial.print(bVal);
+    aValArray[routeActionPtr] = aVal;
+    bValArray[routeActionPtr] = bVal;
     routeActionPtr++;
     routeActionSize++;
   }
+//Serial.println();
 }
 
 

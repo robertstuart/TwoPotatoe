@@ -51,8 +51,13 @@ void setTp4RunningState() {
   // Set the bit
   if (     ((tpState & TP_STATE_RUN_READY) != 0)
     && ((tpState & TP_STATE_UPRIGHT) != 0)
-    && ((tpState & TP_STATE_ON_GROUND) != 0)) {           
-    tpState = tpState | TP_STATE_RUNNING;
+    && ((tpState & TP_STATE_ON_GROUND) != 0)) { 
+    if (!(tpState & TP_STATE_RUNNING)) { // only zero for state change      
+      tpState = tpState | TP_STATE_RUNNING;
+      if (!isRouteInProgress) {
+        targetHeading = tickHeading;
+      }
+    }
   }
   else {
     tpState = tpState & ~TP_STATE_RUNNING;

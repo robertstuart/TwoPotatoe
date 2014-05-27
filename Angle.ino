@@ -113,7 +113,17 @@ float getTpAngle() {
 float old1DeltaOverBase = 0.0;
 float old2DeltaOverBase = 0.0;
 
+
+/*********************************************************
+ * getTp5Angle()
+ *********************************************************/
 float getTp5Angle() {
+  
+  // Compute the tickHeading.
+  long td = (tickDistanceLeft - tickDistanceRight) % TICKS_PER_360;
+  if (td < 0) td += TICKS_PER_360;
+  tickHeading = ((float) td) / TICKS_PER_DEGREE;
+
   getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
 
   // Compute angle around the x axis
@@ -185,6 +195,7 @@ void getCompass() {
   
   // magnetic heading
   magHeading = atan2(headX, -headY) * RAD_TO_DEG;
+  if (magHeading < 0) magHeading += 360.0;
 }
 
 /* tilt-compensated e-Compass code */
