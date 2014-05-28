@@ -360,6 +360,8 @@ int iBfx, iBfy, iBfz;
 /* hard iron estimate */
 int iVx, iVy, iVz;
 
+float magCorrection = 0.0;
+
 
 /*********************************************************
  *

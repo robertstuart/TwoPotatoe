@@ -122,7 +122,7 @@ float getTp5Angle() {
   // Compute the tickHeading.
   long td = (tickDistanceLeft - tickDistanceRight) % TICKS_PER_360;
   if (td < 0) td += TICKS_PER_360;
-  tickHeading = ((float) td) / TICKS_PER_DEGREE;
+  tickHeading = magCorrection + (((float) td) / TICKS_PER_DEGREE);
 
   getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
 
@@ -143,7 +143,8 @@ float getTp5Angle() {
   deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
   deltaSum += deltaOverBase;
   deltaSum -= old2DeltaOverBase;
-  gaPitchTickAngle = gaPitchAngle + deltaSum;
+//  gaPitchTickAngle = gaPitchAngle + deltaSum; // Causing problems over cracks in surface.
+  gaPitchTickAngle = gaPitchAngle;
   old2DeltaOverBase = old1DeltaOverBase;
   old1DeltaOverBase = deltaOverBase;
   

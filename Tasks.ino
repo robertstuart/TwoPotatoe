@@ -55,6 +55,9 @@ void setTp4RunningState() {
     if (!(tpState & TP_STATE_RUNNING)) { // only zero for state change      
       tpState = tpState | TP_STATE_RUNNING;
       if (!isRouteInProgress) {
+        tickDistanceRight = 0;
+        tickDistanceLeft = (long) (magHeading * TICKS_PER_DEGREE); 
+        getTp5Angle();
         targetHeading = tickHeading;
       }
     }

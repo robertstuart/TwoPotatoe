@@ -28,6 +28,8 @@ boolean clockwise = true;
 float targetHeading = 0.0;
 long targetTickDistance = 0L;
 float turnSpeedAdjustment = 0.0;
+float tp5LpfAngleErrorWOld = 0.0;
+float tp5LpfAngleErrorW = 0.0;
 
 // Set up IMU
 //  compass.init(LSM303DLHC_DEVICE, 0);
@@ -63,6 +65,7 @@ void aTp5Run() {
       oldTimeTrigger = timeMicroseconds;
 
       aTp5(); 
+      magTickCorrection();
       battery();
       led();
       safeAngle();
@@ -106,10 +109,18 @@ void aTp5() {
 
   // Compute angle error and weight factor
   float tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
-  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  
+  // Original value for y: 0.09
+//  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+  tp5LpfAngleErrorW = tp5LpfAngleErrorWOld + ((tp5AngleErrorW - tp5LpfAngleErrorWOld) * 0.1);
+  tp5LpfAngleErrorWOld = tp5LpfAngleErrorW;
+// example;  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.1); // smooth it out a little
+  
 
   // Add the angle error to the base speed to get the target speed.
-  tp5Fps = tp5AngleErrorW + tp5LpfCos;
+  tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
+//  tp5Fps = tp5AngleErrorW + tp5LpfCos;
 //  tp5FpsRight = tp5FpsLeft = tp5Fps;
 
   tp5Steer();
@@ -120,14 +131,14 @@ void aTp5() {
     else txRateDivider = 5;
   }
 
-  if (isStateBitSet(TP_STATE_STREAMING)) {
-    set4Byte(sendArray, TP_SEND_A_VAL, tickDistance);
-    set4Byte(sendArray, TP_SEND_B_VAL, targetTickDistance);
-    set2Byte(sendArray, TP_SEND_C_VAL, magHeading * 10.0);
-    set2Byte(sendArray, TP_SEND_D_VAL, tickHeading * 10.0);
-    set2Byte(sendArray, TP_SEND_E_VAL, targetHeading * 10.0);
-    set2Byte(sendArray, TP_SEND_F_VAL, wheelSpeedFps * 100.0);
-    set2Byte(sendArray, TP_SEND_G_VAL, routeActionPtr);
+  if (isStateBitSet(TP_STATE_DATA)) {
+    set4Byte(sendArray, TP_SEND_A_VAL, tp5LpfCos);
+    set4Byte(sendArray, TP_SEND_B_VAL, tp5SpeedError);
+    set2Byte(sendArray, TP_SEND_C_VAL, tp5TargetAngle * 100.0);
+    set2Byte(sendArray, TP_SEND_D_VAL, gaPitchTickAngle * 100.0);
+    set2Byte(sendArray, TP_SEND_E_VAL, wheelSpeedFps * 100.0);
+    set2Byte(sendArray, TP_SEND_F_VAL, tp5AngleErrorW * 100.0);
+    set2Byte(sendArray, TP_SEND_G_VAL, tp5Fps * 100.0);
     sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_H_VAL); 
   } 
   else {
@@ -143,30 +154,32 @@ void aTp5() {
 void tp5Steer() {
   if (isRouteInProgress) {
     steerRoute();
-    return;
+  }
+  else  {
+    targetHeading += (controllerX * 2.0);
+    fixHeading(tickHeading, targetHeading);
   }
 
-  float speedAdjustment = 0.0;
-  // Adjust targetHeading by controllerX
-  // TODO quickfix using modulo & int, redo later
-  targetHeading = targetHeading + (controllerX * 1.0); 
-  long intTargetHeading = (long) (targetHeading * 100.0) % 36000;
-  if (intTargetHeading < 0) intTargetHeading += 36000;
-  else if (intTargetHeading > 36000) intTargetHeading -= 36000;
-  targetHeading = ((float) intTargetHeading) / 100.0;
-    float aDiff = targetHeading - tickHeading;
-    if (aDiff > 180.0) aDiff -= 360.0;
-    else if (aDiff < -180.0) aDiff += 360.0;
-    
-    if (abs(aDiff) < 2.0) speedAdjustment = 0.05;
-    else if (abs(aDiff) < 10.0) speedAdjustment = 0.2;
-    else speedAdjustment = 0.5;
-//speedAdjustment = 0.1;    
-    if (aDiff > 0.0) speedAdjustment *= -1.0;
-    
-    tp5FpsLeft = tp5Fps - speedAdjustment;
-    tp5FpsRight = tp5Fps + speedAdjustment;
-
+//  float speedAdjustment = 0.0;
+//  // Adjust targetHeading by controllerX
+//  // TODO quickfix using modulo & int, redo later
+//  targetHeading = targetHeading + (controllerX * 1.0); 
+//  long intTargetHeading = (long) (targetHeading * 100.0) % 36000;
+//  if (intTargetHeading < 0) intTargetHeading += 36000;
+//  else if (intTargetHeading > 36000) intTargetHeading -= 36000;
+//  targetHeading = ((float) intTargetHeading) / 100.0;
+//    float aDiff = targetHeading - tickHeading;
+//    if (aDiff > 180.0) aDiff -= 360.0;
+//    else if (aDiff < -180.0) aDiff += 360.0;
+//    
+//    if (abs(aDiff) < 2.0) speedAdjustment = 0.05;
+//    else if (abs(aDiff) < 10.0) speedAdjustment = 0.2;
+//    else speedAdjustment = 0.5;
+//    if (aDiff > 0.0) speedAdjustment *= -1.0;
+//    
+//    tp5FpsLeft = tp5Fps - speedAdjustment;
+//    tp5FpsRight = tp5Fps + speedAdjustment;
+//
 //Serial.print(speedAdjustment); Serial.print("  ");
 //Serial.print(targetHeading); Serial.print("  ");
 //Serial.println(tickHeading);
@@ -212,7 +225,59 @@ void tp5Steer() {
 
 
 /************************************************************************
- *  steerRoute() uses wheel ticks
+ *  fixHeading() adjust the speed to correct for deviation from heading.
+ ************************************************************************/
+void fixHeading(float hheading, float target) {
+  float speedAdjustment;
+  
+  // TODO quickfix using modulo & int, redo later using int/long?
+  // Put heading into range of 0-359.99
+  long intHeading = (long) (hheading * 100.0) % 36000;
+  if (intHeading < 0) intHeading += 36000;
+  else if (intHeading > 36000) intHeading -= 36000;
+  hheading = ((float) intHeading) / 100.0;
+  
+  // Put target into range of 0-359.99
+  long intTarget = (long) (target * 100.0) % 36000;
+  if (intTarget < 0) intTarget += 36000;
+  else if (intTarget > 36000) intTarget -= 36000;
+  target = ((float) intTarget) / 100.0;
+  
+  
+  float aDiff = target - hheading;
+  if (aDiff > 180.0) aDiff -= 360.0;
+  else if (aDiff < -180.0) aDiff += 360.0;
+  speedAdjustment = constrain(aDiff * 0.02, -1.0, 1.0);
+//Serial.print(controllerX); Serial.print(" ");
+//Serial.print(hheading); Serial.print(" ");
+//Serial.print(target); Serial.print(" ");
+//Serial.print(aDiff); Serial.print(" ");
+//Serial.print(speedAdjustment); Serial.print(" ");
+//Serial.println();
+//  if (aDiff > 0.0) {  
+    tp5FpsLeft = tp5Fps + speedAdjustment;
+    tp5FpsRight = tp5Fps - speedAdjustment;
+    magTickCorrection();
+//  }
+//  else {
+//    tp5FpsLeft = tp5Fps - speedAdjustment;
+//    tp5FpsRight = tp5Fps + speedAdjustment;
+//  }
+}
+
+
+/************************************************************************
+ *  magTickCorrection() Uses wheel ticks.  Called every timed loop (10 millisec.)
+ ************************************************************************/
+void magTickCorrection() {
+  float diff = magHeading - tickHeading;
+  if (abs(diff < 360)) {
+//    magCorrection += diff * 0.1;
+  }
+}
+
+/************************************************************************
+ *  steerRoute() Uses wheel ticks.  Called every timed loop (10 millisec.)
  ************************************************************************/
 void steerRoute() {
   float speedAdjustment = 0.0;
@@ -221,43 +286,25 @@ void steerRoute() {
   
   switch (routeCurrentAction) {
   case 'M': // Mag
-    magDiff = magHeading - targetHeading;
-    if (magDiff > 180.0) magDiff -= 360.0;
-    else if (magDiff < -180.0) magDiff += 360.0;
-    if (abs(magDiff) < 2.0) speedAdjustment = 0.1;
-    else if (abs(magDiff) < 10.0) speedAdjustment = 0.2;
-    else speedAdjustment = 2.0;
-    
-    if (magDiff > 0.0) speedAdjustment *= -1.0;
-// Serial.print(magDiff);
-// Serial.print("  ");
-// Serial.println(speedAdjustment);   
-    
-    tp5FpsLeft = tp5Fps + speedAdjustment;
-    tp5FpsRight = tp5Fps - speedAdjustment;
+    fixHeading(magHeading, targetHeading);
+    tickDistanceRight = 0;
+    tickDistanceLeft = (long) (magHeading * TICKS_PER_DEGREE); 
     break;
   case 'R':
     routeReset(false);
+    fixHeading(tickHeading, targetHeading);
     // Fall through.
   case 'S': // Speed  // TODO tune this?
     aDiff = targetHeading - tickHeading;
-    if (aDiff > 180.0) aDiff -= 360.0;
-    else if (aDiff < -180.0) aDiff += 360.0;
-    
-    if (aDiff > 0.0) {
-      tp5FpsLeft = tp5Fps + 0.1;
-      tp5FpsRight = tp5Fps - 0.1;  
-    } 
-    else {
-      tp5FpsLeft = tp5Fps - 0.1;
-      tp5FpsRight = tp5Fps + 0.1;  
-    }
+    fixHeading(tickHeading, targetHeading);
     break;
   case 'T':  // Turn
     tp5FpsLeft = tp5Fps + turnSpeedAdjustment;
     tp5FpsRight = tp5Fps - turnSpeedAdjustment;  
-//Serial.print(tp5FpsLeft); Serial.print("  "); Serial.println(tp5FpsRight);
     break;
+  case 'Z':  // Zero speed at current bearing.
+    fixHeading(tickHeading, targetHeading); 
+   break; 
   }  
 }
 
@@ -288,6 +335,7 @@ void routeReset(boolean r) {
       tickDistanceLeft = (long) (deg * TICKS_PER_DEGREE); 
     }
   }
+  magCorrection = 0.0;
 }
 
 
@@ -313,11 +361,9 @@ void route() {
   case 'R':
     if (digitalRead(YE_SW_PIN) == LOW) isNewAction = true;
     if (routeResetTime < timeMilliseconds) isNewAction = true;
-//Serial.println(timeMilliseconds);
     break;
   case 'M':
     if (abs(magHeading - targetHeading) < 1.0) isNewAction = true;
-//Serial.println(magHeading);
     break;
   case 'S':
     if (controllerY > 0.0) {
@@ -326,7 +372,6 @@ void route() {
     else {
       if (tickDistance < targetTickDistance) isNewAction = true;
     }
-//Serial.println(tickDistance);
     break;
   case 'T':
     tbd =  (targetHeading - tickHeading);
@@ -406,7 +451,6 @@ void setNewRouteAction() {
     radius = ((float) bVal) * 0.2;
     turnSpeedAdjustment = s/radius;
     if (clockwise) turnSpeedAdjustment = turnSpeedAdjustment * -1.0;
-Serial.print(radius); Serial.print("  "); Serial.println(turnSpeedAdjustment);
     break;
   case 'Z':
     controllerY = 0.0;

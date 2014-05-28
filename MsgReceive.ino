@@ -167,14 +167,14 @@ void doMessage(int type, int val) {
     digitalWrite(PWR_PIN, LOW);
     break;
   case TP_RCV_MSG_STREAM:
-    if (val != 0) setStateBit(TP_STATE_STREAMING, true);
-    else setStateBit(TP_STATE_STREAMING, false);
+    if (val != 0) setStateBit(TP_STATE_DATA, true);
+    else setStateBit(TP_STATE_DATA, false);
     break;
   case TP_RCV_MSG_RATE:
     if (val != 0) txRateHL = true;
     else txRateHL = false;;
     break;
-  case TP_RCV_MSG_RUN:
+  case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
     break;
@@ -190,8 +190,20 @@ void doMessage(int type, int val) {
     }
     else {
       isRouteInProgress = false;
-//      controllerY = 0.0;
+      controllerY = 0.0;
     }
+    break;
+  case TP_RCV_MSG_LIGHTS: // 
+    if (val != 0) {
+      digitalWrite(RIGHT_HL_PIN, HIGH);
+      digitalWrite(LEFT_HL_PIN, HIGH);
+      digitalWrite(REAR_BL_PIN, HIGH);
+    }
+    else {
+      digitalWrite(RIGHT_HL_PIN, LOW);
+      digitalWrite(LEFT_HL_PIN, LOW);
+      digitalWrite(REAR_BL_PIN, LOW);
+    } 
     break;
   default:
     break;    

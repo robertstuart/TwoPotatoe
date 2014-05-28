@@ -20,7 +20,7 @@ unsigned long transmitNextWriteTime = 0UL;
  *********************************************************/
 void sendTXFrame(int dest, byte rfData[], int rfDataLength) { 
   if (isBlockInProgress) return;
-  if (txRateCounter++ >= txRateDivider) {
+  if (++txRateCounter >= txRateDivider) {
     txRateCounter = 0;
     sendArray[TP_SEND_STATE_STATUS] = tpState;
     sendArray[TP_SEND_MODE_STATUS] = mode;

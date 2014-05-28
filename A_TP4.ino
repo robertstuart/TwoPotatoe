@@ -115,7 +115,7 @@ void aTp4() {
   set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
   set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
     
-  if (isStateBitSet(TP_STATE_STREAMING)) {
+  if (isStateBitSet(TP_STATE_DATA)) {
     set4Byte(sendArray, TP_SEND_A_VAL, timeMicroseconds);
     set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight + tickDistanceLeft);
     set2Byte(sendArray, TP_SEND_C_VAL, gyroPitchRate);

@@ -17,10 +17,10 @@ const int TP_STATE_RUN_READY       = 0B00000001;  // Ready.  Reflects the RUN co
 const int TP_STATE_RUNNING         = 0B00000010;  // Motor running: is READY, UPRIGHT & ONGROUND
 const int TP_STATE_UPRIGHT         = 0B00000100;  // Status: tp is upright (not tipped over).
 const int TP_STATE_ON_GROUND       = 0B00001000;  // Status: pressure sensor indicates standing.
-const int TP_STATE_STREAMING       = 0B00010000;  // TP is streaming data
+const int TP_STATE_DATA            = 0B00010000;  // TP is streaming data
 const int TP_STATE_HC_ACTIVE       = 0B00100000;  // Status: Hand Controller connected
 const int TP_STATE_PC_ACTIVE       = 0B01000000;  // Status: PC connected
-const int TP_STATE_DUMPING         = 0B10000000;  // Collecting or dumping data.
+const int TP_STATE_ROUTE           = 0B10000000;  // Route in progress.
 
 // value sets
 const int VAL_SET_A           = 0;
@@ -82,7 +82,7 @@ const int TP_RCV_MSG_START =      15;  // Run loaded sequence.
 const int TP_RCV_MSG_RESET =      16;  // 
 const int TP_RCV_MSG_MODE =       17;  //
 const int TP_RCV_MSG_VALSET =     18;  // 
-const int TP_RCV_MSG_RUN    =     19;  // Run/Idle
+const int TP_RCV_MSG_RUN_READY =  19;  // Run/Idle
 const int TP_RCV_MSG_BLOCK  =     20;  //
 const int TP_RCV_MSG_ROUTE  =     21;  // 
 
