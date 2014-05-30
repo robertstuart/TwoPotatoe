@@ -143,8 +143,8 @@ float getTp5Angle() {
   deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
   deltaSum += deltaOverBase;
   deltaSum -= old2DeltaOverBase;
-//  gaPitchTickAngle = gaPitchAngle + deltaSum; // Causing problems over cracks in surface.
-  gaPitchTickAngle = gaPitchAngle;
+  gaPitchTickAngle = gaPitchAngle + deltaSum; // Causing problems over cracks in surface.
+//  gaPitchTickAngle = gaPitchAngle;
   old2DeltaOverBase = old1DeltaOverBase;
   old1DeltaOverBase = deltaOverBase;
   

@@ -59,6 +59,11 @@ void encoderIsrRight() {
     setMotor(MOTOR_RIGHT, COAST);
     return;
   } 
+  
+  if (abs(tp5LpfCos > 0.5)) {
+    encRtp6();
+    return;
+  }
 
   // Pulse if we are TIMER_IDLE & off target. 
   if (timerStateRight != TIMER_WAIT) {
@@ -120,6 +125,11 @@ void encoderIsrLeft() {
     setMotor(MOTOR_LEFT, COAST);
     return;
   } 
+  
+  if (abs(tp5LpfCos > 0.5)) {
+    encLtp6();
+    return;
+  }
 
   if (timerStateLeft != TIMER_WAIT) {
     if (targetDirectionLeft == FWD) {
@@ -158,6 +168,60 @@ void encoderIsrLeft() {
     }
   }
 } // end encoderIsrLeft();
+
+
+
+/*********************************************************
+ * encRtp6()  
+ *********************************************************/
+void encRtp6() {
+  // Compute the target tick position.
+  long time = (long) (micros() - tp5LoopTimeR);
+  long ttdR = loopTickDistanceR + (time  * TICKS_PER_TFOOT * fpsRightLong) / 10000000L; // ticks per period @ 1 fps.
+  if (targetDirectionRight == FWD) {
+    if (tickDistanceRight < ttdR) {
+        setMotor(MOTOR_RIGHT, FWD);
+    }
+    else {
+        setMotor(MOTOR_RIGHT, BRAKE);
+    }
+  }
+  else {
+    if (tickDistanceRight > ttdR) {
+        setMotor(MOTOR_RIGHT, BKWD);
+    }
+    else {
+        setMotor(MOTOR_RIGHT, BRAKE);
+    }
+  }
+}
+
+
+
+/*********************************************************
+ * encLtp6()  
+ *********************************************************/
+void encLtp6() {
+  // Compute the target tick position.
+  long time = (long) (micros() - tp5LoopTimeL);
+  long ttdL = loopTickDistanceL +  (time  * TICKS_PER_TFOOT * fpsLeftLong) / 10000000L; // ticks per period @ 1 fps.
+  if (targetDirectionLeft == FWD) {
+    if (tickDistanceLeft < ttdL) {
+        setMotor(MOTOR_LEFT, FWD);
+    }
+    else {
+        setMotor(MOTOR_LEFT, BRAKE);
+    }
+  }
+  else {
+    if (tickDistanceLeft > ttdL) {
+        setMotor(MOTOR_LEFT, BKWD);
+    }
+    else {
+        setMotor(MOTOR_LEFT, BRAKE);
+    }
+  }
+}
 
 
 /*********************************************************

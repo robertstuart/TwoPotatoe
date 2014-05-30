@@ -183,14 +183,14 @@ void doMessage(int type, int val) {
     else isBlockInProgress = false;
     break;
   case TP_RCV_MSG_ROUTE: // Starting route
-    if (val != 0) {
+    if ((val != 0) && (!isRouteInProgress)) {
       isRouteInProgress = true;
       routeActionPtr = 0;
       setNewRouteAction();
     }
-    else {
-      isRouteInProgress = false;
-      controllerY = 0.0;
+    if ((val == 0) && (isRouteInProgress)) {
+        isRouteInProgress = false;
+        controllerY = 0.0;
     }
     break;
   case TP_RCV_MSG_LIGHTS: // 

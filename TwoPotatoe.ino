@@ -83,7 +83,8 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
 #define TICK_WEIGHT 0.98    // Weight for tick compared to accelerometer
-#define TICKS_PER_FOOT 1600
+#define TICKS_PER_FOOT 800L
+#define TICKS_PER_TFOOT 80L
 #define FPS_ANGLE_RATE (-TICKS_PER_FOOT / (TICKS_PER_DEGREE * 100.0f))
 #define RADIANS_PER_DEGREE 0.0174
 #define TICK_INTEGRATION_RATE .95
@@ -237,7 +238,6 @@ int pwArray[30];
 float wsArray[30];
 int wsDurArray[30];
 
-unsigned long loopTime = 11000L;     // Actual time set by Algorithm initXXX() routines.
 unsigned long timeTrigger = 0L;
 unsigned long oldTimeTrigger = 0L;
 unsigned long timeMicroseconds = 0L; // Set in main loop.  Used by several routines.
@@ -362,6 +362,18 @@ int iVx, iVy, iVz;
 
 float magCorrection = 0.0;
 
+// Values for TP6
+long ttdR = 0;
+long ttdL = 0;
+long targetTDR = 0;
+long targetTDL = 0;
+long loopTickDistanceR = 0;
+long loopTickDistanceL = 0;
+long tp5LoopTimeR = 0;
+long tp5LoopTimeL = 0;
+long fpsRightLong = 0L;
+long fpsLeftLong = 0L;
+unsigned long tp5LoopTime = 0;
 
 /*********************************************************
  *
@@ -382,7 +394,7 @@ void setup() {
   pinMode(RED_LED_PIN,OUTPUT);
   pinMode(RIGHT_HL_PIN, OUTPUT);
   pinMode(LEFT_HL_PIN, OUTPUT);
-  //  pinMode(REAR_BL_PIN, OUTPUT);
+  pinMode(REAR_BL_PIN, OUTPUT);
   pinMode(PWR_PIN,OUTPUT);  // Power mosfet control
   pinMode(SPEAKER_PIN, OUTPUT);
   pinMode(BATTERY_PIN, INPUT);
@@ -578,7 +590,7 @@ void aTpSpeedRun() {
 
     // Do the timed loop
     if(timeMicroseconds > timeTrigger) {  
-      timeTrigger += 100000;  // 10 per second
+      timeTrigger += 10000;  // 100 per second
 
       // Set the RUNNING bit if the READY bit is set.
       if ((tpState & TP_STATE_RUN_READY) == 0) {
@@ -587,8 +599,8 @@ void aTpSpeedRun() {
       else {
           tpState = tpState | TP_STATE_RUNNING; // set the bit
       }
-      setTargetSpeedRight(remoteTpR);
-      setTargetSpeedLeft(remoteTpL);
+      setTargetSpeedRight(controllerY * 6.0);
+      setTargetSpeedLeft(controllerY * 6.0);
       readSpeed();      
       battery();
       

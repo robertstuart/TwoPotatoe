@@ -109,36 +109,55 @@ void aTp5() {
 
   // Compute angle error and weight factor
   float tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
-  
+
   // Original value for y: 0.09
-//  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
   tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
   tp5LpfAngleErrorW = tp5LpfAngleErrorWOld + ((tp5AngleErrorW - tp5LpfAngleErrorWOld) * 0.1);
   tp5LpfAngleErrorWOld = tp5LpfAngleErrorW;
-// example;  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.1); // smooth it out a little
-  
+  // example;  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.1); // smooth it out a little
+
 
   // Add the angle error to the base speed to get the target speed.
   tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
-//  tp5Fps = tp5AngleErrorW + tp5LpfCos;
-//  tp5FpsRight = tp5FpsLeft = tp5Fps;
+  //  tp5Fps = tp5AngleErrorW + tp5LpfCos;
+  //  tp5FpsRight = tp5FpsLeft = tp5Fps;
 
   tp5Steer();
   setTargetSpeedRight(tp5FpsRight);
   setTargetSpeedLeft(tp5FpsLeft);
+  
+  // Set the values for the interrupt routines
+  targetTDR = tickDistanceRight + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
+  targetTDL = tickDistanceLeft + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
+  fpsRightLong = (long) (tp5FpsRight * 100.0);
+  fpsLeftLong = (long) (tp5FpsLeft * 100.0);
+  loopTickDistanceR = tickDistanceRight;
+  loopTickDistanceL = tickDistanceLeft;
+  tp5LoopTimeR = tickTimeRight;
+  tp5LoopTimeL = tickTimeLeft;
+//  long ttdR = (10000  * TICKS_PER_TFOOT * fpsRightLong) / 10000000L; // ticks per period @ 1 fps.
+  
   if (!isBlockInProgress) {
     if(txRateHL) txRateDivider = 1;
     else txRateDivider = 5;
   }
 
   if (isStateBitSet(TP_STATE_DATA)) {
-    set4Byte(sendArray, TP_SEND_A_VAL, tp5LpfCos);
-    set4Byte(sendArray, TP_SEND_B_VAL, tp5SpeedError);
-    set2Byte(sendArray, TP_SEND_C_VAL, tp5TargetAngle * 100.0);
-    set2Byte(sendArray, TP_SEND_D_VAL, gaPitchTickAngle * 100.0);
-    set2Byte(sendArray, TP_SEND_E_VAL, wheelSpeedFps * 100.0);
-    set2Byte(sendArray, TP_SEND_F_VAL, tp5AngleErrorW * 100.0);
-    set2Byte(sendArray, TP_SEND_G_VAL, tp5Fps * 100.0);
+    //    set4Byte(sendArray, TP_SEND_A_VAL, tp5LpfCos);
+    //    set4Byte(sendArray, TP_SEND_B_VAL, tp5SpeedError);
+    //    set2Byte(sendArray, TP_SEND_C_VAL, tp5TargetAngle * 100.0);
+    //    set2Byte(sendArray, TP_SEND_D_VAL, gaPitchTickAngle * 100.0);
+    //    set2Byte(sendArray, TP_SEND_E_VAL, wheelSpeedFps * 100.0);
+    //    set2Byte(sendArray, TP_SEND_F_VAL, tp5AngleErrorW * 100.0);
+    //    set2Byte(sendArray, TP_SEND_G_VAL, tp5Fps * 100.0);
+    set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
+    set4Byte(sendArray, TP_SEND_B_VAL, ttdR);
+    set2Byte(sendArray, TP_SEND_C_VAL, wheelSpeedFps * 100.0);
+    set2Byte(sendArray, TP_SEND_D_VAL, magHeading * 10.0);
+    set2Byte(sendArray, TP_SEND_E_VAL, tickHeading * 10.0);
+    set2Byte(sendArray, TP_SEND_F_VAL, targetHeading * 10.0);
+    set2Byte(sendArray, TP_SEND_G_VAL, routeActionPtr);
     sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_H_VAL); 
   } 
   else {
@@ -160,67 +179,67 @@ void tp5Steer() {
     fixHeading(tickHeading, targetHeading);
   }
 
-//  float speedAdjustment = 0.0;
-//  // Adjust targetHeading by controllerX
-//  // TODO quickfix using modulo & int, redo later
-//  targetHeading = targetHeading + (controllerX * 1.0); 
-//  long intTargetHeading = (long) (targetHeading * 100.0) % 36000;
-//  if (intTargetHeading < 0) intTargetHeading += 36000;
-//  else if (intTargetHeading > 36000) intTargetHeading -= 36000;
-//  targetHeading = ((float) intTargetHeading) / 100.0;
-//    float aDiff = targetHeading - tickHeading;
-//    if (aDiff > 180.0) aDiff -= 360.0;
-//    else if (aDiff < -180.0) aDiff += 360.0;
-//    
-//    if (abs(aDiff) < 2.0) speedAdjustment = 0.05;
-//    else if (abs(aDiff) < 10.0) speedAdjustment = 0.2;
-//    else speedAdjustment = 0.5;
-//    if (aDiff > 0.0) speedAdjustment *= -1.0;
-//    
-//    tp5FpsLeft = tp5Fps - speedAdjustment;
-//    tp5FpsRight = tp5Fps + speedAdjustment;
-//
-//Serial.print(speedAdjustment); Serial.print("  ");
-//Serial.print(targetHeading); Serial.print("  ");
-//Serial.println(tickHeading);
-//  if (isRouteInProgress) {
-//    steerRoute();
-//    return;
-//  }
-//  float speedAdjustment = 0.0f;
-//  boolean controllerZero = abs(controllerX) < 0.05;
-//
-//  // Adjust straightMode status
-//  if (straightMode) {
-//    if (!controllerZero) {
-//      straightMode = false;  // take it out of straightmode
-//    } 
-//    else if (isRotating) {
-//      speedAdjustment = tp5GetRotation();
-//    }
-//    else if ((tickDistanceRight - tickDistanceLeft) < tpPositionDiff) {
-//      speedAdjustment = -.1;
-//    } 
-//    else {
-//      speedAdjustment = +.1;
-//    }
-//  }
-//  else { // not in straightMode
-//    if (controllerZero) {  // Put in StraightMode if controller is zero
-//      straightMode = true;  // put it in straightmode
-//      tpPositionDiff = tickDistanceRight - tickDistanceLeft;
-//      isRotating = false;
-//      rotateTarget = 0.0f;
-//    }
-//  }
-//
-//  if (!straightMode) {
-//    //    speedAdjustment = controllerX * 1.0 - (tp5CoSpeed * 0.1); // factor for turning rate.
-//    speedAdjustment = controllerX * 0.6; // factor for turning rate.
-//  }
-//
-//  tp5FpsLeft += speedAdjustment;
-//  tp5FpsRight -= speedAdjustment;
+  //  float speedAdjustment = 0.0;
+  //  // Adjust targetHeading by controllerX
+  //  // TODO quickfix using modulo & int, redo later
+  //  targetHeading = targetHeading + (controllerX * 1.0); 
+  //  long intTargetHeading = (long) (targetHeading * 100.0) % 36000;
+  //  if (intTargetHeading < 0) intTargetHeading += 36000;
+  //  else if (intTargetHeading > 36000) intTargetHeading -= 36000;
+  //  targetHeading = ((float) intTargetHeading) / 100.0;
+  //    float aDiff = targetHeading - tickHeading;
+  //    if (aDiff > 180.0) aDiff -= 360.0;
+  //    else if (aDiff < -180.0) aDiff += 360.0;
+  //    
+  //    if (abs(aDiff) < 2.0) speedAdjustment = 0.05;
+  //    else if (abs(aDiff) < 10.0) speedAdjustment = 0.2;
+  //    else speedAdjustment = 0.5;
+  //    if (aDiff > 0.0) speedAdjustment *= -1.0;
+  //    
+  //    tp5FpsLeft = tp5Fps - speedAdjustment;
+  //    tp5FpsRight = tp5Fps + speedAdjustment;
+  //
+  //Serial.print(speedAdjustment); Serial.print("  ");
+  //Serial.print(targetHeading); Serial.print("  ");
+  //Serial.println(tickHeading);
+  //  if (isRouteInProgress) {
+  //    steerRoute();
+  //    return;
+  //  }
+  //  float speedAdjustment = 0.0f;
+  //  boolean controllerZero = abs(controllerX) < 0.05;
+  //
+  //  // Adjust straightMode status
+  //  if (straightMode) {
+  //    if (!controllerZero) {
+  //      straightMode = false;  // take it out of straightmode
+  //    } 
+  //    else if (isRotating) {
+  //      speedAdjustment = tp5GetRotation();
+  //    }
+  //    else if ((tickDistanceRight - tickDistanceLeft) < tpPositionDiff) {
+  //      speedAdjustment = -.1;
+  //    } 
+  //    else {
+  //      speedAdjustment = +.1;
+  //    }
+  //  }
+  //  else { // not in straightMode
+  //    if (controllerZero) {  // Put in StraightMode if controller is zero
+  //      straightMode = true;  // put it in straightmode
+  //      tpPositionDiff = tickDistanceRight - tickDistanceLeft;
+  //      isRotating = false;
+  //      rotateTarget = 0.0f;
+  //    }
+  //  }
+  //
+  //  if (!straightMode) {
+  //    //    speedAdjustment = controllerX * 1.0 - (tp5CoSpeed * 0.1); // factor for turning rate.
+  //    speedAdjustment = controllerX * 0.6; // factor for turning rate.
+  //  }
+  //
+  //  tp5FpsLeft += speedAdjustment;
+  //  tp5FpsRight -= speedAdjustment;
 }
 
 
@@ -229,40 +248,40 @@ void tp5Steer() {
  ************************************************************************/
 void fixHeading(float hheading, float target) {
   float speedAdjustment;
-  
+
   // TODO quickfix using modulo & int, redo later using int/long?
   // Put heading into range of 0-359.99
   long intHeading = (long) (hheading * 100.0) % 36000;
   if (intHeading < 0) intHeading += 36000;
   else if (intHeading > 36000) intHeading -= 36000;
   hheading = ((float) intHeading) / 100.0;
-  
+
   // Put target into range of 0-359.99
   long intTarget = (long) (target * 100.0) % 36000;
   if (intTarget < 0) intTarget += 36000;
   else if (intTarget > 36000) intTarget -= 36000;
   target = ((float) intTarget) / 100.0;
-  
-  
+
+
   float aDiff = target - hheading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
   speedAdjustment = constrain(aDiff * 0.02, -1.0, 1.0);
-//Serial.print(controllerX); Serial.print(" ");
-//Serial.print(hheading); Serial.print(" ");
-//Serial.print(target); Serial.print(" ");
-//Serial.print(aDiff); Serial.print(" ");
-//Serial.print(speedAdjustment); Serial.print(" ");
-//Serial.println();
-//  if (aDiff > 0.0) {  
-    tp5FpsLeft = tp5Fps + speedAdjustment;
-    tp5FpsRight = tp5Fps - speedAdjustment;
-    magTickCorrection();
-//  }
-//  else {
-//    tp5FpsLeft = tp5Fps - speedAdjustment;
-//    tp5FpsRight = tp5Fps + speedAdjustment;
-//  }
+  //Serial.print(controllerX); Serial.print(" ");
+  //Serial.print(hheading); Serial.print(" ");
+  //Serial.print(target); Serial.print(" ");
+  //Serial.print(aDiff); Serial.print(" ");
+  //Serial.print(speedAdjustment); Serial.print(" ");
+  //Serial.println();
+  //  if (aDiff > 0.0) {  
+  tp5FpsLeft = tp5Fps + speedAdjustment;
+  tp5FpsRight = tp5Fps - speedAdjustment;
+  magTickCorrection();
+  //  }
+  //  else {
+  //    tp5FpsLeft = tp5Fps - speedAdjustment;
+  //    tp5FpsRight = tp5Fps + speedAdjustment;
+  //  }
 }
 
 
@@ -272,7 +291,7 @@ void fixHeading(float hheading, float target) {
 void magTickCorrection() {
   float diff = magHeading - tickHeading;
   if (abs(diff < 360)) {
-//    magCorrection += diff * 0.1;
+    //    magCorrection += diff * 0.1;
   }
 }
 
@@ -283,7 +302,7 @@ void steerRoute() {
   float speedAdjustment = 0.0;
   float magDiff = 0.0;
   float aDiff = 0.0;
-  
+
   switch (routeCurrentAction) {
   case 'M': // Mag
     fixHeading(magHeading, targetHeading);
@@ -304,7 +323,7 @@ void steerRoute() {
     break;
   case 'Z':  // Zero speed at current bearing.
     fixHeading(tickHeading, targetHeading); 
-   break; 
+    break; 
   }  
 }
 
@@ -320,7 +339,7 @@ void routeReset(boolean r) {
   static float sum;
   static int mCount = 0;
   static int wait = 0;
-  
+
   if (r == true) { // Start from beginning?
     mCount = 0;
     sum = 0;
@@ -360,6 +379,7 @@ void route() {
   switch (routeCurrentAction) {
   case 'R':
     if (digitalRead(YE_SW_PIN) == LOW) isNewAction = true;
+    if (digitalRead(RIGHT_HL_PIN) == HIGH) isNewAction = true;
     if (routeResetTime < timeMilliseconds) isNewAction = true;
     break;
   case 'M':
@@ -412,16 +432,16 @@ void setNewRouteAction() {
   routeCurrentAction = actionArray[routeActionPtr];
   int aVal = aValArray[routeActionPtr];
   int bVal = bValArray[routeActionPtr];
-  
-//char cc[] = " ";
-//cc[0]= routeCurrentAction;
-//Serial.print(cc); 
-//Serial.print(routeActionPtr);
-//Serial.print("  ");
-//Serial.print(aVal);
-//Serial.print("  ");
-//Serial.print(bVal);
-//Serial.println();
+
+  //char cc[] = " ";
+  //cc[0]= routeCurrentAction;
+  //Serial.print(cc); 
+  //Serial.print(routeActionPtr);
+  //Serial.print("  ");
+  //Serial.print(aVal);
+  //Serial.print("  ");
+  //Serial.print(bVal);
+  //Serial.println();
   switch (routeCurrentAction) {
   case 'M': // Mag Heading
     targetHeading = ((float) aVal) / 10.0;
@@ -457,12 +477,13 @@ void setNewRouteAction() {
     routeTargetTime = (aValArray[routeActionPtr] * 10) + timeMilliseconds;
     break;
   }
-  
+
   if (routeActionPtr == 0) { // First call in a route.
     tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
   }
   routeActionPtr++;
 }
+
 
 
 
