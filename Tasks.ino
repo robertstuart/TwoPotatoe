@@ -83,7 +83,7 @@ void setTp4RunningState() {
       blinkState = BLINK_R_FB; 
     }
     else {
-      blinkState = BLINK_B_FR;
+      blinkState = BLINK_B_FY;
     }
   }
 

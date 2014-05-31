@@ -11,6 +11,7 @@ const int MODE_TP_SEQUENCE    = 5;  // sequences batch-loaded from controller
 const int MODE_MT_SEQUNCE     = 6;  // motor test
 const int MODE_IMU            = 7;
 const int MODE_TP5            = 8;
+const int MODE_TP6            = 9;
 
 // Status bits in the tpState byte
 const int TP_STATE_RUN_READY       = 0B00000001;  // Ready.  Reflects the RUN command.

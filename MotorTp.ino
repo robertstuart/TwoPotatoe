@@ -2,7 +2,6 @@
 //#define TIMER_RIGHT Timer5
 //#define TIMER_LEFT Timer8
 
-#define MOTOR_PULSE_LENGTH 1500L
 
 unsigned long timerPulseEndRight = 0L;
 unsigned long timerWaitEndRight = 0L;
@@ -60,48 +59,31 @@ void encoderIsrRight() {
     return;
   } 
   
-  if (abs(tp5LpfCos > 0.5)) {
-    encRtp6();
-    return;
-  }
-
-  // Pulse if we are TIMER_IDLE & off target. 
-  if (timerStateRight != TIMER_WAIT) {
-    if (targetDirectionRight == FWD) {
-      if ((tickPeriodRight > targetTickPeriodRight) || (tickPeriodRight <= 0)) { // Too slow?
-        timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
-        timerStateRight = TIMER_PULSE;
+  // Compute the target tick position.
+  long time = (long) (micros() - tp5LoopTimeR);
+  long ttdR = loopTickDistanceR + (time  * TICKS_PER_TFOOT * fpsRightLong) / 10000000L; // ticks per period @ 1 fps.
+  if (targetDirectionRight == FWD) {
+    if (tickDistanceRight < ttdR) {
         setMotor(MOTOR_RIGHT, FWD);
-      }
-      else if (tickPeriodRight < targetBrakePeriodRight) { // Brake?
-        setMotor(MOTOR_RIGHT, BRAKE);
-        timerStateRight = TIMER_IDLE;
-      } 
-      else { // between target & brake.  Coast.
-        setMotor(MOTOR_RIGHT, COAST);
-        timerStateRight = TIMER_IDLE;
-      }
-    } // end FWD
-    else if (targetDirectionRight == BKWD) {
-      if ((tickPeriodRight < targetTickPeriodRight) || (tickPeriodRight >= 0)) { // Too slow?
         timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
         timerStateRight = TIMER_PULSE;
-        setMotor(MOTOR_RIGHT, BKWD);
-      }
-      else if (tickPeriodRight > targetBrakePeriodRight) { // Brake?
+    }
+    else {
         setMotor(MOTOR_RIGHT, BRAKE);
         timerStateRight = TIMER_IDLE;
-      }
-      else { // coast
-        setMotor(MOTOR_RIGHT, COAST);
-        timerStateRight = TIMER_IDLE;
-      }
-    } // end BKWD
-    else { // STOP
-      setMotor(MOTOR_RIGHT, BRAKE);
-      timerStateRight = TIMER_IDLE;
     }
-  } // end if(timerStateRight == TIMER_IDLE)
+  }
+  else {
+    if (tickDistanceRight > ttdR) {
+        setMotor(MOTOR_RIGHT, BKWD);
+        timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
+        timerStateRight = TIMER_PULSE;
+    }
+    else {
+        setMotor(MOTOR_RIGHT, BRAKE);
+        timerStateRight = TIMER_IDLE;
+    }
+  }
 } // end encoderIsrRight()
 
 
@@ -126,45 +108,29 @@ void encoderIsrLeft() {
     return;
   } 
   
-  if (abs(tp5LpfCos > 0.5)) {
-    encLtp6();
-    return;
-  }
-
-  if (timerStateLeft != TIMER_WAIT) {
-    if (targetDirectionLeft == FWD) {
-      if ((tickPeriodLeft > targetTickPeriodLeft) || (tickPeriodLeft <= 0)) { // Too slow?
+  // Compute the target tick position.
+  long time = (long) (micros() - tp5LoopTimeL);
+  long ttdL = loopTickDistanceL +  (time  * TICKS_PER_TFOOT * fpsLeftLong) / 10000000L; // ticks per period @ 1 fps.
+  if (targetDirectionLeft == FWD) {
+    if (tickDistanceLeft < ttdL) {
         timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
         timerStateLeft = TIMER_PULSE;
         setMotor(MOTOR_LEFT, FWD);
-      }
-      else if (tickPeriodLeft < targetBrakePeriodLeft) { // Brake?
+    }
+    else {
         setMotor(MOTOR_LEFT, BRAKE);
         timerStateLeft = TIMER_IDLE;
-      } 
-      else { // between target & brake.  Coast.
-        setMotor(MOTOR_LEFT, COAST);
-        timerStateLeft = TIMER_IDLE;
-      }
-    } // end FWD
-    else if (targetDirectionLeft == BKWD) {
-      if ((tickPeriodLeft < targetTickPeriodLeft)  || (tickPeriodLeft >= 0)) { // Too slow?
+    }
+  }
+  else {
+    if (tickDistanceLeft > ttdL) {
         timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
         timerStateLeft = TIMER_PULSE;
         setMotor(MOTOR_LEFT, BKWD);
-      }
-      else if (tickPeriodLeft > targetBrakePeriodLeft) { // Brake?
+    }
+    else {
         setMotor(MOTOR_LEFT, BRAKE);
         timerStateLeft = TIMER_IDLE;
-      }
-      else { // coast
-        setMotor(MOTOR_LEFT, COAST);
-        timerStateLeft = TIMER_IDLE;
-      }
-    } // end BKWD
-    else { // STOP
-      setMotor(MOTOR_LEFT, BRAKE);
-      timerStateLeft = TIMER_IDLE;
     }
   }
 } // end encoderIsrLeft();
@@ -181,17 +147,23 @@ void encRtp6() {
   if (targetDirectionRight == FWD) {
     if (tickDistanceRight < ttdR) {
         setMotor(MOTOR_RIGHT, FWD);
+        timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
+        timerStateRight = TIMER_PULSE;
     }
     else {
         setMotor(MOTOR_RIGHT, BRAKE);
+        timerStateRight = TIMER_IDLE;
     }
   }
   else {
     if (tickDistanceRight > ttdR) {
         setMotor(MOTOR_RIGHT, BKWD);
+        timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
+        timerStateRight = TIMER_PULSE;
     }
     else {
         setMotor(MOTOR_RIGHT, BRAKE);
+        timerStateRight = TIMER_IDLE;
     }
   }
 }
@@ -207,18 +179,24 @@ void encLtp6() {
   long ttdL = loopTickDistanceL +  (time  * TICKS_PER_TFOOT * fpsLeftLong) / 10000000L; // ticks per period @ 1 fps.
   if (targetDirectionLeft == FWD) {
     if (tickDistanceLeft < ttdL) {
+        timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
+        timerStateLeft = TIMER_PULSE;
         setMotor(MOTOR_LEFT, FWD);
     }
     else {
         setMotor(MOTOR_LEFT, BRAKE);
+        timerStateLeft = TIMER_IDLE;
     }
   }
   else {
     if (tickDistanceLeft > ttdL) {
+        timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
+        timerStateLeft = TIMER_PULSE;
         setMotor(MOTOR_LEFT, BKWD);
     }
     else {
         setMotor(MOTOR_LEFT, BRAKE);
+        timerStateLeft = TIMER_IDLE;
     }
   }
 }

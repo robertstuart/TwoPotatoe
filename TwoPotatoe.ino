@@ -97,6 +97,7 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 #define TIMER_PULSE 0   // Timer is in a pulse
 #define TIMER_WAIT 1    // TImer is waiting after a pulse
 #define TIMER_IDLE 2
+#define MOTOR_PULSE_LENGTH 1500L
 
 #define MAX_PULSE_SPEED 0.8
 
@@ -113,8 +114,8 @@ int BEEP_DOWN[] = {1000, 300, 1500, 300, 0};
 // each state lasts 1/10 second
 byte BLINK_R_FB[] = {
   1,4,4,4,4,4,4,4,END_MARKER};  // red on, flash blue
-byte BLINK_B_FR[] = {
-  2,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash red
+byte BLINK_B_FY[] = {
+  2,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash yellow
 byte BLINK_FRG[] = {
   4,1,END_MARKER};               // rapid red-green
 byte BLINK_F_RG[] = {
@@ -371,6 +372,8 @@ long loopTickDistanceR = 0;
 long loopTickDistanceL = 0;
 long tp5LoopTimeR = 0;
 long tp5LoopTimeL = 0;
+long tp6LoopTimeR = 0L;
+long tp6LoopTimeL = 0L;
 long fpsRightLong = 0L;
 long fpsLeftLong = 0L;
 unsigned long tp5LoopTime = 0;
@@ -405,7 +408,7 @@ void setup() {
   digitalWrite(RED_LED_PIN, LOW);
   digitalWrite(RIGHT_HL_PIN, LOW);
   digitalWrite(LEFT_HL_PIN, LOW);
-  analogWrite(REAR_BL_PIN, 0);
+  digitalWrite(REAR_BL_PIN, LOW);
   digitalWrite(SPEAKER_PIN, LOW);
   digitalWrite(YELLOW_LED_PIN, LOW);
 
@@ -436,8 +439,8 @@ void setup() {
  *********************************************************/
 void loop() { //Main Loop
   switch (mode) {
-  case MODE_TP4:
-    aTp4Run();
+  case MODE_TP6:
+    aTp6Run();
     break;
   case MODE_TP5:
     aTp5Run();
