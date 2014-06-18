@@ -79,35 +79,35 @@ void getIMU(int* aPitch, int* aRoll, int* aYaw, int* gPitch, int* gRoll, int* gY
  *
  *********************************************************/
 float sumGyroRate;
-float getTpAngle() {
-
-  getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
-
-  // Compute angle around the x axis
-  gyroPitchRaw = gPitch;  // 
-  gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
-  gyroPitchAngleDelta = (gyroPitchRate * actualLoopTime)/1000000; // degrees changed during period
-  gyroPitchAngle = gyroPitchAngle + gyroPitchAngleDelta;   // Not used.  Only for debuggin purposes
-  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
-  accelPitchAngle = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
-  gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
-
-  // compute the Y plane to check for falling sideways
-  gyroRollRaw = gRoll;
-  gyroRollRate = gyroRollRaw * GYRO_SENS;
-  float gyroRollAngleDelta = (gyroRollRate * actualLoopTime)/1000000;
-  gyroRollAngle = gyroRollAngle + gyroRollAngleDelta; // not used
-  float gyroRollWeightedAngle = gyroRollAngleDelta + gaRollAngle;
-  //  accelYAngle = atan2(compass.a.x, compass.a.z) * RAD_TO_DEG;
-  accelRollAngle = atan2(aPitch, aYaw) * RAD_TO_DEG;
-  gaRollAngle = (gyroRollWeightedAngle * GYRO_WEIGHT) + (accelRollAngle * (1 - GYRO_WEIGHT));
-
-  // compute Z plane to measure turns
-  gyroYawRaw = -gYaw;
-  gyroYawRate = (gyroYawRaw - driftYaw) * GYRO_SENS;
-  float gyroYawAngleDelta = (gyroYawRate * actualLoopTime)/1000000;
-  gyroYawAngle = gyroYawAngle + gyroYawAngleDelta; 
-}
+//float getTpAngle() {
+//
+//  getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
+//
+//  // Compute angle around the x axis
+//  gyroPitchRaw = gPitch;  // 
+//  gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
+//  gyroPitchAngleDelta = (gyroPitchRate * actualLoopTime)/1000000; // degrees changed during period
+//  gyroPitchAngle = gyroPitchAngle + gyroPitchAngleDelta;   // Not used.  Only for debuggin purposes
+//  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
+//  accelPitchAngle = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
+//  gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
+//
+//  // compute the Y plane to check for falling sideways
+//  gyroRollRaw = gRoll;
+//  gyroRollRate = gyroRollRaw * GYRO_SENS;
+//  float gyroRollAngleDelta = (gyroRollRate * actualLoopTime)/1000000;
+//  gyroRollAngle = gyroRollAngle + gyroRollAngleDelta; // not used
+//  float gyroRollWeightedAngle = gyroRollAngleDelta + gaRollAngle;
+//  //  accelYAngle = atan2(compass.a.x, compass.a.z) * RAD_TO_DEG;
+//  accelRollAngle = atan2(aPitch, aYaw) * RAD_TO_DEG;
+//  gaRollAngle = (gyroRollWeightedAngle * GYRO_WEIGHT) + (accelRollAngle * (1 - GYRO_WEIGHT));
+//
+//  // compute Z plane to measure turns
+//  gyroYawRaw = -gYaw;
+//  gyroYawRate = (gyroYawRaw - driftYaw) * GYRO_SENS;
+//  float gyroYawAngleDelta = (gyroYawRate * actualLoopTime)/1000000;
+//  gyroYawAngle = gyroYawAngle + gyroYawAngleDelta; 
+//}
 
 
 float old1DeltaOverBase = 0.0;

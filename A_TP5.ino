@@ -30,6 +30,9 @@ long targetTickDistance = 0L;
 float turnSpeedAdjustment = 0.0;
 float tp5LpfAngleErrorWOld = 0.0;
 float tp5LpfAngleErrorW = 0.0;
+float tp5AngleError = 0.0;
+float dampValue = 0.0;
+float zeroAcc = 0.0;
 
 
 /************************************************************************
@@ -80,14 +83,14 @@ void aTp5() {
   readSpeed();
   getTp5Angle();
 
-  float tp5AngleDelta = gaPitchTickAngle - oldGaPitchTickAngle;
-  oldGaPitchTickAngle = gaPitchTickAngle;
+  float tp5AngleDelta = gaPitchAngle - oldGaPitchTickAngle;
+  oldGaPitchTickAngle = gaPitchAngle;
 
   // compute the Center of Oscillation Speed (COS)
-  float tp5Cos = wheelSpeedFps + (tp5AngleDelta * 1.4);
-  //  float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
-  //  tp5CoSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
-  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.2); // smooth it out a little
+//  float tp5Cos = wheelSpeedFps + (tp5AngleDelta * 1.4);
+    float tp5Cos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
+    tp5LpfCos = ((tp5Cos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
+//  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.2); // smooth it out a little
   tp5LpfCosOld = tp5LpfCos;
 
   tp5ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
@@ -99,11 +102,11 @@ void aTp5() {
   float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  float tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
+  tp5AngleError = gaPitchAngle - tp5TargetAngle;
 
   // Original value for y: 0.09
-  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
-  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+    tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+//  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
   tp5LpfAngleErrorW = tp5LpfAngleErrorWOld + ((tp5AngleErrorW - tp5LpfAngleErrorWOld) * 0.1);
   tp5LpfAngleErrorWOld = tp5LpfAngleErrorW;
   // example;  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.1); // smooth it out a little
@@ -113,10 +116,13 @@ void aTp5() {
   tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
   //  tp5Fps = tp5AngleErrorW + tp5LpfCos;
   //  tp5FpsRight = tp5FpsLeft = tp5Fps;
+//  if (damp()) {
+//    tp5Fps = tp5LpfCos;
+//  }
 
   tp5Steer();
-  setTargetSpeedRight(tp5FpsRight);
-  setTargetSpeedLeft(tp5FpsLeft);
+  setTargetSpeedRight(tp5FpsRight); // Need to set direction.  Does not set speed!
+  setTargetSpeedLeft(tp5FpsLeft);   // Need to set direction.  Does not set speed!
   
   // Set the values for the interrupt routines
   targetTDR = tickDistanceRight + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
@@ -135,12 +141,12 @@ void aTp5() {
   }
 
   if (isStateBitSet(TP_STATE_DATA)) {
-      set4Byte(sendArray, TP_SEND_A_VAL, tp5LpfCos);
-      set4Byte(sendArray, TP_SEND_B_VAL, tp5SpeedError);
-      set2Byte(sendArray, TP_SEND_C_VAL, tp5TargetAngle * 100.0);
-      set2Byte(sendArray, TP_SEND_D_VAL, gaPitchTickAngle * 100.0);
-      set2Byte(sendArray, TP_SEND_E_VAL, wheelSpeedFps * 100.0);
-      set2Byte(sendArray, TP_SEND_F_VAL, tp5AngleErrorW * 100.0);
+      set4Byte(sendArray, TP_SEND_A_VAL, timeMilliseconds);
+      set4Byte(sendArray, TP_SEND_B_VAL, tickDistance);
+      set2Byte(sendArray, TP_SEND_C_VAL, gaPitchAngle * 100.0);
+      set2Byte(sendArray, TP_SEND_D_VAL, wheelSpeedFps * 100.0);
+      set2Byte(sendArray, TP_SEND_E_VAL, tp5LpfCos * 100.0);
+      set2Byte(sendArray, TP_SEND_F_VAL, tp5AngleError * 100.0);
       set2Byte(sendArray, TP_SEND_G_VAL, tp5Fps * 100.0);
       
 //    set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
@@ -158,20 +164,62 @@ void aTp5() {
   }
 } // end aTp5() 
 
-
+boolean damp() {
+  dampValue = (wheelSpeedFps - tp5LpfCos) / tp5AngleError;
+  if (dampValue > 0.15) return true;
+  return false;
+}
 
 /************************************************************************
  *  tp5Steer() 
  ************************************************************************/
-void tp5Steer() {
-  if (isRouteInProgress) {
+void tp5Steer() { 
+  if (isRouteInProgress) { 
     steerRoute();
   }
-  else  {
-    targetHeading += (controllerX * 2.0);
-    fixHeading(tickHeading, targetHeading);
+  else  { // Normal steering;
+//    if (abs(controllerX) > 0.05) {
+      targetHeading += (controllerX * 2.0);
+      fixHeading(tickHeading, targetHeading);
+//      zeroAcc = 0.0;
+//    }
+//    else {
+//      headZero();
+//    }
   }
 }
+
+
+/************************************************************************
+ *  headZero()  Keep a heading correcting for accumulated error.
+ ************************************************************************/
+void headZero() {
+  float speedAdjustment;
+
+  // TODO quickfix using modulo & int, redo later using int/long?
+  // Put heading into range of 0-359.99
+  long intHeading = (long) (tickHeading * 100.0) % 36000;
+  if (intHeading < 0) intHeading += 36000;
+  else if (intHeading > 36000) intHeading -= 36000;
+  float hheading = ((float) intHeading) / 100.0;
+
+  // Put target into range of 0-359.99
+  long intTarget = (long) (targetHeading * 100.0) % 36000;
+  if (intTarget < 0) intTarget += 36000;
+  else if (intTarget > 36000) intTarget -= 36000;
+  float target = ((float) intTarget) / 100.0;
+
+  zeroAcc += target - hheading;
+  if (zeroAcc > 180.0) zeroAcc -= 360.0;
+  else if (zeroAcc < -180.0) zeroAcc += 360.0;
+  if (zeroAcc > 0) speedAdjustment = -0.1;
+  else speedAdjustment = 0.1;
+//  speedAdjustment = constrain(zeroAcc * 0.02, -1.0, 1.0);
+  tp5FpsLeft = tp5Fps + speedAdjustment;
+  tp5FpsRight = tp5Fps - speedAdjustment;
+  magTickCorrection();
+}
+
 
 
 /************************************************************************
@@ -208,10 +256,10 @@ void fixHeading(float hheading, float target) {
  *  magTickCorrection() Uses wheel ticks.  Called every timed loop (10 millisec.)
  ************************************************************************/
 void magTickCorrection() {
-  float diff = magHeading - tickHeading;
-  if (abs(diff < 360)) {
-    //    magCorrection += diff * 0.1;
-  }
+//  float diff = magHeading - tickHeading;
+//  if (abs(diff < 360)) {
+//    magCorrection += diff * 0.1;
+//  }
 }
 
 /************************************************************************
@@ -249,9 +297,7 @@ void steerRoute() {
 
 /************************************************************************
  *  routeReset() do it here rather than in switch just to break it out.
- *               Averages Mag readings for 6 seconds before start button 
- *               is pressed until 1 second before button is pressed.
- *               We do calculations in timed loop to get consistent average.
+ *  Called with true at first entry.  Every subsequent call at 1/100 sec.
  ************************************************************************/
 void routeReset(boolean r) { 
   static const int MCOUNT_MAX = 500;
@@ -277,16 +323,6 @@ void routeReset(boolean r) {
 }
 
 
-float tp5GetRotation() {
-  float rotateError = rotateTarget - gyroYawAngle;
-  if (abs(rotateError) < 1.0f) {
-    isRotating = false;
-    tpPositionDiff = tickDistanceRight - tickDistanceLeft;
-  }
-  float rotationRate = rotateError * 0.1f;
-  rotationRate = constrain(rotationRate, -2.0f, 2.0f);
-  return rotationRate;
-}
 
 /************************************************************************
  *  Route() Check if target is reached and need to move to next action.
@@ -299,7 +335,7 @@ void route() {
   case 'R':
     if (digitalRead(YE_SW_PIN) == LOW) isNewAction = true;
     if (digitalRead(RIGHT_HL_PIN) == HIGH) isNewAction = true;
-    if (routeResetTime < timeMilliseconds) isNewAction = true;
+    if (routeResetTime < timeMilliseconds) isNewAction = true; // also fired by msg
     break;
   case 'M':
     if (abs(magHeading - targetHeading) < 1.0) isNewAction = true;
@@ -385,6 +421,9 @@ void setNewRouteAction() {
   case 'Z':
     controllerY = 0.0;
     routeTargetTime = (aValArray[routeActionPtr] * 10) + timeMilliseconds;
+    break;
+  case 'E':
+    isRouteInProgress = false;
     break;
   }
 

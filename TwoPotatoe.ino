@@ -376,7 +376,17 @@ long tp6LoopTimeR = 0L;
 long tp6LoopTimeL = 0L;
 long fpsRightLong = 0L;
 long fpsLeftLong = 0L;
-unsigned long tp5LoopTime = 0;
+unsigned long tp5LoopTime = 0UL;
+long cosLong = 0L;
+
+// debug values;
+long debugA;
+long debugB;
+int debugC;
+int debugD;
+int debugE;
+int debugF;
+int debugG;
 
 /*********************************************************
  *
