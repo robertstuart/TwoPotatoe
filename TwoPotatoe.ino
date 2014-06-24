@@ -388,6 +388,12 @@ int debugE;
 int debugF;
 int debugG;
 
+
+// Arrays for storing block data.
+#define BLOCK_SIZE 100
+long timeArray[BLOCK_SIZE];
+long tickDistanceRightArray[BLOCK_SIZE];
+
 /*********************************************************
  *
  * setup()

@@ -36,7 +36,11 @@ const int XBEE_BROADCAST =   0xFFFF;
 
 // XBee data packet bytes. Constant indicates positon i byte array.
 
-// Messages sent by TP
+/****************************************************************************
+ * Messages sent by TP
+ *     The TP_SEND_MODE_STATUS byte contains the mode (PID, TP5 etc).
+ *     All other values indicate data blocks.
+ ****************************************************************************/
 const int TP_SEND_MODE_STATUS =    0;  // 1-byte, operating mode and packet type
 const int TP_SEND_STATE_STATUS =   1;  // 1-byte, Status bits
 const int TP_SEND_VALSET_STATUS =  2;  // 1-byte, from VAL_SET_XXX
@@ -56,7 +60,14 @@ const int TP_SEND_I_VAL =         30;  // 2-byte
 const int TP_SEND_J_VAL =         32;  // 2-byte
 const int TP_SEND_MAX =           34;
 
-// Messages received by TwoPotatoe
+/*******************************
+ * Messages received by TwoPotatoe
+ *    If the "TP_RCV_MSG_TYPE" is one of the TP_RCV_MSG_****
+ *    values. The message and the TP_RCV_X and TP_RCV_Y values
+ *    are read.  If the value is > TP_BLOCK_ZERO, then the
+ *    block is read.
+ *
+ *********************************************************/
 const int TP_RCV_MSG_TYPE =        0;  // 1-byte message type or packet type
 const int TP_RCV_MSG_VAL =         1;  // 2-byte message value
 const int TP_RCV_X =               3;  // 1-byte x joystick
@@ -84,7 +95,7 @@ const int TP_RCV_MSG_RESET =      16;  //
 const int TP_RCV_MSG_MODE =       17;  //
 const int TP_RCV_MSG_VALSET =     18;  // 
 const int TP_RCV_MSG_RUN_READY =  19;  // Run/Idle
-const int TP_RCV_MSG_BLOCK  =     20;  //
+const int TP_RCV_MSG_BLOCK  =     20;  // Tells tp to start sending blocks.
 const int TP_RCV_MSG_ROUTE  =     21;  // 
 
 // Block types.  Must be non-overlapping with TP_RCV_MSG_xxx
