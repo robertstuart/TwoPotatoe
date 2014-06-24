@@ -58,7 +58,7 @@ void setTp4RunningState() {
         tickDistanceRight = 0;
         tickDistanceLeft = (long) (magHeading * TICKS_PER_DEGREE); 
         getTp5Angle();
-        tp6TargetHeading = targetHeading = tickHeading;
+        targetHeading = tickHeading;
       }
     }
   }
@@ -126,7 +126,7 @@ void safeAngle() {
  *********************************************************/
 void gravity() {
   pressure = analogRead(PRESSURE_PIN);
-  if (pressure > 350) {  // Not on ground?
+  if (pressure > 300) {  // Not on ground?
     if (timeMilliseconds > (onGroundTime + 100)) {  // more that 1/10 of a second?
       tpState = tpState & ~TP_STATE_ON_GROUND;
     }

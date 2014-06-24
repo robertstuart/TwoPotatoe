@@ -1,5 +1,8 @@
 /************************************************************************
  * ----- TP6 -----
+ *    Algorithm using t
+ * 
+ * 
  ************************************************************************/
 float tp6FpsLeft = 0.0f;
 float tp6FpsRight = 0.0f;
@@ -85,8 +88,8 @@ void atp6() {
   readSpeed();
   getTp5Angle();
 
-  float tp6AngleDelta = gaPitchAngle - oldGaPitchTickAngle;
-  oldGaPitchTickAngle = gaPitchAngle;
+  float tp6AngleDelta = gaPitchTickAngle - oldGaPitchTickAngle;
+  oldGaPitchTickAngle = gaPitchTickAngle;
 
   // compute the Center of Oscillation Speed (COS)
   float tp6Cos = wheelSpeedFps + (tp6AngleDelta * 1.4);
@@ -108,6 +111,7 @@ void atp6() {
   tp6AngleErrorW = tp6AngleError * 0.18; //******************* Angle error to speed *******************
   tp6LpfAngleErrorW = tp6LpfAngleErrorWOld + ((tp6AngleErrorW - tp6LpfAngleErrorWOld) * 0.1);
   tp6LpfAngleErrorWOld = tp6LpfAngleErrorW;
+  // example;  tp6LpfCos = tp6LpfCosOld + ((tp6Cos - tp6LpfCosOld) * 0.1); // smooth it out a little
 
 
   // Add the angle error to the base speed to get the target speed.
@@ -124,7 +128,6 @@ void atp6() {
   targetTDL = tickDistanceLeft + (15.0 * tp6AngleError);  // Target beyond current tickDistance.
   fpsRightLong = (long) (tp6FpsRight * 100.0);
   fpsLeftLong = (long) (tp6FpsLeft * 100.0);
-  cosLong = (long) (tp6LpfCos * 100.0);
   loopTickDistanceR = tickDistanceRight;
   loopTickDistanceL = tickDistanceLeft;
   tp6LoopTimeR = tickTimeRight;
@@ -137,30 +140,20 @@ void atp6() {
   }
 
   if (isStateBitSet(TP_STATE_DATA)) {
-    set4Byte(sendArray, TP_SEND_A_VAL, timeMilliseconds);
-    set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceRight);
+    //    set4Byte(sendArray, TP_SEND_A_VAL, tp6LpfCos);
+    //    set4Byte(sendArray, TP_SEND_B_VAL, tp6SpeedError);
+    //    set2Byte(sendArray, TP_SEND_C_VAL, tp6TargetAngle * 100.0);
+    //    set2Byte(sendArray, TP_SEND_D_VAL, gaPitchTickAngle * 100.0);
+    //    set2Byte(sendArray, TP_SEND_E_VAL, wheelSpeedFps * 100.0);
+    //    set2Byte(sendArray, TP_SEND_F_VAL, tp6AngleErrorW * 100.0);
+    //    set2Byte(sendArray, TP_SEND_G_VAL, tp6Fps * 100.0);
+    set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
+    set4Byte(sendArray, TP_SEND_B_VAL, ttdR);
     set2Byte(sendArray, TP_SEND_C_VAL, wheelSpeedFps * 100.0);
-    set2Byte(sendArray, TP_SEND_D_VAL, gaPitchAngle * 100.0);
-    set2Byte(sendArray, TP_SEND_E_VAL, tp6TargetAngle * 100.0);
-    set2Byte(sendArray, TP_SEND_F_VAL, tp6AngleError * 100.0);
-    set2Byte(sendArray, TP_SEND_G_VAL, tp6Fps * 100.0);
-    
-//    set4Byte(sendArray, TP_SEND_A_VAL, debugA);
-//    set4Byte(sendArray, TP_SEND_B_VAL, debugB);
-//    set2Byte(sendArray, TP_SEND_C_VAL, debugC);
-//    set2Byte(sendArray, TP_SEND_D_VAL, magHeading * 10.0);
-//    set2Byte(sendArray, TP_SEND_E_VAL, tickHeading * 10.0);
-//    set2Byte(sendArray, TP_SEND_F_VAL, tp6TargetHeading * 10.0);
-//    set2Byte(sendArray, TP_SEND_G_VAL, routeActionPtr);
-    
-//    set4Byte(sendArray, TP_SEND_A_VAL, debugA);
-//    set4Byte(sendArray, TP_SEND_B_VAL, debugB);
-//    set2Byte(sendArray, TP_SEND_C_VAL, debugC);
-//    set2Byte(sendArray, TP_SEND_D_VAL, debugD);
-//    set2Byte(sendArray, TP_SEND_E_VAL, debugE);
-//    set2Byte(sendArray, TP_SEND_F_VAL, debugF);
-//    set2Byte(sendArray, TP_SEND_G_VAL, debugG);
-    
+    set2Byte(sendArray, TP_SEND_D_VAL, magHeading * 10.0);
+    set2Byte(sendArray, TP_SEND_E_VAL, tickHeading * 10.0);
+    set2Byte(sendArray, TP_SEND_F_VAL, tp6TargetHeading * 10.0);
+    set2Byte(sendArray, TP_SEND_G_VAL, routeActionPtr);
     sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_H_VAL); 
   } 
   else {

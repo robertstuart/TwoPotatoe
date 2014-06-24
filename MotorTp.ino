@@ -73,7 +73,7 @@ void encoderIsrRight() {
         timerStateRight = TIMER_IDLE;
     }
   }
-  else if (targetDirectionRight == BKWD) {
+  else {
     if (tickDistanceRight > ttdR) {
         setMotor(MOTOR_RIGHT, BKWD);
         timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
@@ -83,10 +83,6 @@ void encoderIsrRight() {
         setMotor(MOTOR_RIGHT, BRAKE);
         timerStateRight = TIMER_IDLE;
     }
-  }
-  else {
-    setMotor(MOTOR_RIGHT, BRAKE);
-    timerStateRight = TIMER_IDLE;
   }
 } // end encoderIsrRight()
 
@@ -126,7 +122,7 @@ void encoderIsrLeft() {
         timerStateLeft = TIMER_IDLE;
     }
   }
-  else if (targetDirectionLeft == BKWD) {
+  else {
     if (tickDistanceLeft > ttdL) {
         timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
         timerStateLeft = TIMER_PULSE;
@@ -136,10 +132,6 @@ void encoderIsrLeft() {
         setMotor(MOTOR_LEFT, BRAKE);
         timerStateLeft = TIMER_IDLE;
     }
-  }
-  else {
-    setMotor(MOTOR_LEFT, BRAKE);
-    timerStateLeft = TIMER_IDLE;
   }
 } // end encoderIsrLeft();
 
