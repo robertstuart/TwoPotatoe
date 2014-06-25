@@ -88,9 +88,12 @@ void aTp5() {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
   tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little  
 =======
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
 =======
 >>>>>>> parent of 0ee7def... Pre-TP6  base
 =======
@@ -104,6 +107,9 @@ void aTp5() {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
 >>>>>>> parent of 0ee7def... Pre-TP6  base
 =======
 >>>>>>> parent of 0ee7def... Pre-TP6  base
@@ -129,7 +135,12 @@ void aTp5() {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
    p5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+=======
+  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+>>>>>>> parent of 0ee7def... Pre-TP6  base
 =======
   //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
   tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
@@ -158,6 +169,9 @@ void aTp5() {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
 >>>>>>> parent of 0ee7def... Pre-TP6  base
 =======
 >>>>>>> parent of 0ee7def... Pre-TP6  base
