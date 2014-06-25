@@ -1,6 +1,3 @@
-static const long BRAKE_THRESHOLD = 1000;
-long elapsedTimeRight = 0;
-long elapsedTimeLeft = 0;
 
 void m6MotorInitTp() {
   // Set the pin modes
@@ -49,8 +46,8 @@ void m6EncoderIsrRight() {
   } 
   
   // Compute the target tick position.
-  elapsedTimeRight = (long) (micros() - tp6LoopTimeR); // time since loop measurement
-  long ttdR = loopTickDistanceR + ((elapsedTimeRight  * TICKS_PER_TFOOT * fpsRightLong) / 10000000L); // should be ttdR ticks at this time
+  long time = (long) (micros() - tp6LoopTimeR); // time since loop measurement
+  long ttdR = loopTickDistanceR + ((time  * TICKS_PER_TFOOT * fpsRightLong) / 10000000L); // should be ttdR ticks at this time
   if (targetDirectionRight == FWD) {
     if (tickDistanceRight < ttdR) {
         setMotor(MOTOR_RIGHT, FWD);
@@ -62,7 +59,7 @@ void m6EncoderIsrRight() {
         timerStateRight = TIMER_IDLE;
     }
   }
-  else if (targetDirectionRight == BKWD) {
+  else {
     if (tickDistanceRight > ttdR) {
         setMotor(MOTOR_RIGHT, BKWD);
         timerPulseEndRight = tickTimeRight + MOTOR_PULSE_LENGTH;
@@ -72,9 +69,6 @@ void m6EncoderIsrRight() {
         setMotor(MOTOR_RIGHT, BRAKE);
         timerStateRight = TIMER_IDLE;
     }
-  }
-  else { // STOP
-    setMotor(MOTOR_RIGHT, BRAKE);
   }
 } // end encoderIsrRight()
 
@@ -101,8 +95,8 @@ void m6EncoderIsrLeft() {
   } 
   
   // Compute the target tick position.
-  elapsedTimeLeft = (long) (micros() - tp6LoopTimeL);
-  long ttdL = loopTickDistanceL +  (elapsedTimeLeft  * TICKS_PER_TFOOT * fpsLeftLong) / 10000000L; // ticks per period @ 1 fps.
+  long time = (long) (micros() - tp6LoopTimeL);
+  long ttdL = loopTickDistanceL +  (time  * TICKS_PER_TFOOT * fpsLeftLong) / 10000000L; // ticks per period @ 1 fps.
   if (targetDirectionLeft == FWD) {
     if (tickDistanceLeft < ttdL) {
         timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
@@ -114,7 +108,7 @@ void m6EncoderIsrLeft() {
         timerStateLeft = TIMER_IDLE;
     }
   }
-  else if (targetDirectionLeft == BKWD) {
+  else {
     if (tickDistanceLeft > ttdL) {
         timerPulseEndLeft = tickTimeLeft + MOTOR_PULSE_LENGTH;
         timerStateLeft = TIMER_PULSE;
@@ -124,9 +118,6 @@ void m6EncoderIsrLeft() {
         setMotor(MOTOR_LEFT, BRAKE);
         timerStateLeft = TIMER_IDLE;
     }
-  }
-  else {
-    setMotor(MOTOR_LEFT, BRAKE);
   }
 } // end encoderIsrLeft();
 
