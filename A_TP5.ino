@@ -30,6 +30,9 @@ long targetTickDistance = 0L;
 float turnSpeedAdjustment = 0.0;
 float tp5LpfAngleErrorWOld = 0.0;
 float tp5LpfAngleErrorW = 0.0;
+float tp5AngleError = 0.0;
+float dampValue = 0.0;
+float zeroAcc = 0.0;
 
 
 /************************************************************************
@@ -84,10 +87,8 @@ void aTp5() {
   oldGaPitchTickAngle = gaPitchTickAngle;
 
   // compute the Center of Oscillation Speed (COS)
-  float tp5Cos = wheelSpeedFps + (tp5AngleDelta * 1.4);
-  //  float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
-  //  tp5CoSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
-  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.2); // smooth it out a little
+  float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
+  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little
   tp5LpfCosOld = tp5LpfCos;
 
   tp5ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
@@ -99,24 +100,22 @@ void aTp5() {
   float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  float tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
+  tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
 
   // Original value for y: 0.09
-  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
-  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
   tp5LpfAngleErrorW = tp5LpfAngleErrorWOld + ((tp5AngleErrorW - tp5LpfAngleErrorWOld) * 0.1);
   tp5LpfAngleErrorWOld = tp5LpfAngleErrorW;
-  // example;  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.1); // smooth it out a little
-
 
   // Add the angle error to the base speed to get the target speed.
   tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
-  //  tp5Fps = tp5AngleErrorW + tp5LpfCos;
-  //  tp5FpsRight = tp5FpsLeft = tp5Fps;
+  if (damp()) {
+    tp5Fps = tp5LpfCos;
+  }
 
   tp5Steer();
-  setTargetSpeedRight(tp5FpsRight);
-  setTargetSpeedLeft(tp5FpsLeft);
+  setTargetSpeedRight(tp5FpsRight);  // Need to set direction.  Does not set speed!
+  setTargetSpeedLeft(tp5FpsLeft);  // Need to set direction.  Does not set speed!
   
   // Set the values for the interrupt routines
   targetTDR = tickDistanceRight + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
@@ -158,7 +157,11 @@ void aTp5() {
   }
 } // end aTp5() 
 
-
+boolean damp() {
+  dampValue = (wheelSpeedFps - tp5LpfCos) / tp5AngleError;
+  if (dampValue > 0.15) return true;
+  return false;
+}
 
 /************************************************************************
  *  tp5Steer() 
