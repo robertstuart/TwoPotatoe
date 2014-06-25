@@ -84,8 +84,33 @@ void aTp5() {
   oldGaPitchTickAngle = gaPitchTickAngle;
 
   // compute the Center of Oscillation Speed (COS)
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
   tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little  
+=======
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+  float tp5Cos = wheelSpeedFps + (tp5AngleDelta * 1.4);
+  //  float rateCos = wheelSpeedFps + ((*currentValSet).v * gyroXAngleDelta); // subtract out rotation **************
+  //  tp5CoSpeed = ((rateCos * (*currentValSet).w)) + ((1.0f - (*currentValSet).w) * tp5OldCospeed); // smooth it out a little
+  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * 0.2); // smooth it out a little
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
   tp5LpfCosOld = tp5LpfCos;
 
   tp5ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
@@ -100,12 +125,46 @@ void aTp5() {
   float tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
 
   // Original value for y: 0.09
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
    p5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+=======
+  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+  //  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+>>>>>>> parent of 0ee7def... Pre-TP6  base
   tp5LpfAngleErrorW = tp5LpfAngleErrorWOld + ((tp5AngleErrorW - tp5LpfAngleErrorWOld) * 0.1);
   tp5LpfAngleErrorWOld = tp5LpfAngleErrorW;
 
   // Add the angle error to the base speed to get the target speed.
   tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
+<<<<<<< HEAD
+=======
+  //  tp5Fps = tp5AngleErrorW + tp5LpfCos;
+  //  tp5FpsRight = tp5FpsLeft = tp5Fps;
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
+=======
+>>>>>>> parent of 0ee7def... Pre-TP6  base
 
   tp5Steer();
   setTargetSpeedRight(tp5FpsRight);

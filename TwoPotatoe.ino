@@ -378,12 +378,6 @@ long fpsRightLong = 0L;
 long fpsLeftLong = 0L;
 unsigned long tp5LoopTime = 0;
 
-
-// Arrays for storing block data.
-#define BLOCK_SIZE 100
-long timeArray[BLOCK_SIZE];
-long tickDistanceRightArray[BLOCK_SIZE];
-
 /*********************************************************
  *
  * setup()
