@@ -183,14 +183,17 @@ void doMessage(int type, int val) {
     else isBlockInProgress = false;
     break;
   case TP_RCV_MSG_ROUTE: // Starting route
-    if ((val != 0) && (!isRouteInProgress)) {
+    if ((val == 1) && (!isRouteInProgress)) {
       isRouteInProgress = true;
       routeActionPtr = 0;
       setNewRouteAction();
     }
-    if ((val == 0) && (isRouteInProgress)) {
+    else if ((val == 0) && (isRouteInProgress)) {
         isRouteInProgress = false;
         controllerY = 0.0;
+    }
+    else if (val == 2) {
+      routeResetTime = 0L; // Starts the route.
     }
     break;
   case TP_RCV_MSG_LIGHTS: // 
@@ -204,6 +207,27 @@ void doMessage(int type, int val) {
       digitalWrite(LEFT_HL_PIN, LOW);
       digitalWrite(REAR_BL_PIN, LOW);
     } 
+    break;
+  case TP_RCV_MSG_T_VAL:
+    (*currentValSet).t = ((float) val) / 100.0;
+    break;
+  case TP_RCV_MSG_U_VAL:
+    (*currentValSet).u = ((float) val) / 100.0;
+    break;
+  case TP_RCV_MSG_V_VAL:
+    (*currentValSet).v = ((float) val) / 100.0;
+    break;
+  case TP_RCV_MSG_W_VAL:
+    (*currentValSet).w = ((float) val) / 100.0;
+    break;
+  case TP_RCV_MSG_X_VAL:
+    (*currentValSet).x = ((float) val) / 100.0;
+    break;
+  case TP_RCV_MSG_Y_VAL:
+    (*currentValSet).y = ((float) val) / 100.0;
+    break;
+  case TP_RCV_MSG_Z_VAL:
+    (*currentValSet).z = ((float) val) / 100.0;
     break;
   default:
     break;    
