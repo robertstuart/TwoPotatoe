@@ -1,10 +1,10 @@
 //________ Pololu MinIMU-9 v2 --------
-#include <Wire.h>
-#include <L3G.h>
-#include <LSM303.h>
-
-L3G gyro;
-LSM303 compass;
+//#include <Wire.h>
+//#include <L3G.h>
+//#include <LSM303.h>
+//
+//L3G gyro;
+//LSM303 compass;
 
 // These are min/max for complete sphere
 const int rollMin = -692;
@@ -28,17 +28,34 @@ const int yawMax = 403;
 // *//  gyro.writeReg(L3G_CTRL_REG4, 0x20); // 2000 dps full scale
 // **********************************************************************************************
 
+//
+//
+////---------- Uncomment everything below this line for the Sparkfun imu9150 --------
+
 void angleInit() {
   Wire.begin();
-  delay(100);
-  compass.init(LSM303DLHC_DEVICE,LSM303_SA0_A_HIGH);
-  compass.enableDefault();
-  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
-  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
-  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
-  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
-  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
+  imu9150.initialize();
+  imu9150.setRate(79);
 }
+
+void angleInitTp7() {
+  Wire.begin();
+  imu9150.initialize();
+  imu9150.setRate(39);
+  imu9150.setIntDataReadyEnabled(true);
+}
+
+//void angleInit() {
+//  Wire.begin();
+//  delay(100);
+//  compass.init(LSM303DLHC_DEVICE,LSM303_SA0_A_HIGH);
+//  compass.enableDefault();
+//  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
+//  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
+//  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
+//  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
+//  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
+//}
 
 
 /*********************************************************
@@ -51,63 +68,26 @@ void angleInit() {
  *     "pitch" variable to keep with conventional usage.
  *
  *********************************************************/
-void getIMU(int* aPitch, int* aRoll, int* aYaw, int* gPitch, int* gRoll, int* gYaw, int* mPitch, int* mRoll, int* mYaw) {
-  flushSerial();
-  compass.read();
-  flushSerial();
-  gyro.read();
-  flushSerial();
-  *aPitch = compass.a.x;
-  *aRoll = compass.a.y;
-  *aYaw = compass.a.z;
-  *gPitch = gyro.g.x;
-  *gRoll = -gyro.g.y;
-  *gYaw = gyro.g.z;
-  *mRoll = compass.m.x;
-  *mPitch = compass.m.y;
-  *mYaw = compass.m.z;
-}
-
-
-/*********************************************************
- *
- * getTpAngle()
- *
- *     Computes the angle from the accelerometer and the gyro.
- *     Sets: gyroRate
- *           tpAngle
- *
- *********************************************************/
-float sumGyroRate;
-float getTpAngle() {
-
-  getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
-
-  // Compute angle around the x axis
-  gyroPitchRaw = gPitch;  // 
-  gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
-  gyroPitchAngleDelta = (gyroPitchRate * actualLoopTime)/1000000; // degrees changed during period
-  gyroPitchAngle = gyroPitchAngle + gyroPitchAngleDelta;   // Not used.  Only for debuggin purposes
-  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
-  accelPitchAngle = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
-  gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
-
-  // compute the Y plane to check for falling sideways
-  gyroRollRaw = gRoll;
-  gyroRollRate = gyroRollRaw * GYRO_SENS;
-  float gyroRollAngleDelta = (gyroRollRate * actualLoopTime)/1000000;
-  gyroRollAngle = gyroRollAngle + gyroRollAngleDelta; // not used
-  float gyroRollWeightedAngle = gyroRollAngleDelta + gaRollAngle;
-  //  accelYAngle = atan2(compass.a.x, compass.a.z) * RAD_TO_DEG;
-  accelRollAngle = atan2(aPitch, aYaw) * RAD_TO_DEG;
-  gaRollAngle = (gyroRollWeightedAngle * GYRO_WEIGHT) + (accelRollAngle * (1 - GYRO_WEIGHT));
-
-  // compute Z plane to measure turns
-  gyroYawRaw = -gYaw;
-  gyroYawRate = (gyroYawRaw - driftYaw) * GYRO_SENS;
-  float gyroYawAngleDelta = (gyroYawRate * actualLoopTime)/1000000;
-  gyroYawAngle = gyroYawAngle + gyroYawAngleDelta; 
-}
+//void getIMU(int* aPitch, int* aRoll, int* aYaw, int* gPitch, int* gRoll, int* gYaw) {
+//  flushSerial();
+//  imu9150.getMotion6(aPitch, aRoll, aYaw, gPitch, gRoll, gYaw);
+//}
+//void getIMU(int* aPitch, int* aRoll, int* aYaw, int* gPitch, int* gRoll, int* gYaw, int* mPitch, int* mRoll, int* mYaw) {
+//  flushSerial();
+//  compass.read();
+//  flushSerial();
+//  gyro.read();
+//  flushSerial();
+//  *aPitch = compass.a.x;
+//  *aRoll = compass.a.y;
+//  *aYaw = compass.a.z;
+//  *gPitch = gyro.g.x;
+//  *gRoll = -gyro.g.y;
+//  *gYaw = gyro.g.z;
+//  *mRoll = compass.m.x;
+//  *mPitch = compass.m.y;
+//  *mYaw = compass.m.z;
+//}
 
 
 float old1DeltaOverBase = 0.0;
@@ -124,7 +104,8 @@ float getTp5Angle() {
   if (td < 0) td += TICKS_PER_360;
   tickHeading = magCorrection + (((float) td) / TICKS_PER_DEGREE);
 
-  getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
+//  getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
+  imu9150.getMotion6(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw);
 
   // Compute angle around the x axis
   gyroPitchRaw = gPitch;  // 
@@ -323,20 +304,4 @@ void apCompass(float roll, float pitch) {
 
 
 
-//
-//
-////---------- Uncomment everything below this line for the Sparkfun imu9150 --------
-//#include "Wire.h"
-//#include "I2Cdev.h"
-//#include "MPU6050.h"
-//
-//void angleInit() {
-//  Wire.init();
-//  imu9150.initialize();
-//  imu9150.setRate(79);
-//}
-//
-//void getGyroAccel(int* ax, int* ay, int* az, int* gx, int* gy, int* gz) {
-//    imu9150.getMotion6(ax, ay, az, gx, gy, gz);
-//}
 

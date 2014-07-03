@@ -2,9 +2,12 @@
 
 #include <stdlib.h>
 #include "Common.h"
+#include "Wire.h"
+#include "I2Cdev.h"
+#include "MPU6050.h"
 
 #define MYSER Serial3
-const byte RESET[] = {0xFE, 0x00, 0x04, 0x08, 0x0, 0x46, 0x52, 0x5F};
+
 unsigned int mode = MODE_TP4;
 
 // set motor to test
@@ -58,7 +61,7 @@ const float SPEED_MULTIPLIER = 3.0;
 #define YE_SW_PIN 24
 #define PWR_PIN 25 // Mosfet power controller
 #define SPEAKER_PIN 26
-
+#define MPU_INTR_PIN 38
 #define BATTERY_PIN A1              // Analog pin assignment
 #define PRESSURE_PIN A0             // Pressure sensor
 
@@ -104,6 +107,19 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 #define END_MARKER 42
 //#define MAX_PULSE_WAIT 8000
 //#define PULSE_LENGTH 1500
+
+// Due has 96 kbytes sram
+#define DATA_ARRAY_SIZE 2000
+
+MPU6050 imu9150;
+
+// Arrays to save data to be dumped in blocks.
+long timeArray[ DATA_ARRAY_SIZE];
+long tickArray[ DATA_ARRAY_SIZE];
+long angleArray[ DATA_ARRAY_SIZE];
+long motorArray[ DATA_ARRAY_SIZE];
+int dataArrayPtr = 0;
+
 int BEEP_UP [] = {1200, 100, 1500, 100, 0};
 int BEEP_WARBLE[] = {1200, 300, 1500, 300, 
                   1200, 300, 1500, 300, 
@@ -149,7 +165,7 @@ valSet tp4A = {
   0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.18,   // Y Target angle to WS 
-  -2.7}; // z accelerometer offset
+  +2.7}; // z accelerometer offset
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
@@ -187,9 +203,9 @@ long routeTargetTime = 0L;
 
 int msgState = MSG_STATE_TIMER_WAIT;
 
-int aPitch, aRoll, aYaw;
-int gPitch, gRoll, gYaw;
-int mPitch, mRoll, mYaw;
+int16_t aPitch, aRoll, aYaw;
+int16_t gPitch, gRoll, gYaw;
+int16_t mPitch, mRoll, mYaw;
 float mPitchVec, mRollVec, mYawVec;
 float headX, headY;
 float magHeading;
@@ -389,7 +405,7 @@ void setup() {
 
   //  MYSER.begin(115200);
   // XBee, See bottom of this page for settings.
-  MYSER.begin(57600);  // 113000 Rate matched by testing.
+  MYSER.begin(57600);  // XBee
   Serial.begin(115200); // for debugging output
   //  resetXBee();
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
@@ -402,6 +418,7 @@ void setup() {
   pinMode(SPEAKER_PIN, OUTPUT);
   pinMode(BATTERY_PIN, INPUT);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
+  pinMode(MPU_INTR_PIN, INPUT);
 
   digitalWrite(PWR_PIN, HIGH);
   digitalWrite(LED_PIN, HIGH);
@@ -439,17 +456,8 @@ void setup() {
  *********************************************************/
 void loop() { //Main Loop
   switch (mode) {
-  case MODE_TP6:
-    aTp6Run();
-    break;
   case MODE_TP5:
     aTp5Run();
-    break;
-  case MODE_IMU:
-    aImuRun();
-    break;
-  case MODE_PWM_SPEED:
-    aPwmSpeedRun();
     break;
   case MODE_TP_SPEED:
     aTpSpeedRun();
@@ -515,57 +523,6 @@ void aImuRun() {
   }
 }
 
-
-/*********************************************************
- *
- * aPwmSpeedRun()
- *
- *     Run the MODE_PWM_SPEED algorithm
- *
- *********************************************************/
-void aPwmSpeedRun() { 
-  txRateDivider = 5;  // 20/sec
-  timeTrigger = timeMicroseconds = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
-  motorInitPwm();
-  setPwmSpeed(MOTOR_RIGHT, 0);
-  setPwmSpeed(MOTOR_LEFT, 0);
-  setBlink(BLINK_FY);
-
-  while(mode == MODE_PWM_SPEED) { // main loop
-    readXBee();  // Read commands from PC or Hand Controller
-    led();
-    timeMicroseconds = micros();
-    timeMilliseconds = timeMicroseconds / 1000;
-    flushSerial();
-
-    // Timed loop
-    if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
-      timeTrigger += 100000;  // 10 per second
-
-      readSpeed();
-      battery(); 
-      if ((tpState & TP_STATE_RUN_READY) == 0) {
-        tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
-      }
-      else {
-        tpState = tpState | TP_STATE_RUNNING; // set the bit
-      }
-      setPwmSpeed(MOTOR_RIGHT, remotePwR);
-      setPwmSpeed(MOTOR_LEFT, remotePwL);
-
-      // Fill out the sendArray and send it.
-      set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
-      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
-      int right = (int) (fpsRight * 100.0);
-      set2Byte(sendArray, TP_SEND_C_VAL, right);
-      int left = (int) (fpsLeft * 100.0);
-      set2Byte(sendArray, TP_SEND_D_VAL, left);
-      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_E_VAL);  
-    } // End if(time) 
-  } // End while(mode)
-} // End aPwmSpeedRun()
-
 /*********************************************************
  *
  * aTpSpeedRun()
@@ -614,7 +571,7 @@ void aTpSpeedRun() {
       set2Byte(sendArray, TP_SEND_C_VAL, right);
       int left = (int) (fpsLeft * 100.0);
       set2Byte(sendArray, TP_SEND_D_VAL, left);
-      sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_E_VAL);  
+      sendStatusFrame(TP_SEND_E_VAL);  
     }
   }
 }
@@ -640,48 +597,6 @@ void checkDrift() {
 }
 
 
-
-/*********************************************************
- *
- * runPwmSequence()
- *
- *     Run the sequence already set by the LOQD command.
- *
- *********************************************************/
-void initPwmSequence() {
-  sequenceIsRunning = true;
-  runSequenceCount = 0;
-  seqDur = wsDurArray[0];
-  seqPw = pwArray[0];
-}
-void runPwmSequence() {
-  if (!sequenceIsRunning) {
-    return;
-  }
-  if (--seqDur < 0) { // move on to next pair?
-    if (++runSequenceCount >= sequenceCount) { // Last one?
-      //      setPwmSpeed(MOTOR_RIGHT, 0);
-      //      setPwmSpeed(MOTOR_LEFT, 0);
-      sequenceIsRunning = false;
-//      send0(CMD_SEQUENCE_END, false);
-      return;
-    }
-    seqDur = wsDurArray[runSequenceCount];
-    seqPw = pwArray[runSequenceCount];
-  }
-  if (TEST_RIGHT) {
-    //    setPwmSpeed(MOTOR_RIGHT, seqPw);
-//    streamValueArray[1] = fpsRight;
-  }
-  if (TEST_LEFT) {
-    //    setPwmSpeed(MOTOR_LEFT, seqPw);
-//    streamValueArray[1] = fpsLeft;
-  }
-  if (TEST_RIGHT && TEST_LEFT) {
-//    streamValueArray[1] = wheelSpeedFps;
-  }
-//  streamValueArray[2] = seqPw;
-}
 
 
 

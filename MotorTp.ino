@@ -462,3 +462,63 @@ void setMotor(int motor, int state) {
 
 
 
+/*********************************************************
+ *
+ *  getSpeedXXX()
+ *
+ *    returns the floating point fps computed from last encoder period.
+ *    Returns a computed value if there have been no recent
+ *    encoder interrupts.
+ *
+ *********************************************************/
+void readSpeedRight() {
+  unsigned long t = tickTimeRight;
+  unsigned long currentPeriod = micros() - t;
+  if (currentPeriod > abs(tickPeriodRight)) {
+    if (tickPeriodRight > 0) {
+      fpsRight = (ENC_FACTOR / (float) currentPeriod);
+    } 
+    else {
+      fpsRight = ((ENC_FACTOR * -1.0) / (float) currentPeriod);
+    }
+  } 
+  else {
+    fpsRight = (ENC_FACTOR / (float) tickPeriodRight);
+  }
+}
+
+void readSpeedLeft() {
+  unsigned long t = tickTimeLeft;
+  unsigned long currentPeriod = micros() - t;
+  if (currentPeriod > abs(tickPeriodLeft)) {
+    if (tickPeriodLeft > 0) {
+      fpsLeft = (ENC_FACTOR / (float) currentPeriod);
+    } 
+    else {
+      fpsLeft = ((ENC_FACTOR * -1.0) / (float) currentPeriod);
+    }
+  } 
+  else {
+    fpsLeft =  (ENC_FACTOR / (float) tickPeriodLeft);
+  }
+}
+
+
+
+/*********************************************************
+ *
+ * readSpeed()
+ *
+ *    Sets the speed variables for both wheels and 
+ *    sets average.
+ *
+ *********************************************************/
+void readSpeed() {
+  readSpeedRight();
+  readSpeedLeft();
+  tickDistance = tickDistanceRight + tickDistanceLeft;
+  wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
+}
+
+
+

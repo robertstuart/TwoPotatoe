@@ -1,24 +1,13 @@
-byte transmitBuffer[120] = {
-  0x7E, 0, 0}; // Start delimiter, count MSB, count LSB
-byte tXframeDataHeader[] = {
-  0x01, 0,0xFF, 0xFF, 0x04}; // API id, Frame id, dest MSB, dest LSB, Options (broadcast)
+// Start delimiter, count MSB, count LSB, API id, Frame id, dest msb, dest lsb, options
+byte transmitBuffer[120] = {0x7E, 0, 0, 0x01, 0, 0xFF, 0xFF, 0x04}; 
 int transmitBufferLength = 0;
 int transmitBufferPtr = 0;
 unsigned long transmitNextWriteTime = 0UL;
  
 /*********************************************************
- *
- * sendTXFrame()
- *
- *     Send a TX frame to the specified destination.
- *     The data wlll be int the rfData.  Prepend
- *     the API id, Frame Id, Destination Address, and 
- *     Options bytes
- *     rfDataLenth is always the offset AFTER the last
- *     array value.
- *
+ * sendStatusFrame() Send out status data.
  *********************************************************/
-void sendTXFrame(int dest, byte rfData[], int rfDataLength) { 
+void sendStatusFrame(int rfDataLength) { 
   if (isBlockInProgress) return;
   if (++txRateCounter >= txRateDivider) {
     txRateCounter = 0;
@@ -30,49 +19,50 @@ void sendTXFrame(int dest, byte rfData[], int rfDataLength) {
     set2Byte(sendArray, TP_SEND_MSG_ACKVAL, ackMsgVal);
     
     if (rfDataLength == 0) rfDataLength = TP_SEND_A_VAL;
-    sendFrame(tXframeDataHeader, 5, rfData, rfDataLength);
+    sendFrame(rfDataLength);
   }
 }
-
+ 
 
 /*********************************************************
  *
  * sendFrame()
  *
  *     Send the API frame with the given Data Header
- *     and Data. Prepend the Start Delimiter (0cFE)
+ *     and Data. Prepend the Start Delimiter (0x7E)
  *     and the Length bytes.  Append the Checksum
  *     before sending.
  *
  *********************************************************/
-void sendFrame(byte cmdDataHeader[], int cmdDataHeaderLength, byte cmdData[], int cmdDataLength) {
+void sendFrame(int dataLength) {
   unsigned int sum = 0;
   // Set the length in bytes 2 & 3.
   transmitBuffer[1] = 0;
-  transmitBuffer[2] = cmdDataHeaderLength + cmdDataLength;
+  transmitBuffer[2] = dataLength + 5;
 
-  // Compute the checksum.
-  for (int i = 0; i < cmdDataHeaderLength; i++) {
-    sum += cmdDataHeader[i];
+  // Copy to a single buffer.
+  for (int i = 0; i < dataLength; i++) {
+    transmitBuffer[i + 8] = sendArray[i];
   }
-  for (int i = 0; i < cmdDataLength; i++) {
-    sum += cmdData[i];
-  }
-  byte checkSum = 0xFF - sum;
   
-  // Copy to a single buffer and start the first byte of the transmit.
-  for (int i = 0; i < cmdDataHeaderLength; i++) {
-    transmitBuffer[i + 3] = cmdDataHeader[i];
-  }
-  for (int i = 0; i < cmdDataLength; i++) {
-    transmitBuffer[i + 3 + cmdDataHeaderLength] = cmdData[i];
-  }
+  // Compute the checksum.
+  for (int i = 3; i < (dataLength + 8); i++) {
+    sum += transmitBuffer[i];
+  }  
+  byte checkSum = 0xFF - sum;
 
+  // Start the first byte of the transmit.
   transmitBufferPtr = 0;
-  transmitBufferLength = 3 + cmdDataHeaderLength + cmdDataLength;
+  transmitBufferLength = 8 + dataLength;
   transmitBuffer[transmitBufferLength] = checkSum;
   transmitNextWriteTime = 0UL;
   flushSerial();
+//  
+//  for (int i = 0; i < (transmitBufferLength + 1); i++) {
+//    Serial.print(transmitBuffer[i]);
+//    Serial.print(" ");
+//  }
+//  Serial.println();
 }
 
 

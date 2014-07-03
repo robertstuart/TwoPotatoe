@@ -150,10 +150,10 @@ void aTp5() {
 //    set2Byte(sendArray, TP_SEND_F_VAL, targetHeading * 10.0);
 //    set2Byte(sendArray, TP_SEND_G_VAL, routeActionPtr);
 
-    sendTXFrame(XBEE_BROADCAST, sendArray, TP_SEND_H_VAL); 
+    sendStatusFrame(TP_SEND_H_VAL); 
   } 
   else {
-    sendTXFrame(XBEE_BROADCAST, sendArray, 0); 
+    sendStatusFrame(0); 
   }
 } // end aTp5() 
 

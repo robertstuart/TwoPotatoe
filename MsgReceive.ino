@@ -159,6 +159,7 @@ void newPacket() {
 void doMessage(int type, int val) {
   ackMsgType = type;
   ackMsgVal = val;
+ 
   switch (type) {
   case TP_RCV_MSG_MODE:
     mode = val;
@@ -204,6 +205,9 @@ void doMessage(int type, int val) {
       digitalWrite(LEFT_HL_PIN, LOW);
       digitalWrite(REAR_BL_PIN, LOW);
     } 
+    break;
+  case TP_RCV_MSG_DSTART:
+    sendData();
     break;
   default:
     break;    
@@ -253,6 +257,25 @@ void doRouteBlock() {
 }
 
 
+void sendData() {
+//    int daPtr;
+//    daPtr = dataArrayPtr;
+//    sendArray[0] = BLOCK_DATA;
+//    do {
+//      set4Byte(sendArray, 1, timeArray[daPtr]);
+//      set4Byte(sendArray, 5, tickArray[daPtr]);
+//      set4Byte(sendArray, 9, angleArray[daPtr]);
+//      set4Byte(sendArray, 13, motorArray[daPtr]);
+//      daPtr++;
+//      daPtr = daPtr % DATA_ARRAY_SIZE;
+//      sendFrame(tXframeDataHeader, 5, sendArray, rfDataLength);
+//    } while (daPtr != dataArrayPtr);
+//    
+//    // Send block to indicate end.
+//      set4Byte(sendArray, 1, 0L);
+//      sendFrame(tXframeDataHeader, 5, sendArray, rfDataLength);
+}
+
 
 void setValSet(int newValSet) {
   if (newValSet == vSetStatus) {
@@ -285,6 +308,5 @@ int get2Byte(int offset) {
   value += packetByteArray[offset] * 256;
   return (value - 32767);
 }
-
 
 

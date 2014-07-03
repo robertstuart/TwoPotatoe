@@ -8,7 +8,6 @@ boolean beepStat = false;
 int *beepSequence;
 int beepPtr = 0;
 
-unsigned long batteryTimer = 0;
 boolean flip = false;
 int warningCount = 0;
 int criticalCount = 0;
@@ -112,7 +111,7 @@ void safeAngle() {
     tpState = tpState | TP_STATE_UPRIGHT;
     uprightTime = timeMilliseconds;
   }
-}  // End upright().
+}  // End safeAngle().
 
 
 /*********************************************************
@@ -160,30 +159,32 @@ void controllerConnected() {
  ***************************************************************/
 void battery() {
 
-  // Send out the battery voltage
-  int sensorValue = analogRead(BATTERY_PIN);
-  batteryVolt = 100 * (((float) sensorValue) * BATT_ATOD_MULTIPLIER);
+  if (timeMilliseconds > batteryTrigger) {
+    batteryTrigger += 1000;  // 10 per second
+    int sensorValue = analogRead(BATTERY_PIN);
+    batteryVolt = 100 * (((float) sensorValue) * BATT_ATOD_MULTIPLIER);
   
-  // Check for warning condition.
-  if (batteryVolt < BATTERY_WARNING) {
-    // Continuously low for a second?
-    if ((batteryLastGood + 1000) < timeMilliseconds) {
-      if (timeMilliseconds > warningTrigger) {
-        beep(BEEP_WARBLE);
-        warningTrigger += 60000;
+    // Check for warning condition.
+    if (batteryVolt < BATTERY_WARNING) {
+      // Continuously low for a second?
+      if ((batteryLastGood + 1000) < timeMilliseconds) {
+        if (timeMilliseconds > warningTrigger) {
+          beep(BEEP_WARBLE);
+          warningTrigger += 60000;
+        }
       }
+    } 
+    else {
+      batteryLastGood = timeMilliseconds;
     }
-  } 
-  else {
-    batteryLastGood = timeMilliseconds;
-  }
 
-  // Check for critical condition.
-  if (batteryVolt < BATTERY_CRITICAL) {
-    if ((timeMilliseconds + 10000) > warningTrigger) {
-      digitalWrite(PWR_PIN, LOW);  // Power down TwoPotatoe
-    }
-  } 
+    // Check for critical condition.
+    if (batteryVolt < BATTERY_CRITICAL) {
+      if ((timeMilliseconds + 10000) > warningTrigger) {
+        digitalWrite(PWR_PIN, LOW);  // Power down TwoPotatoe
+      }
+    } 
+  } // end batteryTrigger
 }
 
 // Set the blink pattern
