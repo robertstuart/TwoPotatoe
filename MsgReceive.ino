@@ -9,7 +9,7 @@ int packetInProgress = PACKET_DELIM;
 const int PACKETBYTE_MAX = 105;
 byte packetByteArray[PACKETBYTE_MAX];
 int packetLength = 0;
-int dataLength = 0;
+int rcvLength = 0;
 
 /*********************************************************
  *
@@ -100,12 +100,12 @@ int doRx(int b) {
     signalStrength = b;
     break;
   case 3: // Options
-    dataLength = packetLength - 5;  // Subtract out non-data bytes.
+    rcvLength = packetLength - 5;  // Subtract out non-data bytes.
     dataPtr = 0;
     break;
     // Data or checksum after this point.
   default:
-    if (dataPtr == dataLength)	{ // Checksum?
+    if (dataPtr == rcvLength)	{ // Checksum?
       newPacket();
       return PACKET_DELIM;  // end of RX packet
     } 
@@ -135,18 +135,18 @@ void newPacket() {
   else tHc = timeMilliseconds;
   
   int msgType = packetByteArray[TP_RCV_MSG_TYPE];
-  if (msgType < TP_BLOCK_ZERO) {
-    if (!isRouteInProgress) {
+//  if (msgType < TP_BLOCK_ZERO) {
+//    if (!isRouteInProgress) {
       controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
       controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
-    }
-    if (msgType != TP_RCV_MSG_NULL) {
+//    }
+//    if (msgType != TP_RCV_MSG_NULL) {
       doMessage(msgType, get2Byte(TP_RCV_MSG_VAL));
-    }
-  }
-  else {
-    doRouteBlock();
-  }
+//    }
+//  }
+//  else {
+//    doRouteBlock();
+//  }
 }
 
 
@@ -157,6 +157,8 @@ void newPacket() {
  *
  *********************************************************/
 void doMessage(int type, int val) {
+  int bo;
+  if ((type == ackMsgType) && (val == ackMsgVal)) return; // Don't do twice.
   ackMsgType = type;
   ackMsgVal = val;
  
@@ -167,44 +169,39 @@ void doMessage(int type, int val) {
   case TP_RCV_MSG_POWER:
     digitalWrite(PWR_PIN, LOW);
     break;
-  case TP_RCV_MSG_STREAM:
-    if (val != 0) setStateBit(TP_STATE_DATA, true);
-    else setStateBit(TP_STATE_DATA, false);
-    break;
-  case TP_RCV_MSG_RATE:
-    if (val != 0) txRateHL = true;
-    else txRateHL = false;;
-    break;
+//  case TP_RCV_MSG_STREAM:
+//    if (val != 0) setStateBit(TP_STATE_DATA, true);
+//    else setStateBit(TP_STATE_DATA, false);
+//    break;
+//  case TP_RCV_MSG_RATE:
+//    if (val != 0) txRateHL = true;
+//    else txRateHL = false;;
+//    break;
   case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
     break;
-  case TP_RCV_MSG_BLOCK: // Starting or ending block of data
-    if (val != 0) isBlockInProgress = true;
-    else isBlockInProgress = false;
-    break;
-  case TP_RCV_MSG_ROUTE: // Starting route
-    if ((val != 0) && (!isRouteInProgress)) {
-      isRouteInProgress = true;
-      routeActionPtr = 0;
-      setNewRouteAction();
-    }
-    if ((val == 0) && (isRouteInProgress)) {
-        isRouteInProgress = false;
-        controllerY = 0.0;
-    }
-    break;
+//  case TP_RCV_MSG_BLOCK: // Starting or ending block of data
+//    if (val != 0) isBlockInProgress = true;
+//    else isBlockInProgress = false;
+//    break;
+//  case TP_RCV_MSG_ROUTE: // Starting route
+//    if ((val != 0) && (!isRouteInProgress)) {
+//      isRouteInProgress = true;
+//      routeActionPtr = 0;
+//      setNewRouteAction();
+//    }
+//    if ((val == 0) && (isRouteInProgress)) {
+//        isRouteInProgress = false;
+//        controllerY = 0.0;
+//    }
+//    break;
   case TP_RCV_MSG_LIGHTS: // 
-    if (val != 0) {
-      digitalWrite(RIGHT_HL_PIN, HIGH);
-      digitalWrite(LEFT_HL_PIN, HIGH);
-      digitalWrite(REAR_BL_PIN, HIGH);
-    }
-    else {
-      digitalWrite(RIGHT_HL_PIN, LOW);
-      digitalWrite(LEFT_HL_PIN, LOW);
-      digitalWrite(REAR_BL_PIN, LOW);
-    } 
+    if (val != 0) bo = HIGH;
+    else bo = LOW;
+    digitalWrite(RIGHT_HL_PIN, bo);
+    digitalWrite(LEFT_HL_PIN, bo);
+    digitalWrite(REAR_BL_PIN, bo);
     break;
   case TP_RCV_MSG_DSTART:
     sendData();
@@ -220,61 +217,42 @@ void doMessage(int type, int val) {
  * doRouteBlock()
  *
  *********************************************************/
-void doRouteBlock() {
-  int aVal, bVal;
-  isBlockInProgress = true;
-  byte c = packetByteArray[1];
-//char cc[] = " ";
-//cc[0]= c;
-//Serial.print(cc); 
-//Serial.print(routeActionPtr);
-  if (c == 'B') {
-    routeActionPtr = 0;
-    routeCurrentAction = 0;
-  }
-  else if (c == 'E') {
-    isBlockInProgress = false;
-    routeActionSize = routeActionPtr;
-    routeActionPtr = 0;
-    txRateHL = false;
-    txRateDivider = 5;
-    txRateCounter = 0;
-  }
-  else {
-    actionArray[routeActionPtr] = c;
-    aVal = get2Byte(2);
-    bVal = get2Byte(4);
-//Serial.print("  ");
-//Serial.print(aVal);
-//Serial.print("  ");
-//Serial.print(bVal);
-    aValArray[routeActionPtr] = aVal;
-    bValArray[routeActionPtr] = bVal;
-    routeActionPtr++;
-    routeActionSize++;
-  }
-//Serial.println();
-}
+//void doRouteBlock() {
+//  int aVal, bVal;
+//  isBlockInProgress = true;
+//  byte c = packetByteArray[1];
+////char cc[] = " ";
+////cc[0]= c;
+////Serial.print(cc); 
+////Serial.print(routeActionPtr);
+//  if (c == 'B') {
+//    routeActionPtr = 0;
+//    routeCurrentAction = 0;
+//  }
+//  else if (c == 'E') {
+//    isBlockInProgress = false;
+//    routeActionSize = routeActionPtr;
+//    routeActionPtr = 0;
+//    txRateHL = false;
+//    txRateDivider = 5;
+//    txRateCounter = 0;
+//  }
+//  else {
+//    actionArray[routeActionPtr] = c;
+//    aVal = get2Byte(2);
+//    bVal = get2Byte(4);
+////Serial.print("  ");
+////Serial.print(aVal);
+////Serial.print("  ");
+////Serial.print(bVal);
+//    aValArray[routeActionPtr] = aVal;
+//    bValArray[routeActionPtr] = bVal;
+//    routeActionPtr++;
+//    routeActionSize++;
+//  }
+////Serial.println();
+//}
 
-
-void sendData() {
-//    int daPtr;
-//    daPtr = dataArrayPtr;
-//    sendArray[0] = BLOCK_DATA;
-//    do {
-//      set4Byte(sendArray, 1, timeArray[daPtr]);
-//      set4Byte(sendArray, 5, tickArray[daPtr]);
-//      set4Byte(sendArray, 9, angleArray[daPtr]);
-//      set4Byte(sendArray, 13, motorArray[daPtr]);
-//      daPtr++;
-//      daPtr = daPtr % DATA_ARRAY_SIZE;
-//      sendFrame(tXframeDataHeader, 5, sendArray, rfDataLength);
-//    } while (daPtr != dataArrayPtr);
-//    
-//    // Send block to indicate end.
-//      set4Byte(sendArray, 1, 0L);
-//      sendFrame(tXframeDataHeader, 5, sendArray, rfDataLength);
-}
 
 
 void setValSet(int newValSet) {

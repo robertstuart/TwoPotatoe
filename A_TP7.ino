@@ -88,17 +88,19 @@ void aTp7() {
   tp7LoopTimeL = tickTimeLeft;
   
   // Send status message to controller.
-  sendStatusFrame(0); 
+  sendStatusFrame(); 
 } // end aTp7() 
 
 /************************************************************************
  *  tp7Log() Put values in the dump arrays.
  ************************************************************************/
 void tp7Log() { 
-  timeArray[dataArrayPtr];
-  tickArray[dataArrayPtr];
-  angleArray[dataArrayPtr];
-  motorArray[dataArrayPtr];
+  static int lNum = 0;
+  timeArray[dataArrayPtr] = timeMicroseconds;
+  tickArray[dataArrayPtr] = tickDistanceRight;
+  angleArray[dataArrayPtr] = (long) (gaPitchTickAngle * 100.0);
+  lNum = (lNum+1) % 15;
+  motorArray[dataArrayPtr] = lNum + 10;
   dataArrayPtr++;
   dataArrayPtr = dataArrayPtr %  DATA_ARRAY_SIZE;
 }

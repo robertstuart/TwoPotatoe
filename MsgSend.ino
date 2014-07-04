@@ -3,23 +3,19 @@ byte transmitBuffer[120] = {0x7E, 0, 0, 0x01, 0, 0xFF, 0xFF, 0x04};
 int transmitBufferLength = 0;
 int transmitBufferPtr = 0;
 unsigned long transmitNextWriteTime = 0UL;
+int dumpPtr, dumpEnd;
  
 /*********************************************************
  * sendStatusFrame() Send out status data.
  *********************************************************/
-void sendStatusFrame(int rfDataLength) { 
-  if (isBlockInProgress) return;
-  if (++txRateCounter >= txRateDivider) {
-    txRateCounter = 0;
-    sendArray[TP_SEND_STATE_STATUS] = tpState;
+void sendStatusFrame() { 
+  if ((timeMilliseconds > statusTrigger) && !isDumpingData && isSerialEmpty) {
+    statusTrigger = timeMilliseconds + 50;  // 20/sec
     sendArray[TP_SEND_MODE_STATUS] = mode;
+    sendArray[TP_SEND_STATE_STATUS] = tpState;
     set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
     set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
-    sendArray[TP_SEND_MSG_ACK] = ackMsgType;
-    set2Byte(sendArray, TP_SEND_MSG_ACKVAL, ackMsgVal);
-    
-    if (rfDataLength == 0) rfDataLength = TP_SEND_A_VAL;
-    sendFrame(rfDataLength);
+    sendFrame(TP_SEND_END);
   }
 }
  
@@ -28,10 +24,8 @@ void sendStatusFrame(int rfDataLength) {
  *
  * sendFrame()
  *
- *     Send the API frame with the given Data Header
- *     and Data. Prepend the Start Delimiter (0x7E)
- *     and the Length bytes.  Append the Checksum
- *     before sending.
+ *     Set all frame bytes and send out.
+ *     This must only be called if the serial buffer is empty.
  *
  *********************************************************/
 void sendFrame(int dataLength) {
@@ -51,19 +45,48 @@ void sendFrame(int dataLength) {
   }  
   byte checkSum = 0xFF - sum;
 
-  // Start the first byte of the transmit.
+  // Set up transmit buffer for flushSerial()
   transmitBufferPtr = 0;
   transmitBufferLength = 8 + dataLength;
   transmitBuffer[transmitBufferLength] = checkSum;
   transmitNextWriteTime = 0UL;
-  flushSerial();
-//  
-//  for (int i = 0; i < (transmitBufferLength + 1); i++) {
-//    Serial.print(transmitBuffer[i]);
-//    Serial.print(" ");
-//  }
-//  Serial.println();
+  isSerialEmpty = false;
 }
+
+
+
+/*********************************************************
+ * sendData() Set up to start a data dump.
+ *********************************************************/
+void sendData() {
+    dumpEnd = dumpPtr =  dataArrayPtr;
+    isDumpingData = true;
+}
+
+
+
+/*********************************************************
+ * dumpData()
+ *********************************************************/
+void dumpData() {
+  if (isDumpingData && isSerialEmpty) { 
+    sendArray[TP_SEND_MODE_STATUS] = BLOCK_DATA;
+    dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
+    if (dumpPtr != dumpEnd) {
+      set4Byte(sendArray, 1, timeArray[dumpPtr]);
+      set4Byte(sendArray, 5, tickArray[dumpPtr]);
+      set4Byte(sendArray, 9, angleArray[dumpPtr]);
+      set4Byte(sendArray, 13, motorArray[dumpPtr]);
+      sendFrame(17);
+    } 
+    else { // end of data dump
+      set4Byte(sendArray, 1, 0L);
+      sendFrame(17);
+      isDumpingData = false;
+    }
+  }
+}
+
 
 
 /*********************************************************
@@ -72,16 +95,23 @@ void sendFrame(int dataLength) {
  *
  *     Sends another byte out from the output buffer.
  *     Only sends a byte when there has been 
- *     200 microseconds since the last send.
+ *     xxx microseconds since the last send.
  *     This is necessary since the Due does not have
- *     a transmit buffer.
+ *     a transmit buffer so a normal send will block until finished.
  *
  *********************************************************/
 void flushSerial() {
-  if ((transmitBufferPtr <= transmitBufferLength) && (timeMicroseconds > transmitNextWriteTime))  {
+  if (!isSerialEmpty && (timeMicroseconds > transmitNextWriteTime))  {
     transmitNextWriteTime = timeMicroseconds + 170;
+//if (isDumpingData) {
+//  Serial.print(transmitBuffer[transmitBufferPtr]);
+//  Serial.print(" ");
+//  if (transmitBufferPtr == transmitBufferLength) {
+//    Serial.println();
+//  }
+//}
     MYSER.write(transmitBuffer[transmitBufferPtr++]);
-
+    if (transmitBufferPtr > transmitBufferLength) isSerialEmpty = true;
   }
 }
 
@@ -102,29 +132,6 @@ void set4Byte(byte array[], int index, int value) {
 }
 
 
-
-/*********************************************************
- *
- * dump()
- *
- *     If CMD_STATE_DUMP & TP_STATE_DUMPING is true, we are
- *     collecting data.  If only TP_STATE_DUMPING is true,
- *     we are dumping it to the PC.
- *     
- *
- *********************************************************/
-void dump() {
-//  if (    isBitClear(cmdState, CMD_STATE_DUMP) 
-//      && (isBitClear(tpState, TP_STATE_DUMPING))) {
-//        return;
-//  }
-//      
-//    // Are we are collecting data.
-//    if ( isBitSet(cmdState, CMD_STATE_DUMP) 
-//        && (isBitSet(tpState, TP_STATE_DUMPING))) {
-//      
-//  }
-}
 
 
 

@@ -109,7 +109,7 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 //#define PULSE_LENGTH 1500
 
 // Due has 96 kbytes sram
-#define DATA_ARRAY_SIZE 2000
+#define DATA_ARRAY_SIZE 1000
 
 MPU6050 imu9150;
 
@@ -119,6 +119,8 @@ long tickArray[ DATA_ARRAY_SIZE];
 long angleArray[ DATA_ARRAY_SIZE];
 long motorArray[ DATA_ARRAY_SIZE];
 int dataArrayPtr = 0;
+boolean isDumpingData = false;
+boolean isSerialEmpty = true;
 
 int BEEP_UP [] = {1200, 100, 1500, 100, 0};
 int BEEP_WARBLE[] = {1200, 300, 1500, 300, 
@@ -195,7 +197,7 @@ int bValArray[100];
 int routeActionPtr = 0;
 int routeActionSize = 0;
 boolean isRouteInProgress = false;
-boolean isBlockInProgress = false;
+//boolean isBlockInProgress = false;
 int routeCurrentAction = 0;
 float routeTargetHeading = 0.0;
 long routeTargetTickDistance = 0L;
@@ -256,6 +258,7 @@ float wsArray[30];
 int wsDurArray[30];
 
 unsigned long timeTrigger = 0L;
+unsigned long statusTrigger = 0L;
 unsigned long oldTimeTrigger = 0L;
 unsigned long timeMicroseconds = 0L; // Set in main loop.  Used by several routines.
 unsigned long timeMilliseconds = 0L; // Set in main loop from above.  Used by several routines.
@@ -531,49 +534,49 @@ void aImuRun() {
  *
  *********************************************************/
 void aTpSpeedRun() { 
-  txRateDivider = 5;  // 20/sec
-  timeTrigger = timeMicroseconds = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
-  motorInitTp();
-  setTargetSpeedRight(0.0f);
-  setTargetSpeedLeft(0.0f);
-  setBlink(BLINK_FB);
-
-  while(mode == MODE_TP_SPEED) { // main loop
-    readXBee();  // Read commands from PC or Hand Controller
-    led();
-    timeMicroseconds = micros();
-    timeMilliseconds = timeMicroseconds / 1000;
-    flushSerial();
-    checkMotorRight();
-    checkMotorLeft();
-
-    // Do the timed loop
-    if(timeMicroseconds > timeTrigger) {  
-      timeTrigger += 10000;  // 100 per second
-
-      // Set the RUNNING bit if the READY bit is set.
-      if ((tpState & TP_STATE_RUN_READY) == 0) {
-        tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
-      }
-      else {
-          tpState = tpState | TP_STATE_RUNNING; // set the bit
-      }
-      setTargetSpeedRight(controllerY * 6.0);
-      setTargetSpeedLeft(controllerY * 6.0);
-      readSpeed();      
-      battery();
-      
-      // Send the packet
-      set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
-      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
-      int right = (int) (fpsRight * 100.0);
-      set2Byte(sendArray, TP_SEND_C_VAL, right);
-      int left = (int) (fpsLeft * 100.0);
-      set2Byte(sendArray, TP_SEND_D_VAL, left);
-      sendStatusFrame(TP_SEND_E_VAL);  
-    }
-  }
+//  txRateDivider = 5;  // 20/sec
+//  timeTrigger = timeMicroseconds = micros();
+//  timeMilliseconds = timeMicroseconds / 1000;
+//  motorInitTp();
+//  setTargetSpeedRight(0.0f);
+//  setTargetSpeedLeft(0.0f);
+//  setBlink(BLINK_FB);
+//
+//  while(mode == MODE_TP_SPEED) { // main loop
+//    readXBee();  // Read commands from PC or Hand Controller
+//    led();
+//    timeMicroseconds = micros();
+//    timeMilliseconds = timeMicroseconds / 1000;
+//    flushSerial();
+//    checkMotorRight();
+//    checkMotorLeft();
+//
+//    // Do the timed loop
+//    if(timeMicroseconds > timeTrigger) {  
+//      timeTrigger += 10000;  // 100 per second
+//
+//      // Set the RUNNING bit if the READY bit is set.
+//      if ((tpState & TP_STATE_RUN_READY) == 0) {
+//        tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
+//      }
+//      else {
+//          tpState = tpState | TP_STATE_RUNNING; // set the bit
+//      }
+//      setTargetSpeedRight(controllerY * 6.0);
+//      setTargetSpeedLeft(controllerY * 6.0);
+//      readSpeed();      
+//      battery();
+//      
+//      // Send the packet
+//      set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
+//      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
+//      int right = (int) (fpsRight * 100.0);
+//      set2Byte(sendArray, TP_SEND_C_VAL, right);
+//      int left = (int) (fpsLeft * 100.0);
+//      set2Byte(sendArray, TP_SEND_D_VAL, left);
+//      sendStatusFrame();  
+//    }
+//  }
 }
 
 

@@ -50,9 +50,10 @@ void aTp5Run() {
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
     flushSerial();
+    dumpData();
     checkMotorRight();
     checkMotorLeft();
-    route();
+//    route();
 
     // Do the timed loop
     if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
@@ -62,6 +63,7 @@ void aTp5Run() {
       oldTimeTrigger = timeMicroseconds;
 
       aTp5(); 
+      tp7Log();
       magTickCorrection();
       battery();
       led();
@@ -126,35 +128,8 @@ void aTp5() {
   loopTickDistanceL = tickDistanceLeft;
   tp5LoopTimeR = tickTimeRight;
   tp5LoopTimeL = tickTimeLeft;
-//  long ttdR = (10000  * TICKS_PER_TFOOT * fpsRightLong) / 10000000L; // ticks per period @ 1 fps.
   
-  if (!isBlockInProgress) {
-    if(txRateHL) txRateDivider = 1;
-    else txRateDivider = 5;
-  }
-
-  if (isStateBitSet(TP_STATE_DATA)) {
-      set4Byte(sendArray, TP_SEND_A_VAL, tp5LpfCos);
-      set4Byte(sendArray, TP_SEND_B_VAL, tp5SpeedError);
-      set2Byte(sendArray, TP_SEND_C_VAL, tp5TargetAngle * 100.0);
-      set2Byte(sendArray, TP_SEND_D_VAL, gaPitchTickAngle * 100.0);
-      set2Byte(sendArray, TP_SEND_E_VAL, wheelSpeedFps * 100.0);
-      set2Byte(sendArray, TP_SEND_F_VAL, tp5AngleErrorW * 100.0);
-      set2Byte(sendArray, TP_SEND_G_VAL, tp5Fps * 100.0);
-      
-//    set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
-//    set4Byte(sendArray, TP_SEND_B_VAL, ttdR);
-//    set2Byte(sendArray, TP_SEND_C_VAL, wheelSpeedFps * 100.0);
-//    set2Byte(sendArray, TP_SEND_D_VAL, magHeading * 10.0);
-//    set2Byte(sendArray, TP_SEND_E_VAL, tickHeading * 10.0);
-//    set2Byte(sendArray, TP_SEND_F_VAL, targetHeading * 10.0);
-//    set2Byte(sendArray, TP_SEND_G_VAL, routeActionPtr);
-
-    sendStatusFrame(TP_SEND_H_VAL); 
-  } 
-  else {
-    sendStatusFrame(0); 
-  }
+  sendStatusFrame(); 
 } // end aTp5() 
 
 boolean damp() {
