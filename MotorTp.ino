@@ -466,7 +466,7 @@ void setMotor(int motor, int state) {
  *
  *  getSpeedXXX()
  *
- *    Returns tfps (Thousands of Feed Per Second) computed from last encoder period.
+ *    returns the floating point fps computed from last encoder period.
  *    Returns a computed value if there have been no recent
  *    encoder interrupts.
  *
@@ -476,14 +476,14 @@ void readSpeedRight() {
   unsigned long currentPeriod = micros() - t;
   if (currentPeriod > abs(tickPeriodRight)) {
     if (tickPeriodRight > 0) {
-      tfpsRight = ENC_FACTOR / currentPeriod;
+      fpsRight = (ENC_FACTOR / (float) currentPeriod);
     } 
     else {
-      tfpsRight = -(ENC_FACTOR / currentPeriod);
+      fpsRight = ((ENC_FACTOR * -1.0) / (float) currentPeriod);
     }
   } 
   else {
-    tfpsRight = ENC_FACTOR / tickPeriodRight;
+    fpsRight = (ENC_FACTOR / (float) tickPeriodRight);
   }
 }
 
@@ -492,14 +492,14 @@ void readSpeedLeft() {
   unsigned long currentPeriod = micros() - t;
   if (currentPeriod > abs(tickPeriodLeft)) {
     if (tickPeriodLeft > 0) {
-      tfpsLeft = ENC_FACTOR / currentPeriod;
+      fpsLeft = (ENC_FACTOR / (float) currentPeriod);
     } 
     else {
-      tfpsLeft = -(ENC_FACTOR / currentPeriod);
+      fpsLeft = ((ENC_FACTOR * -1.0) / (float) currentPeriod);
     }
   } 
   else {
-    tfpsLeft =  ENC_FACTOR / tickPeriodLeft;
+    fpsLeft =  (ENC_FACTOR / (float) tickPeriodLeft);
   }
 }
 
@@ -517,7 +517,7 @@ void readSpeed() {
   readSpeedRight();
   readSpeedLeft();
   tickDistance = tickDistanceRight + tickDistanceLeft;
-  wheelSpeedFps = ((float) (tfpsLeft + tfpsRight))/2000.0f;
+  wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
 }
 
 

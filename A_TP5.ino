@@ -92,7 +92,7 @@ void aTp5() {
   float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
   tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little
   tp5LpfCosOld = tp5LpfCos;
- 
+
   tp5ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
 
   // find the speed error
