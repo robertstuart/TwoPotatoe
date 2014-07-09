@@ -67,7 +67,8 @@ const float SPEED_MULTIPLIER = 3.0;
 
 //Encoder factor
 //const float ENC_FACTOR= 750.0f;  // Change pulse width to fps speed, 1/50 gear
-const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
+const long ENC_FACTOR = 1329000L;  // Change pulse width to fps speed, 1/29 gear
+//const float L_ENC_FACTOR = 1329000f;  // Change pulse width to fps speed, 1/29 gear
 const float FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
 const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
@@ -228,8 +229,8 @@ long targetBrakePeriodLeft = 0L;
 long tickPeriodRight = 0L;     // last period. Minus for reverse.
 long tickPeriodLeft = 0L;
 float tickAngle = 0;
-float fpsRight = 0.0f; // right feet per second
-float fpsLeft = 0.0f;  // left feet per second
+long tfpsRight = 0L; // right, thousands of feet per second
+long tfpsLeft = 0L;  // left, thousands of feet per second
 float wheelSpeedFps = 0.0f;
 float speedTpcs = 0.0f;
 unsigned long lasttime, gap;
