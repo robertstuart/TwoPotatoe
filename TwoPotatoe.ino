@@ -167,7 +167,7 @@ valSet tp4A = {
   0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.18,   // Y Target angle to WS 
-  +2.7}; // z accelerometer offset
+  -1.7}; // z accelerometer offset
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
@@ -299,6 +299,13 @@ int driftRoll = 0;
 int driftYaw = 0;
 float accelPitchAngle = 0.0;  // Vertical plane parallel to wheels
 float gaPitchAngle = 0.0f;
+
+// TP7 variables
+float gaPitch = 0.0;
+float oldGaPitch = 0.0;
+float gyroPitchDelta = 0.0;
+float gyroPitch = 0.0; // not needed
+float accelPitch = 0.0;
 
 // TP5 angle variables
 float gaPitchTickAngle = 0.0f;
@@ -461,6 +468,9 @@ void loop() { //Main Loop
   switch (mode) {
   case MODE_TP5:
     aTp5Run();
+    break;
+  case MODE_TP7:
+    aTp7Run();
     break;
   case MODE_TP_SPEED:
     aTpSpeedRun();

@@ -58,38 +58,6 @@ void angleInitTp7() {
 //}
 
 
-/*********************************************************
- *
- * getIMU()
- *
- *     Reads the IMU & fill the pointers.
- *     Since the chip is rotated 90 degrees from the
- *     specification, the "x" values are returned as the
- *     "pitch" variable to keep with conventional usage.
- *
- *********************************************************/
-//void getIMU(int* aPitch, int* aRoll, int* aYaw, int* gPitch, int* gRoll, int* gYaw) {
-//  flushSerial();
-//  imu9150.getMotion6(aPitch, aRoll, aYaw, gPitch, gRoll, gYaw);
-//}
-//void getIMU(int* aPitch, int* aRoll, int* aYaw, int* gPitch, int* gRoll, int* gYaw, int* mPitch, int* mRoll, int* mYaw) {
-//  flushSerial();
-//  compass.read();
-//  flushSerial();
-//  gyro.read();
-//  flushSerial();
-//  *aPitch = compass.a.x;
-//  *aRoll = compass.a.y;
-//  *aYaw = compass.a.z;
-//  *gPitch = gyro.g.x;
-//  *gRoll = -gyro.g.y;
-//  *gYaw = gyro.g.z;
-//  *mRoll = compass.m.x;
-//  *mPitch = compass.m.y;
-//  *mYaw = compass.m.z;
-//}
-
-
 float old1DeltaOverBase = 0.0;
 float old2DeltaOverBase = 0.0;
 
@@ -145,6 +113,23 @@ float getTp5Angle() {
   gyroYawAngle = gyroYawAngle + gyroYawAngleDelta; 
   
   getCompass();
+}
+
+
+/*********************************************************
+ * getTp7Angle()
+ *********************************************************/
+float getTp7Angle() {
+  imu9150.getMotion6(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw);
+
+  // Compute angle around the x axis
+  gyroPitchRaw = gPitch;  // 
+  gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
+  gyroPitchDelta = (gyroPitchRate * actualLoopTime)/1000000; // degrees changed during period
+  gyroPitch = gyroPitch + gyroPitchDelta;   // Not used.  Only for debuggin purposes
+  float weightedGyroPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
+  accelPitch = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
+  gaPitch = (weightedGyroPitch * GYRO_WEIGHT) + (accelPitch * (1 - GYRO_WEIGHT)); // Weigh factors  
 }
 
 

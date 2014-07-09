@@ -23,12 +23,14 @@ void aTp7Run() {
   timeMicroseconds = timeTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
+  angleInitTp7();
   motorInitTp7();
   while(mode == MODE_TP7) { // main loop
     readXBee();  // Read commands from PC or Hand Controller
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
     flushSerial();
+    dumpData();
     checkMotorRight();
     checkMotorLeft();
     if (digitalRead(MPU_INTR_PIN) == HIGH) {
@@ -37,9 +39,9 @@ void aTp7Run() {
       oldTimeTrigger = timeMicroseconds;
       aTp7(); 
       tp7Log();
-      battery();
+//      battery();
       led();
-      safeAngle();
+//      safeAngle();
       gravity();
       controllerConnected();
       setTp4RunningState();
@@ -53,14 +55,14 @@ void aTp7Run() {
  *  aTp7() 
  ************************************************************************/
 void aTp7() {
-  getTp5Angle();
+  getTp7Angle();
   readSpeed();
 
-  float tp7AngleDelta = gaPitchTickAngle - oldTp7GaPitchTickAngle;
-  oldTp7GaPitchTickAngle = gaPitchTickAngle;
+  float gaPitchDelta = gaPitch - oldGaPitch;
+  oldGaPitch = gaPitch;
 
   // compute the Center of Oscillation Speed (COS)
-  float tp7Cos = wheelSpeedFps + ((*currentValSet).v * tp7AngleDelta); // subtract out rotation **************
+  float tp7Cos = wheelSpeedFps + ((*currentValSet).v * gaPitchDelta); // subtract out rotation **************
   tp7LpfCos = tp7LpfCosOld + ((tp7Cos - tp7LpfCosOld) * (*currentValSet).w); // smooth it out a little
   tp7LpfCosOld = tp7LpfCos;
 
@@ -98,9 +100,9 @@ void tp7Log() {
   static int lNum = 0;
   timeArray[dataArrayPtr] = timeMicroseconds;
   tickArray[dataArrayPtr] = tickDistanceRight;
-  angleArray[dataArrayPtr] = (long) (gaPitchTickAngle * 100.0);
+  angleArray[dataArrayPtr] = (long) (gaPitch * 100.0);
   lNum = (lNum+1) % 15;
-  motorArray[dataArrayPtr] = lNum + 10;
+  motorArray[dataArrayPtr] = 0;
   dataArrayPtr++;
   dataArrayPtr = dataArrayPtr %  DATA_ARRAY_SIZE;
 }
