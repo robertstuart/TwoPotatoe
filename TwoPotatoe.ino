@@ -8,7 +8,8 @@
 
 #define MYSER Serial3
 
-unsigned int mode = MODE_TP4;
+unsigned int mode = MODE_TP5;
+unsigned int oldMode = MODE_TP5;
 
 // set motor to test
 const boolean TEST_RIGHT = true;
@@ -68,6 +69,8 @@ const float SPEED_MULTIPLIER = 3.0;
 //Encoder factor
 //const float ENC_FACTOR= 750.0f;  // Change pulse width to fps speed, 1/50 gear
 const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
+const float ENC_FACTOR_M = 1329000;  // Change pulse width to milli-fps speed, 1/29 gear
+const long TENC_FACTOR = 1329000L;  // Change pulse width to fps speed, 1/29 gear
 const float FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
 const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
@@ -75,10 +78,10 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define UNSIGNED_LONG_MAX 4294967295UL 
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
-#define TICKS_PER_360 3030
-#define TICKS_PER_180 1515
-#define TICKS_PER_DEGREE 8.4166
-//#define TICKS_PER_180 1515
+#define TICKS_PER_360_YAW 3030
+#define TICKS_PER_180_YAW 1515
+#define TICKS_PER_YAW_DEGREE 8.4166
+#define TICKS_PER_PITCH_DEGREE 20.0
 
 // Constants for IMU
 #define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
@@ -98,7 +101,7 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 
 // Timer states
 #define TIMER_PULSE 0   // Timer is in a pulse
-#define TIMER_WAIT 1    // TImer is waiting after a pulse
+#define TIMER_WAIT 1    // Timer is waiting after a pulse
 #define TIMER_IDLE 2
 #define MOTOR_PULSE_LENGTH 1500L
 
@@ -113,11 +116,18 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 
 MPU6050 imu9150;
 
+// TP7 threshold values
+//int hsSpeedThreshold = 999;
+//int hsTickThreshold = 999;
+int nzHsSpeedThreshold = 999;
+int nzSpeedThreshold = 999;
+int nzTickThreshold = 999;
+
 // Arrays to save data to be dumped in blocks.
-long timeArray[ DATA_ARRAY_SIZE];
-long tickArray[ DATA_ARRAY_SIZE];
-long angleArray[ DATA_ARRAY_SIZE];
-long motorArray[ DATA_ARRAY_SIZE];
+long aArray[ DATA_ARRAY_SIZE];
+long bArray[ DATA_ARRAY_SIZE];
+long cArray[ DATA_ARRAY_SIZE];
+long dArray[ DATA_ARRAY_SIZE];
 int dataArrayPtr = 0;
 boolean isDumpingData = false;
 boolean isSerialEmpty = true;
@@ -148,6 +158,8 @@ byte BLINK_FB[] = {
   1,0,END_MARKER};                // blue flash
 byte BLINK_SB[] = {
   1,1,1,1,1,1,1,1,0,0,0,0,END_MARKER};    // blue slow
+byte BLINK_SY[] = {
+  2,2,2,2,2,2,2,2,0,0,0,0,END_MARKER};    // yellow slow
 
 typedef struct {
   float t;
@@ -215,18 +227,27 @@ float magHeading;
 // Speed and position variables
 long tickDistanceRight = 0L;
 long tickDistanceLeft = 0L;
-long tpPositionDiff = 0L;
+long tpDistanceDiff = 0L;
 long tickDistance;
-float targetSpeedRight = 0.0;
-float targetSpeedLeft = 0.0;
+
 unsigned long tickTimeRight = 0UL;  // time for the last interrupt
 unsigned long tickTimeLeft = 0UL;
+long tickPeriodRight = 0L;     // last period. Minus for reverse.
+long tickPeriodLeft = 0L;
+float targetSpeedRight = 0.0;
+float targetSpeedLeft = 0.0;
 long targetTickPeriodRight = 0L;
 long targetBrakePeriodRight = 0L;
 long targetTickPeriodLeft = 0L;
 long targetBrakePeriodLeft = 0L;
-long tickPeriodRight = 0L;     // last period. Minus for reverse.
-long tickPeriodLeft = 0L;
+
+long targetMFpsRight = 0L;
+long targetBrakeMFpsRight = 0L;
+long targetRevMFpsRight = 0L;
+long targetMFpsLeft = 0L;
+long targetBrakeMFpsLeft = 0L;
+long targetRevMFpsLeft = 0L;
+
 float tickAngle = 0;
 float fpsRight = 0.0f; // right feet per second
 float fpsLeft = 0.0f;  // left feet per second
@@ -253,7 +274,6 @@ boolean isSequence = false;
 int seqDur = 0;
 float seqWs = 0.0;
 int seqPw = 0;
-int pwArray[30];
 float wsArray[30];
 int wsDurArray[30];
 
@@ -308,14 +328,18 @@ float gyroPitch = 0.0; // not needed
 float accelPitch = 0.0;
 
 // TP5 angle variables
+long kLpfCos = 0L;
 float gaPitchTickAngle = 0.0f;
 float oldDeltaOverBase = 0.0;
 int deltaStorePtr = 0;
-long oldTp5TickDistance = 0L;
+long oldTp5 = 0L;
 float tp5IntTickRate = 0.0;
 float deltaSum = 0.0;
 float deltaOverBase = 0.0;
 int tp5TickRate = 0;
+
+// TP7 variables
+long kPitchError = 0L;
 
 int gyroRollRaw = 0;
 float gyroRollRate;
@@ -341,7 +365,6 @@ float rotateTarget = 0.0;
 boolean isRotating = false;
 //
 unsigned int byteCountErrorsHc = 0;
-int txRateDivider = 5;
 boolean txRateHL = false;
 int txRateCounter = 0;
 
@@ -371,6 +394,11 @@ boolean isTxStatusMessage = false;
 int txAckFrame = 0;
 
 int debugVal = NO_DEBUG;
+int debugValA = NO_DEBUG;
+int debugValB = NO_DEBUG;
+int debugValC = NO_DEBUG;
+int debugValD = NO_DEBUG;
+int debugValE = NO_DEBUG;
 int ackMsgType = TP_RCV_MSG_NULL;
 int ackMsgVal = 0;
 
@@ -403,6 +431,29 @@ long tp6LoopTimeL = 0L;
 long fpsRightLong = 0L;
 long fpsLeftLong = 0L;
 unsigned long tp5LoopTime = 0;
+
+unsigned long baseTickTimeRight = 0UL;
+unsigned long baseTargetTickDistanceRight = 0UL;
+unsigned long baseTickTimeLeft = 0UL;
+unsigned long baseTargetTickDistanceLeft = 0UL;
+
+long cosTickPeriodRight = 0;
+long cosTickPeriodLeft = 0;
+
+int pulseIndex = 0;
+int pulseCount = 0;
+int motorArray[30];
+int pwArray[30];
+unsigned long pulseTrigger = 0;
+boolean isReceivingBlock = false;
+boolean isPwData = false; // Send data after a sequence?
+
+unsigned int serCount = 0;
+int actionRight = 99;
+int actionLeft = 99;
+
+int tVal = 0;
+int uVal = 0;
 
 /*********************************************************
  *
@@ -443,6 +494,10 @@ void setup() {
   timeTrigger = micros();
   beep(BEEP_UP);
   delay(100);
+  for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
+    aArray[i] = 42;
+  }
+
   
   // Start in PWM mode if the yellow button is down.
   if (digitalRead(YE_SW_PIN) == LOW) {
@@ -455,7 +510,7 @@ void setup() {
 
 
 
-/*********************************************************
+/************************************************************************** *
  *
  * loop()
  *
@@ -466,14 +521,20 @@ void setup() {
  *********************************************************/
 void loop() { //Main Loop
   switch (mode) {
+  case MODE_PWM_SPEED:
+    aPwmSpeed();
+    break;
+  case MODE_TP_SPEED:
+    aTpSpeed();
+    break;
+  case MODE_TP_SEQUENCE:
+    aTpSequence();
+    break;
   case MODE_TP5:
     aTp5Run();
     break;
   case MODE_TP7:
     aTp7Run();
-    break;
-  case MODE_TP_SPEED:
-    aTpSpeedRun();
     break;
   default:
     readXBee();
@@ -483,111 +544,93 @@ void loop() { //Main Loop
 
 
 
-/************************************************************************
- * aImuRun()
- *     Testing the IMU.
- * 
- * 
- ************************************************************************/
-void aImuRun() {
-  short accelX = 0;
-  int velX = 0;
-  int distX = 0;
-  short accelY = 0;
-  int velY = 0;
-  int distY = 0;
-  short accelZ = 0;
-  int16_t ax, ay, az;
-
-  timeMicroseconds = timeTrigger = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
-  //  imu9150.initialize();
-  setBlink(BLINK_SB);
-
-  while (mode == MODE_IMU) {
-//    imu9150.getAcceleration(&ax, &ay, &az);
-    if ((ax != accelX) || (ay != accelY) || (az != accelZ)) { // if any values are new.
-      accelX = ax;
-      velX = velX + accelX;  // Velocity = sum of accelerations at sample rate.
-      distX = distX + velX;   // Distance = sum of velocities at sample rate.  
-      accelY = ay;
-      velY = velY + accelY;  // Velocity = sum of accelerations at sample rate.
-      distY = distY + velY;   // Distance = sum of velocities at sample rate.  
-      accelZ = az;
-    }
-
+/**************************************************************************.
+ * aPwmSpeed()
+ **************************************************************************/
+void aPwmSpeed() {
+  unsigned long pwmTrigger = 0;
+  tpState = tpState | TP_STATE_RUNNING;
+  motorInitTp();
+  setBlink(BLINK_SY);
+  
+  while (mode == MODE_PWM_SPEED) {
+    readXBee();  // Read commands from PC or Hand Controller
+    led();
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
-    if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
-      timeTrigger += 10000;  // 100 per second
-
-      readXBee();  // Read commands from PC or Hand Controller
-      led();
+    flushSerial();
+    dumpData();
+    led();
+    if (timeMicroseconds > pwmTrigger) {
+      int action = FWD;
+      pwmTrigger = timeMicroseconds + 100000; // 10/sec
+      if (tVal > 0) action = FWD;
+      else action = BKWD;
+      setMotor(MOTOR_RIGHT, action, abs(tVal));
+      if (uVal > 0) action = FWD;
+      else action = BKWD;
+      setMotor(MOTOR_LEFT, action, abs(uVal));
+      readSpeed();      
       battery();
+      sendStatusFrame();  // Send status message to controller.
+      Serial.print(fpsRight); Serial.print("\t"); Serial.println(fpsLeft);
+    } // end timed loop 
+  } // while
+} // aPwmSpeed()
 
-//      streamValueArray[0] = accelX;
-//      streamValueArray[1] = velX;
-//      streamValueArray[2] = distX;
-//      streamValueArray[3] = accelY;
-//      streamValueArray[4] = velY;
-//      streamValueArray[5] = distY;
-//      monitorImu();
-    }
-  }
-}
 
-/*********************************************************
- *
- * aTpSpeedRun()
- *
- *     Run the MODE_TP_SPEED algorithm
- *
- *********************************************************/
-void aTpSpeedRun() { 
-//  txRateDivider = 5;  // 20/sec
-//  timeTrigger = timeMicroseconds = micros();
-//  timeMilliseconds = timeMicroseconds / 1000;
-//  motorInitTp();
-//  setTargetSpeedRight(0.0f);
-//  setTargetSpeedLeft(0.0f);
-//  setBlink(BLINK_FB);
-//
-//  while(mode == MODE_TP_SPEED) { // main loop
-//    readXBee();  // Read commands from PC or Hand Controller
-//    led();
-//    timeMicroseconds = micros();
-//    timeMilliseconds = timeMicroseconds / 1000;
-//    flushSerial();
-//    checkMotorRight();
-//    checkMotorLeft();
-//
-//    // Do the timed loop
-//    if(timeMicroseconds > timeTrigger) {  
-//      timeTrigger += 10000;  // 100 per second
-//
-//      // Set the RUNNING bit if the READY bit is set.
-//      if ((tpState & TP_STATE_RUN_READY) == 0) {
-//        tpState = tpState & (~TP_STATE_RUNNING); // unset the bit
-//      }
-//      else {
-//          tpState = tpState | TP_STATE_RUNNING; // set the bit
-//      }
-//      setTargetSpeedRight(controllerY * 6.0);
-//      setTargetSpeedLeft(controllerY * 6.0);
-//      readSpeed();      
-//      battery();
-//      
-//      // Send the packet
-//      set4Byte(sendArray, TP_SEND_A_VAL, tickDistanceRight);
-//      set4Byte(sendArray, TP_SEND_B_VAL, tickDistanceLeft);
-//      int right = (int) (fpsRight * 100.0);
-//      set2Byte(sendArray, TP_SEND_C_VAL, right);
-//      int left = (int) (fpsLeft * 100.0);
-//      set2Byte(sendArray, TP_SEND_D_VAL, left);
-//      sendStatusFrame();  
-//    }
-//  }
-}
+
+/**************************************************************************.
+ * aTpSpeed()
+ **************************************************************************/
+void aTpSpeed() {
+  unsigned long tpTrigger = 0;
+  tpState = tpState | TP_STATE_RUNNING;
+  motorInitTp();
+  setBlink(BLINK_SY);
+  unsigned int printCount = 0;
+  
+  while (mode == MODE_TP_SPEED) {
+    readXBee();  // Read commands from PC or Hand Controller
+    led();
+    timeMicroseconds = micros();
+    timeMilliseconds = timeMicroseconds / 1000;
+    flushSerial();
+    dumpData();
+    led();
+    if (timeMicroseconds > tpTrigger) {
+      int action = FWD;
+      tpTrigger = timeMicroseconds + 5000; // 200/sec
+      if (tVal > 0) action = FWD;
+      else action = BKWD;
+      setTargetSpeedRight(((float) tVal) / 1000.0);
+      if (uVal > 0) action = FWD;
+      else action = BKWD;
+      setTargetSpeedLeft(((float) uVal) / 1000.0);
+      readSpeed();      
+      battery();
+      sendStatusFrame();  // Send status message to controller.
+      if ((++printCount % 100) == 1) {
+        Serial.print(fpsRight); 
+        Serial.print("\t"); 
+        Serial.println(fpsLeft);
+      }
+      checkMotorRight();
+      checkMotorLeft();
+    } // end timed loop 
+  } // while
+} // aPwmSpeed()
+
+
+
+/**************************************************************************.
+ * aTpSequence()
+ **************************************************************************/
+void aTpSequence() {
+} // aTpSequence()
+
+
+
 
 
 /*********************************************************
@@ -615,51 +658,56 @@ void checkDrift() {
 
 /*********************************************************
  *
- * runTpSequence()
+ * aPulseSequence()
  *
- *     Run the WS (Wheel Speed) sequence already set by the LOAD command.
+ *     Run the pulse sequence already set by the LOAD command.
  *
  *********************************************************/
-void initTpSequence() {
-  sequenceIsRunning = true;
-  runSequenceCount = 0;
-  seqDur = wsDurArray[0];
-  seqWs = wsArray[0];
-  gyroPitchAngle = 0.0f;
-  tickDistanceRight = tickDistanceLeft = 0L;
-}
-void runTpSequence() {
-  if (!sequenceIsRunning) {
-    seqWs = 0.0;
-  }
-  else if (--seqDur < 0) { // move on to next pair?
-    if (++runSequenceCount >= sequenceCount) { // Last one?
-      seqWs = 0.0;
-      sequenceIsRunning = false;
-//      send0(CMD_SEQUENCE_END, false);
+void aPulseSequence() {
+  pulseIndex = 0;
+  pulseTrigger = 0L;
+  
+  while (mode == MODE_PULSE_SEQUENCE) {
+    timeMicroseconds = micros();
+    if (timeMicroseconds > pulseTrigger) {
+      if (pulseIndex == pulseCount) { // End of sequence      
+        mode = oldMode;
+        if (isPwData) {
+          isPwData = false;
+          sendData();
+        }
+      }
+      else {
+        int motor = motorArray[pulseIndex];
+        int pw = pwArray[pulseIndex];
+        pulseTrigger = timeMicroseconds + pw;
+        pulseIndex++;
+Serial.print("Motor: ");
+Serial.print(motor);
+Serial.print("  Pw: ");
+Serial.println(pw);
+  tp7Log(timeMicroseconds, motor, pw, 0L);
+        switch (motor) {
+        case 1: // Coast
+          setMotor(MOTOR_RIGHT, COAST, 0);
+          break;
+        case 2: // Forward
+          setMotor(MOTOR_RIGHT, FWD, 255);
+          break;
+        case 3: // Backwards
+          setMotor(MOTOR_RIGHT, BKWD, 255);
+          break;
+        default: // Brake
+          setMotor(MOTOR_RIGHT, BRAKE, 0);
+          break;
+        }
+      }
     } 
-    else { // Not done.  Load next in sequence
-      seqDur = wsDurArray[runSequenceCount];
-      seqWs = wsArray[runSequenceCount];
-      //      debugFloat("seqWs: ", seqWs);
-      //      debugInt("seqDur: ", seqDur);
-    }
-  } 
-
-  setTargetSpeedRight(seqWs);    
-  setTargetSpeedLeft(seqWs);
-
-//  streamValueArray[0] = timeMicroseconds/1000;
-//  streamValueArray[1] = seqWs;
-//  streamValueArray[2] = wheelSpeedFps;
-//  streamValueArray[3] = gyroXAngle;
-//  streamValueArray[4] = accelXAngle;
-//  streamValueArray[5] = gaXAngle;
-//  streamValueArray[6] = tickDistanceRight + tickDistanceLeft;
+  }
 }
-/*********************************************************
- *
- * Xbee settings
+  /*********************************************************
+   *
+   * Xbee settings
  *
  *     The XBee is configured with the default settings 
  *     except for the following:

@@ -30,7 +30,7 @@ unsigned long batteryLastGood = 0;
 
 /*********************************************************
  *
- * setTp4RunningState()
+ * setRunningState()
  *
  *     Set the TP_STATE_RUNNING bit if the following are true:
  *         TP_STATE_RUN_READY is true
@@ -44,7 +44,7 @@ unsigned long batteryLastGood = 0;
  *      Set blinking according to the above states.
  *
  *********************************************************/
-void setTp4RunningState() {
+void setRunningState() {
   byte* blinkState = BLINK_SBYG;
 
   // Set the bit
@@ -55,7 +55,7 @@ void setTp4RunningState() {
       tpState = tpState | TP_STATE_RUNNING;
       if (!isRouteInProgress) {
         tickDistanceRight = 0;
-        tickDistanceLeft = (long) (magHeading * TICKS_PER_DEGREE); 
+        tickDistanceLeft = (long) (magHeading * TICKS_PER_YAW_DEGREE); 
         getTp5Angle();
         targetHeading = tickHeading;
       }

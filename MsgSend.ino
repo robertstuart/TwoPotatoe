@@ -9,12 +9,14 @@ int dumpPtr, dumpEnd;
  * sendStatusFrame() Send out status data.
  *********************************************************/
 void sendStatusFrame() { 
-  if ((timeMilliseconds > statusTrigger) && !isDumpingData && isSerialEmpty) {
+  if ((timeMilliseconds > statusTrigger) && !isDumpingData && isSerialEmpty && !isReceivingBlock) {
     statusTrigger = timeMilliseconds + 50;  // 20/sec
     sendArray[TP_SEND_MODE_STATUS] = mode;
     sendArray[TP_SEND_STATE_STATUS] = tpState;
     set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
     set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
+    sendArray[TP_SEND_MSG_ACK] = ackMsgType;
+    set2Byte(sendArray, TP_SEND_MSG_ACKVAL, ackMsgVal);
     sendFrame(TP_SEND_END);
   }
 }
@@ -73,11 +75,12 @@ void dumpData() {
     sendArray[TP_SEND_MODE_STATUS] = BLOCK_DATA;
     dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
     if (dumpPtr != dumpEnd) {
-      set4Byte(sendArray, 1, timeArray[dumpPtr]);
-      set4Byte(sendArray, 5, tickArray[dumpPtr]);
-      set4Byte(sendArray, 9, angleArray[dumpPtr]);
-      set4Byte(sendArray, 13, motorArray[dumpPtr]);
+      set4Byte(sendArray, 1, aArray[dumpPtr]);
+      set4Byte(sendArray, 5, bArray[dumpPtr]);
+      set4Byte(sendArray, 9, cArray[dumpPtr]);
+      set4Byte(sendArray, 13, dArray[dumpPtr]);
       sendFrame(17);
+//      delay(10);
     } 
     else { // end of data dump
       set4Byte(sendArray, 1, 0L);
@@ -103,19 +106,22 @@ void dumpData() {
 void flushSerial() {
   if (!isSerialEmpty && (timeMicroseconds > transmitNextWriteTime))  {
     transmitNextWriteTime = timeMicroseconds + 170;
-//if (isDumpingData) {
-//  Serial.print(transmitBuffer[transmitBufferPtr]);
-//  Serial.print(" ");
-//  if (transmitBufferPtr == transmitBufferLength) {
-//    Serial.println();
-//  }
-//}
     MYSER.write(transmitBuffer[transmitBufferPtr++]);
     if (transmitBufferPtr > transmitBufferLength) isSerialEmpty = true;
   }
 }
 
 
+//void set1Byte(byte array[], int offset, int value) {
+//  value += 127;
+//  if (value < 0) {
+//    value = 0;
+//  } 
+//  else if (value > 255) {
+//    value = 255;
+//  }
+//  array[offset] = (byte) value;		
+//}
 void set2Byte(byte array[], int index, int value) {
   array[index + 1] = (byte) (value & 0xFF);
   value = value >> 8;

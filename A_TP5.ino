@@ -39,7 +39,6 @@ float zeroAcc = 0.0;
  *  aTp5Run() 
  ************************************************************************/
 void aTp5Run() {
-  txRateDivider = 5;  // 20/sec
   timeMicroseconds = timeTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
@@ -63,14 +62,14 @@ void aTp5Run() {
       oldTimeTrigger = timeMicroseconds;
 
       aTp5(); 
-      tp7Log();
+tp7Log(timeMicroseconds, (long) (gaPitchAngle * 100), 0L, dataArrayPtr);
       magTickCorrection();
       battery();
       led();
       safeAngle();
       gravity();
       controllerConnected();
-      setTp4RunningState();
+      setRunningState();
       //    checkDrift();
     } // end timed loop
   }
@@ -142,13 +141,14 @@ boolean damp() {
  *  tp5Steer() 
  ************************************************************************/
 void tp5Steer() {
-  if (isRouteInProgress) {
-    steerRoute();
-  }
-  else  {
+  
+//  if (isRouteInProgress) {
+//    steerRoute();
+//  }
+//  else  {
     targetHeading += (controllerX * 2.0);
     fixHeading(tickHeading, targetHeading);
-  }
+//  }
 }
 
 
@@ -204,7 +204,7 @@ void steerRoute() {
   case 'M': // Mag
     fixHeading(magHeading, targetHeading);
     tickDistanceRight = 0;
-    tickDistanceLeft = (long) (magHeading * TICKS_PER_DEGREE); 
+    tickDistanceLeft = (long) (magHeading * TICKS_PER_YAW_DEGREE); 
     break;
   case 'R':
     routeReset(false);
@@ -248,7 +248,7 @@ void routeReset(boolean r) {
     if (mCount >= MCOUNT_MAX) {
       float deg = sum / ((float) MCOUNT_MAX);
       tickDistanceRight = 0;
-      tickDistanceLeft = (long) (deg * TICKS_PER_DEGREE); 
+      tickDistanceLeft = (long) (deg * TICKS_PER_YAW_DEGREE); 
     }
   }
   magCorrection = 0.0;
@@ -259,7 +259,7 @@ float tp5GetRotation() {
   float rotateError = rotateTarget - gyroYawAngle;
   if (abs(rotateError) < 1.0f) {
     isRotating = false;
-    tpPositionDiff = tickDistanceRight - tickDistanceLeft;
+    tpDistanceDiff = tickDistanceRight - tickDistanceLeft;
   }
   float rotationRate = rotateError * 0.1f;
   rotationRate = constrain(rotationRate, -2.0f, 2.0f);

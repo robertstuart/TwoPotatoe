@@ -61,6 +61,7 @@ void angleInitTp7() {
 float old1DeltaOverBase = 0.0;
 float old2DeltaOverBase = 0.0;
 
+long oldTp5TickDistance = 0L;
 
 /*********************************************************
  * getTp5Angle()
@@ -68,9 +69,9 @@ float old2DeltaOverBase = 0.0;
 float getTp5Angle() {
   
   // Compute the tickHeading.
-  long td = (tickDistanceLeft - tickDistanceRight) % TICKS_PER_360;
-  if (td < 0) td += TICKS_PER_360;
-  tickHeading = magCorrection + (((float) td) / TICKS_PER_DEGREE);
+  long td = (tickDistanceLeft - tickDistanceRight) % TICKS_PER_360_YAW;
+  if (td < 0) td += TICKS_PER_360_YAW;
+  tickHeading = magCorrection + (((float) td) / TICKS_PER_YAW_DEGREE);
 
 //  getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
   imu9150.getMotion6(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw);
@@ -124,8 +125,8 @@ float getTp7Angle() {
 
   // Compute angle around the x axis
   gyroPitchRaw = gPitch;  // 
-  gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
-  gyroPitchDelta = (gyroPitchRate * actualLoopTime)/1000000; // degrees changed during period
+  gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
+  gyroPitchDelta = (gyroPitchRate * ((float) actualLoopTime))/1000000.0f; // degrees changed during period
   gyroPitch = gyroPitch + gyroPitchDelta;   // Not used.  Only for debuggin purposes
   float weightedGyroPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
   accelPitch = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer

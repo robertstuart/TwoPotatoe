@@ -10,6 +10,7 @@ const int PACKETBYTE_MAX = 105;
 byte packetByteArray[PACKETBYTE_MAX];
 int packetLength = 0;
 int rcvLength = 0;
+int blockCount = 0;
 
 /*********************************************************
  *
@@ -118,10 +119,6 @@ int doRx(int b) {
 
 
 
-
-
-
-
 /*********************************************************
  *
  * newPacket()
@@ -135,32 +132,28 @@ void newPacket() {
   else tHc = timeMilliseconds;
   
   int msgType = packetByteArray[TP_RCV_MSG_TYPE];
-//  if (msgType < TP_BLOCK_ZERO) {
-//    if (!isRouteInProgress) {
-      controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
-      controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
-//    }
-//    if (msgType != TP_RCV_MSG_NULL) {
-      doMessage(msgType, get2Byte(TP_RCV_MSG_VAL));
-//    }
-//  }
-//  else {
+  if (msgType < TP_BLOCK_NULL) {
+    controllerX = ((float)(get1Byte(TP_RCV_X))) / 128.0f;
+    controllerY = ((float)(get1Byte(TP_RCV_Y))) / 128.0f;
+    ackMsgType = msgType;
+    ackMsgVal = get2Byte(TP_RCV_MSG_VAL);
+    if (msgType != TP_RCV_MSG_NULL) {
+      doMessage(msgType, ackMsgVal);
+    }
+  }
+  else if (msgType == TP_BLOCK_PULSE) {
+    doPulseBlock();
+  } else if (msgType == TP_BLOCK_ROUTE) {
 //    doRouteBlock();
-//  }
+  }
 }
 
-
-
 /*********************************************************
- *
  * doMessage()
- *
  *********************************************************/
 void doMessage(int type, int val) {
+  //Serial.print("Type: "); Serial.print(type); Serial.print("  Val: "); Serial.println(val);
   int bo;
-  if ((type == ackMsgType) && (val == ackMsgVal)) return; // Don't do twice.
-  ackMsgType = type;
-  ackMsgVal = val;
  
   switch (type) {
   case TP_RCV_MSG_MODE:
@@ -169,33 +162,10 @@ void doMessage(int type, int val) {
   case TP_RCV_MSG_POWER:
     digitalWrite(PWR_PIN, LOW);
     break;
-//  case TP_RCV_MSG_STREAM:
-//    if (val != 0) setStateBit(TP_STATE_DATA, true);
-//    else setStateBit(TP_STATE_DATA, false);
-//    break;
-//  case TP_RCV_MSG_RATE:
-//    if (val != 0) txRateHL = true;
-//    else txRateHL = false;;
-//    break;
   case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
     break;
-//  case TP_RCV_MSG_BLOCK: // Starting or ending block of data
-//    if (val != 0) isBlockInProgress = true;
-//    else isBlockInProgress = false;
-//    break;
-//  case TP_RCV_MSG_ROUTE: // Starting route
-//    if ((val != 0) && (!isRouteInProgress)) {
-//      isRouteInProgress = true;
-//      routeActionPtr = 0;
-//      setNewRouteAction();
-//    }
-//    if ((val == 0) && (isRouteInProgress)) {
-//        isRouteInProgress = false;
-//        controllerY = 0.0;
-//    }
-//    break;
   case TP_RCV_MSG_LIGHTS: // 
     if (val != 0) bo = HIGH;
     else bo = LOW;
@@ -206,10 +176,49 @@ void doMessage(int type, int val) {
   case TP_RCV_MSG_DSTART:
     sendData();
     break;
+  case TP_RCV_MSG_BLOCK:
+    isReceivingBlock = true;
+    blockCount = 0;
+    pulseCount = 0;
+    break;
+  case TP_RCV_CMD_START_PW:
+    oldMode = mode;
+    mode = MODE_PULSE_SEQUENCE;
+    if (val != 0) isPwData = true;
+    break;
+  case TP_RCV_MSG_T_VAL:
+    tVal = val;
+    break;
+  case TP_RCV_MSG_U_VAL:
+    uVal = val;
+    break;
   default:
     break;    
   }
 }
+
+/*********************************************************
+ *
+ * doPulseBlock()
+ *
+ *********************************************************/
+void doPulseBlock() {
+  int motor = get1Byte(1);
+  int pw = get2Byte(2) * 100;
+Serial.print("Motor: ");
+Serial.print(motor);
+Serial.print("  Pw: ");
+Serial.println(pw);
+  if (pw == 0) {
+    isReceivingBlock = false;
+  }
+  else {
+    motorArray[pulseCount] = motor;
+    pwArray[pulseCount] = pw;
+    pulseCount++;
+  }
+}
+
 
 
 /*********************************************************
