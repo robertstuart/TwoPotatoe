@@ -22,7 +22,7 @@ float tp5LoopSec = 0.0f;
 unsigned int tp5LoopCounter = 0;
 float tp5LpfCos = 0.0;
 float tp5LpfCosOld = 0.0;
-float oldGaPitchTickAngle = 0.0;
+float oldGaPitchAngle = 0.0;
 long routeResetTime = 0L;
 boolean clockwise = true;
 float targetHeading = 0.0;
@@ -84,8 +84,8 @@ void aTp5() {
   readSpeed();
   getTp5Angle();
 
-  float tp5AngleDelta = gaPitchTickAngle - oldGaPitchTickAngle;
-  oldGaPitchTickAngle = gaPitchTickAngle;
+  float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle;
+  oldGaPitchAngle = gaPitchAngle;
 
   // compute the Center of Oscillation Speed (COS)
   float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
@@ -101,7 +101,7 @@ void aTp5() {
   float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
+  tp5AngleError = gaPitchAngle - tp5TargetAngle;
 
   // Original value for y: 0.09
   tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************

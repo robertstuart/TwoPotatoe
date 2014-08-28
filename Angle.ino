@@ -82,21 +82,21 @@ float getTp5Angle() {
   gyroPitchAngleDelta = (gyroPitchRate * actualLoopTime)/1000000; // degrees changed during period
   gyroPitchAngle = gyroPitchAngle + gyroPitchAngleDelta;   // Not used.  Only for debuggin purposes
   float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
-  accelPitchAngle = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
+  accelPitchAngle = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z + (((float) zVal) / 1000.0);  // angle from accelerometer
   gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors  
   
   // Add the tick information to compensate for gyro information being 40ms late.
-  tickDistance = tickDistanceLeft + tickDistanceRight;
-  tp5TickRate = oldTp5TickDistance - tickDistance;
-  oldTp5TickDistance = tickDistance;
-  tp5IntTickRate = (((float)(tp5TickRate - tp5IntTickRate)) * .2) + tp5IntTickRate;
-  deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
-  deltaSum += deltaOverBase;
-  deltaSum -= old2DeltaOverBase;
-  gaPitchTickAngle = gaPitchAngle + deltaSum; // Causing problems over cracks in surface.
-//  gaPitchTickAngle = gaPitchAngle;
-  old2DeltaOverBase = old1DeltaOverBase;
-  old1DeltaOverBase = deltaOverBase;
+//  tickDistance = tickDistanceLeft + tickDistanceRight;
+//  tp5TickRate = oldTp5TickDistance - tickDistance;
+//  oldTp5TickDistance = tickDistance;
+//  tp5IntTickRate = (((float)(tp5TickRate - tp5IntTickRate)) * .2) + tp5IntTickRate;
+//  deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
+//  deltaSum += deltaOverBase;
+//  deltaSum -= old2DeltaOverBase;
+//  gaPitchTickAngle = gaPitchAngle + deltaSum; // Causing problems over cracks in surface.
+////  gaPitchTickAngle = gaPitchAngle;
+//  old2DeltaOverBase = old1DeltaOverBase;
+//  old1DeltaOverBase = deltaOverBase;
   
   // compute the Y plane to check for falling sideways
   gyroRollRaw = gRoll;
@@ -120,18 +120,18 @@ float getTp5Angle() {
 /*********************************************************
  * getTp7Angle()
  *********************************************************/
-float getTp7Angle() {
-  imu9150.getMotion6(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw);
-
-  // Compute angle around the x axis
-  gyroPitchRaw = gPitch;  // 
-  gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
-  gyroPitchDelta = (gyroPitchRate * ((float) actualLoopTime))/1000000.0f; // degrees changed during period
-  gyroPitch = gyroPitch + gyroPitchDelta;   // Not used.  Only for debuggin purposes
-  float weightedGyroPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
-  accelPitch = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
-  gaPitch = (weightedGyroPitch * GYRO_WEIGHT) + (accelPitch * (1 - GYRO_WEIGHT)); // Weigh factors  
-}
+//float getTp7Angle() {
+//  imu9150.getMotion6(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw);
+//
+//  // Compute angle around the x axis
+//  gyroPitchRaw = gPitch;  // 
+//  gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
+//  gyroPitchDelta = (gyroPitchRate * ((float) actualLoopTime))/1000000.0f; // degrees changed during period
+//  gyroPitch = gyroPitch + gyroPitchDelta;   // Not used.  Only for debuggin purposes
+//  float weightedGyroPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
+//  accelPitch = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
+//  gaPitch = (weightedGyroPitch * GYRO_WEIGHT) + (accelPitch * (1 - GYRO_WEIGHT)); // Weigh factors  
+//}
 
 
 

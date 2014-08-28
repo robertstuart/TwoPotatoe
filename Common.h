@@ -16,16 +16,14 @@ const int MODE_TP7            = 10;
 const int BLOCK_DATA          = 100; 
 
 // Status bits in the tpState byte
-const int TP_STATE_RUN_READY       = 0B00000001;  // Ready.  Reflects the RUN command.
-const int TP_STATE_RUNNING         = 0B00000010;  // Motor running: is READY, UPRIGHT & ONGROUND
+const int TP_STATE_RUNNING         = 0B00000001;  // Motor running: is READY, UPRIGHT & ONGROUND
+const int TP_STATE_RUN_READY       = 0B00000010;  // Ready.  Reflects the RUN command.
 const int TP_STATE_UPRIGHT         = 0B00000100;  // Status: tp is upright (not tipped over).
 const int TP_STATE_ON_GROUND       = 0B00001000;  // Status: pressure sensor indicates standing.
-//const int TP_STATE_DATA            = 0B00010000;  // TP is streaming data
-const int TP_STATE_HC_ACTIVE       = 0B00100000;  // Status: Hand Controller connected
-const int TP_STATE_PC_ACTIVE       = 0B01000000;  // Status: PC connected
-const int TP_STATE_ROUTE           = 0B10000000;  // Route in progress.
-/**************************************************************************/
-
+const int TP_STATE_HC_ACTIVE       = 0B00010000;  // Status: Hand Controller connected
+const int TP_STATE_PC_ACTIVE       = 0B00100000;  // Status: PC connected
+const int TP_STATE_UNUSED          = 0B01000000;
+const int TP_STATE_DUMPING         = 0B10000000;  // Dumping in either direction
 
 // value sets
 const int VAL_SET_A           = 0;

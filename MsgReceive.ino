@@ -192,6 +192,21 @@ void doMessage(int type, int val) {
   case TP_RCV_MSG_U_VAL:
     uVal = val;
     break;
+  case TP_RCV_MSG_V_VAL:
+    vVal = val;
+    break;
+  case TP_RCV_MSG_W_VAL:
+    wVal = val;
+    break;
+  case TP_RCV_MSG_X_VAL:
+    xVal = val;
+    break;
+  case TP_RCV_MSG_Y_VAL:
+    yVal = val;
+    break;
+  case TP_RCV_MSG_Z_VAL:
+    zVal = val;
+    break;
   default:
     break;    
   }
