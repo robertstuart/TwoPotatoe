@@ -17,16 +17,18 @@ const boolean TEST_LEFT = true;
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
-const int MOT_LEFT_ENCA = 40;   
-const int MOT_LEFT_ENCB = 42; 
-const int MOT_RIGHT_PWML =  46;   
-const int MOT_RIGHT_DIR =  44;   
-const int MOT_RIGHT_PWMH =   2; 
-const int MOT_RIGHT_ENCA =  41;  
-const int MOT_RIGHT_ENCB =  43; 
-const int MOT_LEFT_PWML =   47; 
-const int MOT_LEFT_DIR =   45; 
-const int MOT_LEFT_PWMH =    3;  
+const int MOT_RIGHT_ENCA = 41;   
+const int MOT_RIGHT_ENCB = 43; 
+const int MOT_RIGHT_INA =  45;   
+const int MOT_RIGHT_INB =  47;   
+const int MOT_RIGHT_SF =   49;    
+const int MOT_RIGHT_PWM =   2; 
+const int MOT_LEFT_ENCA =  40;  
+const int MOT_LEFT_ENCB =  42; 
+const int MOT_LEFT_INA =   44; 
+const int MOT_LEFT_INB =   46; 
+const int MOT_LEFT_SF =    48; 
+const int MOT_LEFT_PWM =    3;  
 
 // State machine for messaging between TP, PC, & HC.
 const int MSG_STATE_TIMER_WAIT = 0;
@@ -67,7 +69,8 @@ const float SPEED_MULTIPLIER = 3.0;
 //Encoder factor
 //const float ENC_FACTOR= 750.0f;  // Change pulse width to fps speed, 1/50 gear
 const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
-const long ENC_FACTOR_M = 1329000L;  // Change pulse width to milli-fps speed, 1/29 gear
+const float ENC_FACTOR_M = 1329000;  // Change pulse width to milli-fps speed, 1/29 gear
+const long TENC_FACTOR = 1329000L;  // Change pulse width to fps speed, 1/29 gear
 const float FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
 const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
@@ -97,13 +100,13 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 // Battery definitions
 const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to get voltage
 
-//// Timer states
-//#define TIMER_PULSE 0   // Timer is in a pulse
-//#define TIMER_WAIT 1    // Timer is waiting after a pulse
-//#define TIMER_IDLE 2
-//#define MOTOR_PULSE_LENGTH 1500L
-//
-//#define MAX_PULSE_SPEED 0.8
+// Timer states
+#define TIMER_PULSE 0   // Timer is in a pulse
+#define TIMER_WAIT 1    // Timer is waiting after a pulse
+#define TIMER_IDLE 2
+#define MOTOR_PULSE_LENGTH 1500L
+
+#define MAX_PULSE_SPEED 0.8
 
 #define END_MARKER 42
 //#define MAX_PULSE_WAIT 8000
@@ -177,7 +180,11 @@ valSet tp4A = {
   0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.18,   // Y Target angle to WS 
+<<<<<<< HEAD
   -1.4};   // z accelerometer offset
+=======
+  -1.7}; // z accelerometer offset
+>>>>>>> parent of 27d4e34... Full TP5 functionality
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
@@ -235,9 +242,9 @@ long tickPeriodLeft = 0L;
 float targetSpeedRight = 0.0;
 float targetSpeedLeft = 0.0;
 long targetTickPeriodRight = 0L;
-//long targetBrakePeriodRight = 0L;
-//long targetTickPeriodLeft = 0L;
-//long targetBrakePeriodLeft = 0L;
+long targetBrakePeriodRight = 0L;
+long targetTickPeriodLeft = 0L;
+long targetBrakePeriodLeft = 0L;
 
 long targetMFpsRight = 0L;
 long targetBrakeMFpsRight = 0L;
@@ -259,8 +266,8 @@ long tickMagCorrection = 0L;
 unsigned long waitPeriodRight = 0UL;  // Wait beyond beginning of pulse!!!
 unsigned long waitPeriodLeft = 0UL;  // Wait beyond beginning of pulse!!!
 
-//int targetDirectionRight = FWD;
-//int targetDirectionLeft = FWD;
+int targetDirectionRight = FWD;
+int targetDirectionLeft = FWD;
 
 //long streamValueArray[10] = {
 //  0,0,0,0,0,0,0,0,0,0};
@@ -320,7 +327,7 @@ float accelPitchAngle = 0.0;  // Vertical plane parallel to wheels
 float gaPitchAngle = 0.0f;
 
 // TP7 variables
-//float gaPitch = 0.0;
+float gaPitch = 0.0;
 float oldGaPitch = 0.0;
 float gyroPitchDelta = 0.0;
 float gyroPitch = 0.0; // not needed
@@ -328,7 +335,7 @@ float accelPitch = 0.0;
 
 // TP5 angle variables
 long kLpfCos = 0L;
-//float gaPitchTickAngle = 0.0f;
+float gaPitchTickAngle = 0.0f;
 float oldDeltaOverBase = 0.0;
 int deltaStorePtr = 0;
 long oldTp5 = 0L;
@@ -453,6 +460,7 @@ int actionLeft = 99;
 
 int tVal = 0;
 int uVal = 0;
+<<<<<<< HEAD
 int vVal = 0;
 int wVal = 0;
 int xVal = 0;
@@ -484,6 +492,8 @@ int newLpfCosLeft = 0;
 int newAccelLeft = 0;
 int newLpfCosLeftOld = 0;
 
+=======
+>>>>>>> parent of 27d4e34... Full TP5 functionality
 
 /*********************************************************
  *
@@ -520,7 +530,6 @@ void setup() {
   digitalWrite(SPEAKER_PIN, LOW);
   digitalWrite(YELLOW_LED_PIN, LOW);
 
-  mode = MODE_TP5;
   angleInit();
   timeTrigger = micros();
   beep(BEEP_UP);
@@ -530,6 +539,15 @@ void setup() {
     bArray[i] = 9;
     cArray[i] = 4242;
     dArray[i] = 99;
+  }
+
+  
+  // Start in PWM mode if the yellow button is down.
+  if (digitalRead(YE_SW_PIN) == LOW) {
+    mode = MODE_PWM_SPEED;
+  } 
+  else {
+    mode = MODE_TP5;
   }
 } // end setup()
 
@@ -624,15 +642,17 @@ void aTpSpeed() {
       setTargetSpeedLeft(((float) uVal) / 1000.0);
       readSpeed();      
       battery();
+<<<<<<< HEAD
       sendStatusFrame(XBEE_PC);  // Send status message to controller.
       checkMotorRight();
       checkMotorLeft();
+=======
+      sendStatusFrame();  // Send status message to controller.
+>>>>>>> parent of 27d4e34... Full TP5 functionality
       if ((++printCount % 100) == 1) {
-        Serial.print(targetMFpsRight); 
-//        Serial.print("\t"); 
-//        Serial.print(ENC_FACTOR_M); 
+        Serial.print(fpsRight); 
         Serial.print("\t"); 
-        Serial.println(mWsFpsRight);
+        Serial.println(fpsLeft);
       }
       checkMotorRight();
       checkMotorLeft();

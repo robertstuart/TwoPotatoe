@@ -1,9 +1,7 @@
 #include <DueTimer.h>
 
-//const int BATTERY_WARNING = 1090;  // about 10% capacity (centivolts)
-//const int BATTERY_CRITICAL = 1000; // about 1% cap (centivolts)
-const int BATTERY_WARNING = 726;  // about 10% capacity (centivolts)
-const int BATTERY_CRITICAL = 666; // about 1% cap (centivolts)
+const int BATTERY_WARNING = 1090;  // about 10% capacity (centivolts)
+const int BATTERY_CRITICAL = 1000; // about 1% cap (centivolts)
 
 int beepCycleCount = 0;
 boolean beepStat = false;
@@ -76,17 +74,17 @@ void setRunningState() {
 
   // Set the bit
   if (     ((tpState & TP_STATE_RUN_READY) != 0)
-        && ((tpState & TP_STATE_UPRIGHT) != 0)
-        && ((tpState & TP_STATE_ON_GROUND) != 0)) { 
-//    if (!(tpState & TP_STATE_RUNNING)) { // only zero for state change      
+    && ((tpState & TP_STATE_UPRIGHT) != 0)
+    && ((tpState & TP_STATE_ON_GROUND) != 0)) { 
+    if (!(tpState & TP_STATE_RUNNING)) { // only zero for state change      
       tpState = tpState | TP_STATE_RUNNING;
-//      if (!isRouteInProgress) {
-//        tickDistanceRight = 0;
-//        tickDistanceLeft = (long) (magHeading * TICKS_PER_YAW_DEGREE); 
-//        getTp5Angle();
-//        targetHeading = tickHeading;
-//      }
-//    }
+      if (!isRouteInProgress) {
+        tickDistanceRight = 0;
+        tickDistanceLeft = (long) (magHeading * TICKS_PER_YAW_DEGREE); 
+        getTp5Angle();
+        targetHeading = tickHeading;
+      }
+    }
   }
   else {
     tpState = tpState & ~TP_STATE_RUNNING;
@@ -94,8 +92,8 @@ void setRunningState() {
 
   // set x, y, and blink state
   if (!(tpState & (TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE))) {
-    controllerY = 0.0f;
-    controllerX = 0.0f;
+//    controllerY = 0.0f;
+//    controllerX = 0.0f;
     blinkState = BLINK_SBYG;  // Slow blinking if no connection
   }
   else if ((tpState & TP_STATE_RUNNING) != 0) {

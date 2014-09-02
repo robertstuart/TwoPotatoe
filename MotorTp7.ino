@@ -21,10 +21,10 @@
 
 void motorInitTp7() {
   // Set the pin modes
-  pinMode(MOT_RIGHT_PWML, OUTPUT);
-  pinMode(MOT_LEFT_DIR, OUTPUT);
-  pinMode(MOT_RIGHT_PWML, OUTPUT);
-  pinMode(MOT_LEFT_DIR, OUTPUT);
+  pinMode(MOT_RIGHT_INA, OUTPUT);
+  pinMode(MOT_LEFT_INA, OUTPUT);
+  pinMode(MOT_RIGHT_INB, OUTPUT);
+  pinMode(MOT_LEFT_INB, OUTPUT);
 //  pinMode(MOT_RIGHT_PWM, OUTPUT);
 //  pinMode(MOT_LEFT_PWM, OUTPUT);
 
@@ -60,7 +60,7 @@ void isr7Right() {
     tickPeriodRight = (long) lastTickTime - (long) tickTimeRight;
     tickDistanceRight--;
   }
-  mWsFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
+  int mWsFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
   
   // Compute where the tick distance should be at this point.
   unsigned long targetTickDistanceR =  baseTargetTickDistanceRight + ((tickTimeRight - baseTickTimeRight) / cosTickPeriodRight);
