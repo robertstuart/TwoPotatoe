@@ -34,6 +34,9 @@ float tp5AngleError = 0.0;
 float dampValue = 0.0;
 float zeroAcc = 0.0;
 
+float tp5LpfCosLeft = 0.0f;
+float tp5LpfCosLeftOld = 0.0f;
+
 
 /************************************************************************
  *  aTp5Run() 
@@ -44,33 +47,26 @@ void aTp5Run() {
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
   tp5RawIError = 0.0f;
   motorInitTp();
+  angleInitTp7();
   while(mode == MODE_TP5) { // main loop
-    readXBee();  // Read commands from PC or Hand Controller
-    timeMicroseconds = micros();
-    timeMilliseconds = timeMicroseconds / 1000;
-    flushSerial();
-    dumpData();
-    checkMotorRight();
-    checkMotorLeft();
+    commonTasks();
 //    route();
 
     // Do the timed loop
-    if(timeMicroseconds > timeTrigger) {  // Loop executed every XX microseconds 
+    if (digitalRead(MPU_INTR_PIN) == HIGH) {
+      imu9150.getIntStatus();  // Clear the bit.
       actualLoopTime = timeMicroseconds - oldTimeTrigger;
-      tp5LoopSec = ((float) actualLoopTime)/1000000.0; 
-      timeTrigger += 10000; // 100 per second
       oldTimeTrigger = timeMicroseconds;
-
+      tp5LoopSec = ((float) actualLoopTime)/1000000.0; 
       aTp5(); 
-tp7Log(timeMicroseconds, (long) (gaPitchAngle * 100), 0L, dataArrayPtr);
+//Serial.println(gaPitchAngle);
+      sendTp5Status();
       magTickCorrection();
-      battery();
-      led();
       safeAngle();
       gravity();
-      controllerConnected();
-      setRunningState();
-      //    checkDrift();
+      checkMotorRight();
+      checkMotorLeft();
+//    checkDrift();
     } // end timed loop
   }
 }
@@ -82,26 +78,47 @@ tp7Log(timeMicroseconds, (long) (gaPitchAngle * 100), 0L, dataArrayPtr);
  ************************************************************************/
 void aTp5() {
   readSpeed();
+  timeMicroseconds = micros(); // So algorithm will have latest time
   getTp5Angle();
 
-  float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle;
-  oldGaPitchAngle = gaPitchAngle;
+  float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle; //** 2
+  oldGaPitchAngle = gaPitchAngle; //** 2
 
   // compute the Center of Oscillation Speed (COS)
-  float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
-  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little
+  int tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
+  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little (0.2)
   tp5LpfCosOld = tp5LpfCos;
+
+  // newCos
+  int newCos = mWheelSpeedFps + (gyroPitchRaw / 10); // subtract out rotation **************
+  newLpfCos = newLpfCosOld + (((newCos - newLpfCosOld) * 20) / 100); // smooth it out a little
+  newLpfCosOld = newLpfCos;
+
+  // newCos left
+  int newCosLeft = mAverageFpsLeft + (gyroPitchRaw / 10); // subtract out rotation **************
+  newLpfCosLeft = newLpfCosLeftOld + (((newCosLeft - newLpfCosLeftOld) * 20) / 100); // smooth it out a little
+  newAccelLeft = newLpfCosLeft - newLpfCosLeftOld;
+  newLpfCosLeftOld = newLpfCosLeft;
+
+  // compute the Center of Oscillation Speed (COS) for just the left side
+  float tp5CosLeft = fpsLeft + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
+  tp5LpfCosLeft = tp5LpfCosLeftOld + ((tp5CosLeft - tp5LpfCosLeftOld) * (*currentValSet).w); // smooth it out a little
+  accelLeft = tp5LpfCosLeft - tp5LpfCosLeftOld;
+  tp5LpfCosLeftOld = tp5LpfCosLeft;
+  
+  
 
   tp5ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
 
   // find the speed error
   float tp5SpeedError = tp5ControllerSpeed - tp5LpfCos;
+//  float tp5SpeedError = tp5ControllerSpeed - (((float) newCos) / 1000.0);
 
   // compute a weighted angle to eventually correct the speed error
   float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-  tp5AngleError = gaPitchAngle - tp5TargetAngle;
+  tp5AngleError = gaPitchAngle - tp5TargetAngle;  //** 2
 
   // Original value for y: 0.09
   tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
@@ -110,13 +127,17 @@ void aTp5() {
 
   // Add the angle error to the base speed to get the target speed.
   tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
-  if (damp()) {
-    tp5Fps = tp5LpfCos;
-  }
+//  if (damp()) {
+//    tp5Fps = tp5LpfCos;
+//  }
 
   tp5Steer();
   setTargetSpeedRight(tp5FpsRight);  // Need to set direction.  Does not set speed!
   setTargetSpeedLeft(tp5FpsLeft);  // Need to set direction.  Does not set speed!
+
+//if (aRoll == 0) aRoll = 1;
+tp7Log((long) (tp5LpfCos * 1000.0),  (long) (wheelSpeedFps * 1000.0), (long) (gaPitchAngle * 1000.0),  (long) (gaPitchAngle * 1000.0));
+//tp7Log((long) (tickHeading ),(long) (gaPitchAngle * 1000.0) , (long) (accelLeft * 1000.0), (long) (accelPitchAngle * 1000.0f));
   
   // Set the values for the interrupt routines
   targetTDR = tickDistanceRight + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
@@ -128,14 +149,24 @@ void aTp5() {
   tp5LoopTimeR = tickTimeRight;
   tp5LoopTimeL = tickTimeLeft;
   
-  sendStatusFrame(); 
 } // end aTp5() 
 
-boolean damp() {
-  dampValue = (wheelSpeedFps - tp5LpfCos) / tp5AngleError;
-  if (dampValue > 0.15) return true;
-  return false;
+
+
+/************************************************************************
+ *  sendTp5Status() 
+ ************************************************************************/
+void sendTp5Status() {
+  static int loopc = 0;
+  loopc = ++loopc % 10;
+  if (isDumpingData) {
+    dumpData();
+  }
+  else if (loopc == 0) sendStatusFrame(XBEE_HC); 
+  else if (loopc == 3) sendStatusFrame(XBEE_PC);
 }
+
+
 
 /************************************************************************
  *  tp5Steer() 

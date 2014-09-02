@@ -119,6 +119,7 @@ void aTp7() {
  ************************************************************************/
 void tp7Log(long aVal, long bVal, long cVal, long dVal) { 
   if (!isDumpingData) {
+    if (aVal == 0L) aVal = 1L; // don't indicate end
     aArray[dataArrayPtr] = aVal;
     bArray[dataArrayPtr] = bVal;
     cArray[dataArrayPtr] = cVal;

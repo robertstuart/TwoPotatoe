@@ -29,6 +29,31 @@ unsigned long onGroundTime = 0L;
 unsigned long warningTrigger = 0;
 unsigned long batteryLastGood = 0;
 
+ 
+/**************************************************************************.
+ *
+ * commonTasks()
+ *
+ *    Execute all tasks common to every algorithm.  This includes:
+ *      1. Reading the XBee for commands.
+ *      2. Flushing the serial output buffer
+ *      3. Setting the time variables.
+ *      4. Dumping any data if we are in "dump data" mode.
+ *      5. Turning the power off if the motors have been idle.
+ *      6. Flash the led.
+ *
+ **************************************************************************/
+void commonTasks() {  
+    timeMicroseconds = micros();
+    timeMilliseconds = timeMicroseconds / 1000;
+    readXBee();  // Read commands from PC or Hand Controller
+    motorIdle();
+    led();
+    battery();
+    controllerConnected();
+    setRunningState();
+}
+
 
 /*********************************************************
  *
@@ -144,8 +169,8 @@ void gravity() {
  *
  *********************************************************/
 void controllerConnected() {
-  byte hcBit =  ((tHc + 500) > timeMilliseconds) ? TP_STATE_HC_ACTIVE : 0;
-  byte pcBit =  ((tPc + 500) > timeMilliseconds) ? TP_STATE_PC_ACTIVE : 0;
+  byte hcBit =  ((tHc + 1000) > timeMilliseconds) ? TP_STATE_HC_ACTIVE : 0;
+  byte pcBit =  ((tPc + 1000) > timeMilliseconds) ? TP_STATE_PC_ACTIVE : 0;
   byte tmp = tpState & (~(TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE)); // Clear bits
   tpState = tmp | hcBit | pcBit;
 }
@@ -166,26 +191,26 @@ void battery() {
     int sensorValue = analogRead(BATTERY_PIN);
     batteryVolt = 100 * (((float) sensorValue) * BATT_ATOD_MULTIPLIER);
   
-    // Check for warning condition.
-    if (batteryVolt < BATTERY_WARNING) {
-      // Continuously low for a second?
-      if ((batteryLastGood + 1000) < timeMilliseconds) {
-        if (timeMilliseconds > warningTrigger) {
-          beep(BEEP_WARBLE);
-          warningTrigger += 60000;
-        }
-      }
-    } 
-    else {
-      batteryLastGood = timeMilliseconds;
-    }
-
-    // Check for critical condition.
-    if (batteryVolt < BATTERY_CRITICAL) {
-      if ((timeMilliseconds + 10000) > warningTrigger) {
-        digitalWrite(PWR_PIN, LOW);  // Power down TwoPotatoe
-      }
-    } 
+//    // Check for warning condition.
+//    if (batteryVolt < BATTERY_WARNING) {
+//      // Continuously low for a second?
+//      if ((batteryLastGood + 1000) < timeMilliseconds) {
+//        if (timeMilliseconds > warningTrigger) {
+//          beep(BEEP_WARBLE);
+//          warningTrigger += 60000;
+//        }
+//      }
+//    } 
+//    else {
+//      batteryLastGood = timeMilliseconds;
+//    }
+//
+//    // Check for critical condition.
+//    if (batteryVolt < BATTERY_CRITICAL) {
+//      if ((timeMilliseconds + 10000) > warningTrigger) {
+//        digitalWrite(PWR_PIN, LOW);  // Power down TwoPotatoe
+//      }
+//    } 
   } // end batteryTrigger
 }
 
@@ -206,6 +231,19 @@ void setBlink(byte* pattern) {
    
  }
  
+void motorIdle() {
+  static unsigned long lastActiveTime;
+  static int rMotor = 42;
+  static int lMotor = 42;
+  int rMotorTmp = digitalRead(MOT_RIGHT_ENCA);
+  int lMotorTmp = digitalRead(MOT_LEFT_ENCA);
+  if ((rMotorTmp != rMotor) || (lMotorTmp != lMotor)) {
+    lastActiveTime = timeMilliseconds;
+    rMotor = rMotorTmp;
+    lMotor = lMotorTmp;
+  }
+  if ((timeMilliseconds - lastActiveTime) > (1000 * 60 * 10)) digitalWrite(PWR_PIN, LOW);
+}
  
  
 /***************************************************************

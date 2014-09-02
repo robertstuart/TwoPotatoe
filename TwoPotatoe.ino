@@ -85,6 +85,7 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 //#define INVEN_GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
+//#define GYRO_WEIGHT 0.995    // Weight for gyro compared to accelerometer
 #define TICK_WEIGHT 0.98    // Weight for tick compared to accelerometer
 #define TICKS_PER_FOOT 800L
 #define TICKS_PER_TFOOT 80L
@@ -121,19 +122,19 @@ int nzSpeedThreshold = 999;
 int nzTickThreshold = 999;
 
 // Arrays to save data to be dumped in blocks.
-volatile long aArray[ DATA_ARRAY_SIZE];
-volatile long bArray[ DATA_ARRAY_SIZE];
-volatile long cArray[ DATA_ARRAY_SIZE];
-volatile long dArray[ DATA_ARRAY_SIZE];
-volatile int dataArrayPtr = 0;
+long aArray[ DATA_ARRAY_SIZE];
+long bArray[ DATA_ARRAY_SIZE];
+long cArray[ DATA_ARRAY_SIZE];
+long dArray[ DATA_ARRAY_SIZE];
+int dataArrayPtr = 0;
 boolean isDumpingData = false;
 boolean isSerialEmpty = true;
 
 int BEEP_UP [] = {1200, 100, 1500, 100, 0};
-int BEEP_WARBLE[] = {1200, 300, 1500, 300, 
-                  1200, 300, 1500, 300, 
-                  1200, 300, 1500, 300, 
-                  1200, 300, 1500, 300, 0};
+int BEEP_WARBLE[] = {2400, 300, 2600, 300, 
+                  2400, 300, 2600, 300, 
+                  2400, 300, 2600, 300, 
+                  2400, 300, 2600, 300, 0};
 int BEEP_DOWN[] = {1000, 300, 1500, 300, 0};
 // bit0=blue, bin1= yellow, bit2=red
 // each state lasts 1/10 second
@@ -176,7 +177,7 @@ valSet tp4A = {
   0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.18,   // Y Target angle to WS 
-  0.0}; // z accelerometer offset
+  -1.4};   // z accelerometer offset
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
@@ -249,6 +250,7 @@ float tickAngle = 0;
 float fpsRight = 0.0f; // right feet per second
 float fpsLeft = 0.0f;  // left feet per second
 float wheelSpeedFps = 0.0f;
+int mWheelSpeedFps = 0;
 float speedTpcs = 0.0f;
 unsigned long lasttime, gap;
 float tickHeading = 0.0;
@@ -458,7 +460,30 @@ int yVal = 0;
 int zVal = 0;
 
 int mWsFpsRight = 0;
+int mAverageFpsRight = 0;
 int mWsFpsLeft = 0;
+int mAverageFpsLeft = 0;
+long mWsFpsRightSum = 0;
+int mWsFpsRightCount = 0;;
+long mWsFpsLeftSum = 0;
+int mWsFpsLeftCount = 0;;
+
+int ackFrameNumber = 0;
+int ackFailure = 0;
+int ccaFailure = 0;;
+int purgeFailure = 0;
+
+float accelLeft = 0.0;
+float accelPitchAngle2 = 0.0;
+float gaPitchAngle2 = 0.0;
+int mAccelLeft = 0;
+
+int newLpfCos = 0;
+int newLpfCosOld = 0;
+int newLpfCosLeft = 0;
+int newAccelLeft = 0;
+int newLpfCosLeftOld = 0;
+
 
 /*********************************************************
  *
@@ -502,6 +527,9 @@ void setup() {
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
     aArray[i] = 42;
+    bArray[i] = 9;
+    cArray[i] = 4242;
+    dArray[i] = 99;
   }
 } // end setup()
 
@@ -551,13 +579,11 @@ void aPwmSpeed() {
   setBlink(BLINK_SY);
   
   while (mode == MODE_PWM_SPEED) {
-    readXBee();  // Read commands from PC or Hand Controller
-    led();
-    timeMicroseconds = micros();
-    timeMilliseconds = timeMicroseconds / 1000;
-    flushSerial();
-    dumpData();
-    led();
+    commonTasks();
+    while (isDumpingData) {
+      dumpData();
+      delay(1);
+    }
     if (timeMicroseconds > pwmTrigger) {
       int action = FWD;
       pwmTrigger = timeMicroseconds + 100000; // 10/sec
@@ -568,8 +594,7 @@ void aPwmSpeed() {
       else action = BKWD;
       setMotor(MOTOR_LEFT, action, abs(uVal));
       readSpeed();      
-      battery();
-      sendStatusFrame();  // Send status message to controller.
+      sendStatusFrame(XBEE_PC);
       Serial.print(fpsRight); Serial.print("\t"); Serial.println(fpsLeft);
     } // end timed loop 
   } // while
@@ -588,13 +613,6 @@ void aTpSpeed() {
   unsigned int printCount = 0;
   
   while (mode == MODE_TP_SPEED) {
-    readXBee();  // Read commands from PC or Hand Controller
-    led();
-    timeMicroseconds = micros();
-    timeMilliseconds = timeMicroseconds / 1000;
-    flushSerial();
-    dumpData();
-    led();
     if (timeMicroseconds > tpTrigger) {
       int action = FWD;
       tpTrigger = timeMicroseconds + 5000; // 200/sec
@@ -606,7 +624,7 @@ void aTpSpeed() {
       setTargetSpeedLeft(((float) uVal) / 1000.0);
       readSpeed();      
       battery();
-      sendStatusFrame();  // Send status message to controller.
+      sendStatusFrame(XBEE_PC);  // Send status message to controller.
       checkMotorRight();
       checkMotorLeft();
       if ((++printCount % 100) == 1) {
@@ -706,18 +724,20 @@ Serial.println(pw);
     } 
   }
 }
-  /*********************************************************
-   *
-   * Xbee settings
+/*********************************************************
+ *
+ * Xbee settings
  *
  *     The XBee is configured with the default settings 
  *     except for the following:
  *
- *     CH     19
- *     IC     2221   (Is this needed?)
+ *     CH     0x19
+ *     ID     2221   (Is this needed?)
  *     MY     7770  TwoPotatoe
  *            7771  PC
  *            7772  Hand Controller
+ *     MM     0     Digi mode
+ *     RR     2     retries
  *     BD     7     115200 baud
  *     AP     1     API mode
  *

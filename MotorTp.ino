@@ -55,6 +55,9 @@ void encoderIsrRight() {
     tickDistanceRight--;
   }
   mWsFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
+  mWsFpsRightSum += mWsFpsRight;
+  mWsFpsRightCount++;
+//tp7Log(42, tickPeriodRight, mWsFpsRight, dataArrayPtr);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
   
@@ -120,6 +123,8 @@ void encoderIsrLeft() {
     tickDistanceLeft++;
   }
   int mWsFpsLeft = (ENC_FACTOR_M / tickPeriodLeft); // speed in milli-fps
+  mWsFpsLeftSum += mWsFpsLeft;
+  mWsFpsLeftCount++;
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
 
@@ -326,7 +331,9 @@ void setMotor(int motor, int state, int pw) {
     pinPwmH = MOT_LEFT_PWMH;
     actionLeft = state;
   }
-  if ((tpState & TP_STATE_RUNNING) == 0) state = BRAKE;
+  if (mode == MODE_TP5) {
+    if ((tpState & TP_STATE_RUNNING) == 0) state = COAST;
+  }
   
   switch(state) {
   case FWD:
@@ -360,43 +367,31 @@ void setMotor(int motor, int state, int pw) {
 
 /*********************************************************
  *
- *  getSpeedXXX()
- *
- *    returns the floating point fps computed from last encoder period.
- *    Returns a computed value if there have been no recent
- *    encoder interrupts.
+ *  getSpeedXXX() average speed since last read
  *
  *********************************************************/
 void readSpeedRight() {
-  unsigned long t = tickTimeRight;
-  unsigned long currentPeriod = micros() - t;
-  if (currentPeriod > abs(tickPeriodRight)) {
-    if (tickPeriodRight > 0) {
-      fpsRight = (ENC_FACTOR / (float) currentPeriod);
-    } 
-    else {
-      fpsRight = ((ENC_FACTOR * -1.0) / (float) currentPeriod);
-    }
-  } 
-  else {
-    fpsRight = (ENC_FACTOR / (float) tickPeriodRight);
-  }
+  noInterrupts();
+  long sum = mWsFpsRightSum;
+  int count =  mWsFpsRightCount;
+  mWsFpsRightSum = 0L;
+  mWsFpsRightCount = 0;
+  interrupts();
+  if (count == 0) mAverageFpsRight = 0;
+  else mAverageFpsRight = sum / count;
+  fpsRight =((float) mAverageFpsRight) / 1000.0;
 }
 
 void readSpeedLeft() {
-  unsigned long t = tickTimeLeft;
-  unsigned long currentPeriod = micros() - t;
-  if (currentPeriod > abs(tickPeriodLeft)) {
-    if (tickPeriodLeft > 0) {
-      fpsLeft = (ENC_FACTOR / (float) currentPeriod);
-    } 
-    else {
-      fpsLeft = ((ENC_FACTOR * -1.0) / (float) currentPeriod);
-    }
-  } 
-  else {
-    fpsLeft =  (ENC_FACTOR / (float) tickPeriodLeft);
-  }
+  noInterrupts();
+  long sum = mWsFpsLeftSum;
+  int count =  mWsFpsLeftCount;
+  mWsFpsLeftSum = 0L;
+  mWsFpsLeftCount = 0;
+  interrupts();
+  if (count == 0) mAverageFpsLeft = 0;
+  else mAverageFpsLeft = sum / count;
+  fpsLeft =((float) mAverageFpsLeft) / 1000.0;
 }
 
 
@@ -414,6 +409,7 @@ void readSpeed() {
   readSpeedLeft();
   tickDistance = tickDistanceRight + tickDistanceLeft;
   wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
+  mWheelSpeedFps = (mAverageFpsLeft + mAverageFpsLeft) /2;
 }
 
 

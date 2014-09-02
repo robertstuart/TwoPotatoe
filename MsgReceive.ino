@@ -68,7 +68,7 @@ void readXBee() {
   } // end while(dataReady)
 }  // end readXBee()
 
-
+// Modem status packet in progress
 int doMs(int b) {
   if (packetByteCount++ < 2) {
     return PACKET_MS;
@@ -76,13 +76,26 @@ int doMs(int b) {
   return PACKET_DELIM;
 }
 
+// Transmit status in progress
 int doTxs(int b) {
   switch (packetByteCount++) {
   case 0:
+    ackFrameNumber = b;
     return PACKET_TXS;
   case 1:
-    //    pcAck = (b == 0) ? true : false;
-    // debugInt("pcAck: ", b);
+    switch(b) {
+    case 0:
+      break;
+    case 1:
+      ackFailure++;
+      break;
+    case 2:
+      ccaFailure++;
+      break;
+    case 3:
+      purgeFailure++;
+      break;
+    }
     return PACKET_TXS;
   }
   return PACKET_DELIM;
