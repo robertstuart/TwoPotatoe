@@ -22,7 +22,7 @@ float tp5LoopSec = 0.0f;
 unsigned int tp5LoopCounter = 0;
 float tp5LpfCos = 0.0;
 float tp5LpfCosOld = 0.0;
-float oldGaPitchTickAngle = 0.0;
+float oldGaPitchAngle = 0.0;
 long routeResetTime = 0L;
 boolean clockwise = true;
 float targetHeading = 0.0;
@@ -59,7 +59,6 @@ void aTp5Run() {
       oldTimeTrigger = timeMicroseconds;
       tp5LoopSec = ((float) actualLoopTime)/1000000.0; 
       aTp5(); 
-//Serial.println(gaPitchAngle);
       sendTp5Status();
       magTickCorrection();
       safeAngle();
@@ -81,36 +80,31 @@ void aTp5() {
   timeMicroseconds = micros(); // So algorithm will have latest time
   getTp5Angle();
 
-<<<<<<< HEAD
   float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle; //** 2
   oldGaPitchAngle = gaPitchAngle; //** 2
-=======
-  float tp5AngleDelta = gaPitchTickAngle - oldGaPitchTickAngle;
-  oldGaPitchTickAngle = gaPitchTickAngle;
->>>>>>> parent of 27d4e34... Full TP5 functionality
 
   // compute the Center of Oscillation Speed (COS)
-  int tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
+  float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
   tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little (0.2)
   tp5LpfCosOld = tp5LpfCos;
 
-  // newCos
-  int newCos = mWheelSpeedFps + (gyroPitchRaw / 10); // subtract out rotation **************
-  newLpfCos = newLpfCosOld + (((newCos - newLpfCosOld) * 20) / 100); // smooth it out a little
-  newLpfCosOld = newLpfCos;
-
-  // newCos left
-  int newCosLeft = mAverageFpsLeft + (gyroPitchRaw / 10); // subtract out rotation **************
-  newLpfCosLeft = newLpfCosLeftOld + (((newCosLeft - newLpfCosLeftOld) * 20) / 100); // smooth it out a little
-  newAccelLeft = newLpfCosLeft - newLpfCosLeftOld;
-  newLpfCosLeftOld = newLpfCosLeft;
-
-  // compute the Center of Oscillation Speed (COS) for just the left side
-  float tp5CosLeft = fpsLeft + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
-  tp5LpfCosLeft = tp5LpfCosLeftOld + ((tp5CosLeft - tp5LpfCosLeftOld) * (*currentValSet).w); // smooth it out a little
-  accelLeft = tp5LpfCosLeft - tp5LpfCosLeftOld;
-  tp5LpfCosLeftOld = tp5LpfCosLeft;
-  
+//  // newCos
+//  int newCos = mWheelSpeedFps + (gyroPitchRaw / 10); // subtract out rotation **************
+//  newLpfCos = newLpfCosOld + (((newCos - newLpfCosOld) * 20) / 100); // smooth it out a little
+//  newLpfCosOld = newLpfCos;
+//
+//  // newCos left
+//  int newCosLeft = mAverageFpsLeft + (gyroPitchRaw / 10); // subtract out rotation **************
+//  newLpfCosLeft = newLpfCosLeftOld + (((newCosLeft - newLpfCosLeftOld) * 20) / 100); // smooth it out a little
+//  newAccelLeft = newLpfCosLeft - newLpfCosLeftOld;
+//  newLpfCosLeftOld = newLpfCosLeft;
+//
+//  // compute the Center of Oscillation Speed (COS) for just the left side
+//  float tp5CosLeft = fpsLeft + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
+//  tp5LpfCosLeft = tp5LpfCosLeftOld + ((tp5CosLeft - tp5LpfCosLeftOld) * (*currentValSet).w); // smooth it out a little
+//  accelLeft = tp5LpfCosLeft - tp5LpfCosLeftOld;
+//  tp5LpfCosLeftOld = tp5LpfCosLeft;
+//  
   
 
   tp5ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
@@ -123,11 +117,7 @@ void aTp5() {
   float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
-<<<<<<< HEAD
   tp5AngleError = gaPitchAngle - tp5TargetAngle;  //** 2
-=======
-  tp5AngleError = gaPitchTickAngle - tp5TargetAngle;
->>>>>>> parent of 27d4e34... Full TP5 functionality
 
   // Original value for y: 0.09
   tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
@@ -143,20 +133,20 @@ void aTp5() {
   tp5Steer();
   setTargetSpeedRight(tp5FpsRight);  // Need to set direction.  Does not set speed!
   setTargetSpeedLeft(tp5FpsLeft);  // Need to set direction.  Does not set speed!
-
+tp7Log((long) (gaPitchAngle *1000.0), (long) (tp5TargetAngle * 1000.0) , (long) (tp5AngleErrorW * 1000.0), (long) (tp5FpsLeft * 1000.0f));
+Serial.println(gaPitchAngle);
 //if (aRoll == 0) aRoll = 1;
-tp7Log((long) (tp5LpfCos * 1000.0),  (long) (wheelSpeedFps * 1000.0), (long) (gaPitchAngle * 1000.0),  (long) (gaPitchAngle * 1000.0));
-//tp7Log((long) (tickHeading ),(long) (gaPitchAngle * 1000.0) , (long) (accelLeft * 1000.0), (long) (accelPitchAngle * 1000.0f));
+//tp7Log((long) (gaPitchAngle * 1000.0),  (long) (tp5AngleError * 1000.0), (long) (tp5AngleErrorW * 1000.0),  (long) (tp5Fps * 1000.0));
   
-  // Set the values for the interrupt routines
-  targetTDR = tickDistanceRight + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
-  targetTDL = tickDistanceLeft + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
-  fpsRightLong = (long) (tp5FpsRight * 100.0);
-  fpsLeftLong = (long) (tp5FpsLeft * 100.0);
-  loopTickDistanceR = tickDistanceRight;
-  loopTickDistanceL = tickDistanceLeft;
-  tp5LoopTimeR = tickTimeRight;
-  tp5LoopTimeL = tickTimeLeft;
+//  // Set the values for the interrupt routines
+//  targetTDR = tickDistanceRight + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
+//  targetTDL = tickDistanceLeft + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
+//  fpsRightLong = (long) (tp5FpsRight * 100.0);
+//  fpsLeftLong = (long) (tp5FpsLeft * 100.0);
+//  loopTickDistanceR = tickDistanceRight;
+//  loopTickDistanceL = tickDistanceLeft;
+//  tp5LoopTimeR = tickTimeRight;
+//  tp5LoopTimeL = tickTimeLeft;
   
 } // end aTp5() 
 
@@ -412,6 +402,22 @@ void setNewRouteAction() {
   routeActionPtr++;
 }
 
+
+
+/************************************************************************
+ *  tp7Log() Put values in the dump arrays.
+ ************************************************************************/
+void tp7Log(long aVal, long bVal, long cVal, long dVal) { 
+  if (!isDumpingData) {
+    if (aVal == 0L) aVal = 1L; // don't indicate end
+    aArray[dataArrayPtr] = aVal;
+    bArray[dataArrayPtr] = bVal;
+    cArray[dataArrayPtr] = cVal;
+    dArray[dataArrayPtr] = dVal;
+    dataArrayPtr++;
+    dataArrayPtr = dataArrayPtr %  DATA_ARRAY_SIZE;
+  }
+}
 
 
 
