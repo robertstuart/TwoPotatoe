@@ -188,21 +188,17 @@ int getDecelPw(int wFps, int tFps) {
  *********************************************************/
 void checkMotorRight() {
   int ws = (ENC_FACTOR_M / (micros() - tickTimeRight)); // speed in milli-fps
+//runLog((long) ws, (long) targetMFpsRight , 9, 99);
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsRight / 2)) { // less than 1/2 target speed?
       if (targetMFpsRight > 0) {
         setMotor(MOTOR_RIGHT, FWD, 199);
-//Serial.print("B");
       }
       else {
         setMotor(MOTOR_RIGHT, BKWD, 199);
-//Serial.print("F");
       }
     }
   }
-//Serial.print(ws);
-//Serial.print("\t");
-//Serial.println(targetMFpsRight);
 }
 
 
@@ -212,10 +208,10 @@ void checkMotorLeft() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsLeft / 2)) { // less than 1/2 target speed?
       if (targetMFpsLeft > 0) {
-        setMotor(MOTOR_LEFT, FWD, 199);
+        setMotor(MOTOR_LEFT, FWD, 60);
       }
       else {
-        setMotor(MOTOR_LEFT, BKWD, 199);
+        setMotor(MOTOR_LEFT, BKWD, 60);
       }
     }
   }
@@ -329,7 +325,7 @@ void setMotor(int motor, int state, int pw) {
     if (state == FWD) state = BKWD;
     else if (state == BKWD) state = FWD;
     actionRight = state;
-//tp7Log(timeMicroseconds, state, pw, 0);
+//runLog(timeMicroseconds, state, pw, 0);
   }
   else {
     pinPwmL = MOT_LEFT_PWML; // Reversed
@@ -337,7 +333,7 @@ void setMotor(int motor, int state, int pw) {
     pinPwmH = MOT_LEFT_PWMH;
     actionLeft = state;
   }
-  if (mode == MODE_TP5) {
+  if ((mode == MODE_TP5) || (mode == MODE_TP6)) {
     if ((tpState & TP_STATE_RUNNING) == 0) state = COAST;
   }
   

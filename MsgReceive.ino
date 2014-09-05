@@ -23,8 +23,23 @@ int blockCount = 0;
  *
  *********************************************************/
 void readXBee() {
+  static boolean escState = false;
+  
   while (MYSER.available() > 0) {
     byte b = MYSER.read();
+    
+    // Fix escape sequences
+    if (packetInProgress != PACKET_DELIM) {
+      if (escState) {
+        b = b ^ 0x20;
+        escState = false;
+      }
+      else if (b == 0x7D) {
+        escState = true;
+        return;
+      }
+    }
+    
     switch(packetInProgress) {
     case PACKET_DELIM:
       if (b == 0x7E) {
@@ -165,7 +180,7 @@ void newPacket() {
  * doMessage()
  *********************************************************/
 void doMessage(int type, int val) {
-  //Serial.print("Type: "); Serial.print(type); Serial.print("  Val: "); Serial.println(val);
+Serial.print("Type: "); Serial.print(type); Serial.print("  Val: "); Serial.println(val);
   int bo;
  
   switch (type) {

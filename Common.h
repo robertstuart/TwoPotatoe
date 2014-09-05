@@ -11,7 +11,7 @@ const int MODE_TP_SEQUENCE    = 5;  // sequences batch-loaded from controller
 const int MODE_PULSE_SEQUENCE = 6;  // motor test
 const int MODE_PULSE          = 7;
 const int MODE_TP5            = 8;
-const int MODE_TP6xx          = 9;
+const int MODE_TP6            = 9;
 const int MODE_TP7            = 10;
 const int BLOCK_DATA          = 100; 
 

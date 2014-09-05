@@ -1,5 +1,6 @@
 // Start delimiter, count MSB, count LSB, API id, Frame id, dest msb, dest lsb, options
 byte transmitBuffer[120] = {0x7E, 0, 0, 0x01, 0, 0xFF, 0xFF, 0x04}; 
+byte xbeeBuffer[130] = {0x7E, 0, 0};
 int transmitBufferLength = 0;
 int transmitBufferPtr = 0;
 unsigned long transmitNextWriteTime = 0UL;
@@ -48,7 +49,21 @@ void sendFrame(int destId, int dataLength) {
   transmitBufferLength = 8 + dataLength;
   transmitBuffer[transmitBufferLength] = checkSum;
   
-  MYSER.write(transmitBuffer, transmitBufferLength + 1);
+  // Escape characters
+  int oPtr = 1;
+  xbeeBuffer[0] = 0x7E;
+  for (int i = 1; i < (transmitBufferLength + 1); i++) {
+    int b = transmitBuffer[i];
+    if ((b == 0x7E) || (b == 0x7D) || (b == 0x11) || (b == 0x13)) {
+      xbeeBuffer[oPtr++] = 0x7D;
+      xbeeBuffer[oPtr++] = b ^ 0x20;
+    }
+    else {
+      xbeeBuffer[oPtr++] = b;
+    }
+  }
+  
+  MYSER.write(xbeeBuffer, oPtr);
 //
 //  // Set up transmit buffer for flushSerial()
 //  transmitBufferPtr = 0;

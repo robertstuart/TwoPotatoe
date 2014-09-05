@@ -142,11 +142,15 @@ byte BLINK_R_FB[] = {
   1,4,4,4,4,4,4,4,END_MARKER};  // red on, flash blue
 byte BLINK_B_FY[] = {
   2,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash yellow
-byte BLINK_FRG[] = {
-  4,1,END_MARKER};               // rapid red-green
-byte BLINK_F_RG[] = {
-  4,4,4,4,1,END_MARKER};               // red, flash green
-byte BLINK_SBYG[] = {
+byte BLINK_FYR[] = {
+  6,6,6,0,0,0,END_MARKER};  // flash yellow red
+byte BLINK_B_FR[] = {
+  4,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash red
+byte BLINK_FRB[] = {
+  4,1,END_MARKER};               // rapid red-blue
+byte BLINK_F_RB[] = {
+  4,4,4,4,1,END_MARKER};               // red, flash blue
+byte BLINK_SBYR[] = {
   7,7,7,7,0,0,0,0,END_MARKER};  // blink all slow flash
 byte BLINK_FY[] = {
   2,0,END_MARKER};                // yellow flash
@@ -177,7 +181,7 @@ valSet tp4A = {
   0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.18,   // Y Target angle to WS 
-  -1.4};   // z accelerometer offset
+  -3.0};   // z accelerometer offset
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
@@ -476,13 +480,17 @@ int purgeFailure = 0;
 float accelLeft = 0.0;
 float accelPitchAngle2 = 0.0;
 float gaPitchAngle2 = 0.0;
-//int mAccelLeft = 0;
-//
-//int newLpfCos = 0;
-//int newLpfCosOld = 0;
-//int newLpfCosLeft = 0;
-//int newAccelLeft = 0;
-//int newLpfCosLeftOld = 0;
+int mAccelLeft = 0;
+
+int newLpfCos = 0;
+int newLpfCosOld = 0;
+int newLpfCosLeft = 0;
+int newAccelLeft = 0;
+int newLpfCosLeftOld = 0;
+float tp5FpsLeft = 0.0f;
+float tp5FpsRight = 0.0f;
+float tp6FpsLeft = 0.0f;
+float tp6FpsRight = 0.0f;
 
 
 /*********************************************************
@@ -558,9 +566,9 @@ void loop() { //Main Loop
   case MODE_TP5:
     aTp5Run();
     break;
-//  case MODE_TP7:
-//    aTp7Run();
-//    break;
+  case MODE_TP6:
+    aTp6Run();
+    break;
   default:
     readXBee();
     break;
@@ -701,11 +709,6 @@ void aPulseSequence() {
         int pw = pwArray[pulseIndex];
         pulseTrigger = timeMicroseconds + pw;
         pulseIndex++;
-Serial.print("Motor: ");
-Serial.print(motor);
-Serial.print("  Pw: ");
-Serial.println(pw);
-  tp7Log(timeMicroseconds, motor, pw, 0L);
         switch (motor) {
         case 1: // Coast
           setMotor(MOTOR_RIGHT, COAST, 0);
