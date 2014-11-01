@@ -22,7 +22,6 @@ float tp6LpfAngleErrorW = 0.0;
 float tp6AngleError = 0.0;
 float tp6LpfCosLeft = 0.0f;
 float tp6LpfCosLeftOld = 0.0f;
-unsigned long tCheck = 0;
 
 /************************************************************************
  *  aTp6Run() 
@@ -39,8 +38,8 @@ void aTp6Run() {
 //    route();
 
     // Do the timed loop
-    if (digitalRead(MPU_INTR_PIN) == HIGH) {
-      imu9150.getIntStatus();  // Clear the bit.
+    if (readImu()) {
+//      imu9150.getIntStatus();  // Clear the bit.
       actualLoopTime = timeMicroseconds - oldTimeTrigger;
       oldTimeTrigger = timeMicroseconds;
       tp6LoopSec = ((float) actualLoopTime)/1000000.0; 
@@ -62,10 +61,10 @@ void aTp6Run() {
  *  aTp6() 
  ************************************************************************/
 void aTp6() {
+  
   readSpeed();
   timeMicroseconds = micros(); // So algorithm will have latest time
   getTp6Angle();
-tCheck = micros();
 //
 //  float tp6AngleDelta = gaPitchAngle - oldGaPitchAngle; //** 2
 //  oldGaPitchAngle = gaPitchAngle; //** 2
@@ -121,7 +120,7 @@ tCheck = micros();
   tp6Steer(tp6Fps);
   setTargetSpeedRight(tp6FpsRight);
   setTargetSpeedLeft(tp6FpsLeft);
-runLog(timeMicroseconds, (int) (tp6Fps * 1000.0), (int)  (gaPitchAngle2 * 1000.0), 00);
+//runLog(tStart, tStart - tAngle, tAngle - tAlgo, 0);
 //Serial.println(gaPitchAngle);
 } // end aTp6() 
 

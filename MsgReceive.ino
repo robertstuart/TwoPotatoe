@@ -25,8 +25,8 @@ int blockCount = 0;
 void readXBee() {
   static boolean escState = false;
   
-  while (MYSER.available() > 0) {
-    byte b = MYSER.read();
+  while (XBEE_SER.available() > 0) {
+    byte b = XBEE_SER.read();
     
     // Fix escape sequences
     if (packetInProgress != PACKET_DELIM) {
@@ -180,7 +180,7 @@ void newPacket() {
  * doMessage()
  *********************************************************/
 void doMessage(int type, int val) {
-Serial.print("Type: "); Serial.print(type); Serial.print("  Val: "); Serial.println(val);
+//Serial.print("Type: "); Serial.print(type); Serial.print("  Val: "); Serial.println(val);
   int bo;
  
   switch (type) {

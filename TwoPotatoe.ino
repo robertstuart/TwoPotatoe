@@ -2,11 +2,12 @@
 
 #include <stdlib.h>
 #include "Common.h"
-#include "Wire.h"
-#include "I2Cdev.h"
-#include "MPU6050.h"
+//#include "Wire.h"
+//#include "I2Cdev.h"
+//#include "MPU6050.h"
 
-#define MYSER Serial3
+#define XBEE_SER Serial3
+#define MINI_SER Serial1
 
 unsigned int mode = MODE_TP5;
 unsigned int oldMode = MODE_TP5;
@@ -57,12 +58,15 @@ const float SPEED_MULTIPLIER = 3.0;
 #define LEFT_HL_PIN 9 // headlamp
 #define REAR_BL_PIN 8 // rear lamp
 
-#define YE_SW_PIN 24
+#define YE_SW_PIN 24 // Yellow switch
 #define PWR_PIN 25 // Mosfet power controller
-#define SPEAKER_PIN 26
+#define SPEAKER_PIN 26 // 
+#define MOTOR_RESET_PIN 51  // motor low-power sleep
 #define MPU_INTR_PIN 38
-#define BATTERY_PIN A1              // Analog pin assignment
 #define PRESSURE_PIN A0             // Pressure sensor
+#define L_BATT_PIN A1              // Logic battery
+#define MB_BATT_PIN A2              // Base Motor battery
+#define EB_BATT_PIN A3              // Extended Motor battery
 
 //Encoder factor
 //const float ENC_FACTOR= 750.0f;  // Change pulse width to fps speed, 1/50 gear
@@ -112,7 +116,7 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 // Due has 96 kbytes sram
 #define DATA_ARRAY_SIZE 1000
 
-MPU6050 imu9150;
+//MPU6050 imu9150;
 
 // TP7 threshold values
 //int hsSpeedThreshold = 999;
@@ -219,7 +223,7 @@ long routeTargetTime = 0L;
 
 int msgState = MSG_STATE_TIMER_WAIT;
 
-int16_t aPitch, aRoll, aYaw;
+int16_t aPitch, aRoll, aPitchRoll;
 int16_t gPitch, gRoll, gYaw;
 int16_t mPitch, mRoll, mYaw;
 float mPitchVec, mRollVec, mYawVec;
@@ -322,6 +326,8 @@ int driftRoll = 0;
 int driftYaw = 0;
 float accelPitchAngle = 0.0;  // Vertical plane parallel to wheels
 float gaPitchAngle = 0.0f;
+float accelPitchAngle2 = 0.0;  // Vertical plane parallel to wheels
+float gaPitchAngle2 = 0.0f;
 
 // TP7 variables
 //float gaPitch = 0.0;
@@ -371,7 +377,10 @@ unsigned int byteCountErrorsHc = 0;
 boolean txRateHL = false;
 int txRateCounter = 0;
 
-int batteryVolt = 0;
+int bmBattVolt = 0; // Base motor battery * 100
+int emBattVolt = 0; // Extended motor battery * 100
+int lBattVolt = 0; // Logic battery * 100
+int tpDebug = 4242;
 float gyroXAngleDelta = 0;
 
 long oldTickDistance = 0;
@@ -478,9 +487,8 @@ int ccaFailure = 0;;
 int purgeFailure = 0;
 
 float accelLeft = 0.0;
-float accelPitchAngle2 = 0.0;
-float gaPitchAngle2 = 0.0;
 int mAccelLeft = 0;
+float tp5LpfCosAccel = 0.0;
 
 int newLpfCos = 0;
 int newLpfCosOld = 0;
@@ -491,7 +499,6 @@ float tp5FpsLeft = 0.0f;
 float tp5FpsRight = 0.0f;
 float tp6FpsLeft = 0.0f;
 float tp6FpsRight = 0.0f;
-
 
 /*********************************************************
  *
@@ -504,7 +511,8 @@ void setup() {
 
   //  MYSER.begin(115200);
   // XBee, See bottom of this page for settings.
-  MYSER.begin(57600);  // XBee
+  XBEE_SER.begin(57600);  // XBee
+  MINI_SER.begin(115200);  // Mini IMU processor
   Serial.begin(115200); // for debugging output
   //  resetXBee();
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
@@ -515,7 +523,9 @@ void setup() {
   pinMode(REAR_BL_PIN, OUTPUT);
   pinMode(PWR_PIN,OUTPUT);  // Power mosfet control
   pinMode(SPEAKER_PIN, OUTPUT);
-  pinMode(BATTERY_PIN, INPUT);
+  pinMode(MB_BATT_PIN, INPUT);
+  pinMode(EB_BATT_PIN, INPUT);
+  pinMode(MPU_INTR_PIN, INPUT);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
   pinMode(MPU_INTR_PIN, INPUT);
 
@@ -582,15 +592,17 @@ void loop() { //Main Loop
  **************************************************************************/
 void aPwmSpeed() {
   unsigned long pwmTrigger = 0;
+  unsigned long tt;
   tpState = tpState | TP_STATE_RUNNING;
   motorInitTp();
+  angleInitTp7();
   setBlink(BLINK_SY);
   
   while (mode == MODE_PWM_SPEED) {
     commonTasks();
     while (isDumpingData) {
       dumpData();
-      delay(1);
+      delay(50);
     }
     if (timeMicroseconds > pwmTrigger) {
       int action = FWD;
@@ -603,7 +615,7 @@ void aPwmSpeed() {
       setMotor(MOTOR_LEFT, action, abs(uVal));
       readSpeed();      
       sendStatusFrame(XBEE_PC);
-      Serial.print(fpsRight); Serial.print("\t"); Serial.println(fpsLeft);
+//      Serial.print(fpsRight); Serial.print("\t"); Serial.println(fpsLeft);
     } // end timed loop 
   } // while
 } // aPwmSpeed()
@@ -618,35 +630,25 @@ void aTpSpeed() {
   tpState = tpState | TP_STATE_RUNNING;
   motorInitTp();
   setBlink(BLINK_SY);
-  unsigned int printCount = 0;
   
   while (mode == MODE_TP_SPEED) {
+    commonTasks();
+    while (isDumpingData) {
+      dumpData();
+      delay(1);
+    }
     if (timeMicroseconds > tpTrigger) {
       int action = FWD;
-      tpTrigger = timeMicroseconds + 5000; // 200/sec
-      if (tVal > 0) action = FWD;
-      else action = BKWD;
+      tpTrigger = timeMicroseconds + 100000; // 10/sec
       setTargetSpeedRight(((float) tVal) / 1000.0);
-      if (uVal > 0) action = FWD;
-      else action = BKWD;
       setTargetSpeedLeft(((float) uVal) / 1000.0);
       readSpeed();      
-      battery();
       sendStatusFrame(XBEE_PC);  // Send status message to controller.
-      checkMotorRight();
-      checkMotorLeft();
-      if ((++printCount % 100) == 1) {
-        Serial.print(targetMFpsRight); 
-//        Serial.print("\t"); 
-//        Serial.print(ENC_FACTOR_M); 
-        Serial.print("\t"); 
-        Serial.println(mWsFpsRight);
-      }
       checkMotorRight();
       checkMotorLeft();
     } // end timed loop 
   } // while
-} // aPwmSpeed()
+} // aTpSpeed()
 
 
 

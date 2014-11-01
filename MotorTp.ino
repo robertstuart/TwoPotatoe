@@ -1,15 +1,13 @@
-//#include <DueTimer.h>
-//#define TIMER_RIGHT Timer5
-//#define TIMER_LEFT Timer8
+int lastMWsFpsRight = 0;
+int lastMWsFpsLeft = 0;
+int rejectCountRight = 0;
+int rejectCountLeft = 0;
 
 
-//unsigned long timerPulseEndRight = 0L;
-//unsigned long timerWaitEndRight = 0L;
-//unsigned long timerPulseEndLeft = 0L;
-//unsigned long timerWaitEndLeft = 0L;
-//int timerStateRight = TIMER_IDLE;
-//int timerStateLeft = TIMER_IDLE;
 
+/************************************************************************
+ *  motorInitTp() 
+ ************************************************************************/
 void motorInitTp() {
   // Set the pin modes
   pinMode(MOT_RIGHT_PWML, OUTPUT);
@@ -25,8 +23,6 @@ void motorInitTp() {
 
   attachInterrupt(MOT_RIGHT_ENCA, encoderIsrRight, CHANGE);
   attachInterrupt(MOT_LEFT_ENCA, encoderIsrLeft, CHANGE);
-//  TIMER_RIGHT.attachInterrupt(timerAIsr);
-//  TIMER_LEFT.attachInterrupt(timerBIsr);
 }
 
 
@@ -39,11 +35,14 @@ void motorInitTp() {
  *
  *********************************************************/
 void encoderIsrRight() {
-  int action = 99;
-  int pw = 99;
+  static boolean encAStat;
+  int action = BRAKE;
+  int pw = 0;
+  boolean encA = (!!(g_APinDescription[MOT_RIGHT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_RIGHT_ENCA].ulPin)) ? true : false;
+  if (encA == encAStat) return;  // Ignore if bogus interrupt!
+  encAStat = encA;
   unsigned long lastTickTime = tickTimeRight;
   tickTimeRight = micros();  
-  boolean encA = (!!(g_APinDescription[MOT_RIGHT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_RIGHT_ENCA].ulPin)) ? true : false;
   boolean encB = (!!(g_APinDescription[MOT_RIGHT_ENCB].pPort -> PIO_PDSR & g_APinDescription[MOT_RIGHT_ENCB].ulPin)) ? true : false;
     
   if (encA == encB) {
@@ -57,7 +56,7 @@ void encoderIsrRight() {
   mWsFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
   mWsFpsRightSum += mWsFpsRight;
   mWsFpsRightCount++;
-//tp7Log(42, tickPeriodRight, mWsFpsRight, dataArrayPtr);
+//runLog((long) tickTimeRight, (long) mWsFpsRight , (long) encA, (long) encB);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
   
@@ -67,12 +66,11 @@ void encoderIsrRight() {
       pw = getAccelPw(mWsFpsRight, targetMFpsRight);
     }
     else if (mWsFpsRight < targetBrakeMFpsRight) {
-      action = COAST;
-      pw = 0;
+//      action = COAST;
+      action = BRAKE;
     }
     else if (mWsFpsRight < targetRevMFpsRight) {
       action = BRAKE;
-      pw = 0;
     }
     else {
       action = BKWD;
@@ -85,12 +83,11 @@ void encoderIsrRight() {
       pw = getAccelPw(mWsFpsRight, targetMFpsRight);
     }
     else if (mWsFpsRight > targetBrakeMFpsRight) {
-      action = COAST;
-      pw = 0;
+//      action = COAST;
+      action = BRAKE;
     }
     else if (mWsFpsRight > targetRevMFpsRight) {
       action = BRAKE;
-      pw = 0;
     }
     else {
       action = FWD;
@@ -99,19 +96,24 @@ void encoderIsrRight() {
   }
   else { // STOP
     action = BRAKE;
-    pw = 0;
   }
   setMotor(MOTOR_RIGHT, action, pw);
 //tp7Log(targetMFpsRight, mWsFpsRight, action, pw);
 } // encoderIsrRight()
 
 
-
-/******************* encoderIsrLeft() **************************/
+/************************************************************************
+ *  encoderIsrLeft() 
+ ************************************************************************/
 void encoderIsrLeft() {
+  static boolean encAStat;
+  int action = BRAKE;
+  int pw = 0;
+  boolean encA = (!!(g_APinDescription[MOT_LEFT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_LEFT_ENCA].ulPin)) ? true : false;
+  if (encA == encAStat) return;
   unsigned long lastTickTime = tickTimeLeft;
   tickTimeLeft = micros();
-  boolean encA = (!!(g_APinDescription[MOT_LEFT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_LEFT_ENCA].ulPin)) ? true : false;
+  encAStat = encA;
   boolean encB = (!!(g_APinDescription[MOT_LEFT_ENCB].pPort -> PIO_PDSR & g_APinDescription[MOT_LEFT_ENCB].ulPin)) ? true : false;
   
   if (encA == encB) {
@@ -119,50 +121,90 @@ void encoderIsrLeft() {
     tickDistanceLeft--;
   } 
   else {
-    tickPeriodLeft = (long) tickTimeLeft - (long) lastTickTime;
+    tickPeriodLeft = (long)tickTimeLeft - (long) lastTickTime;
     tickDistanceLeft++;
   }
   int mWsFpsLeft = (ENC_FACTOR_M / tickPeriodLeft); // speed in milli-fps
   mWsFpsLeftSum += mWsFpsLeft;
-  mWsFpsLeftCount++;
+  mWsFpsLeftCount++;  
+  
+//runLog((long) tickTimeLeft, (long) mWsFpsLeft , (long) encA, (long) encB);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
 
   if (targetMFpsLeft > 0L) {
     if (mWsFpsLeft < targetMFpsLeft) {
-      setMotor(MOTOR_LEFT, FWD, getAccelPw(mWsFpsLeft, targetMFpsLeft));
+      action = FWD;
+      pw = getAccelPw(mWsFpsLeft, targetMFpsLeft);
     }
     else if (mWsFpsLeft < targetBrakeMFpsLeft) {
-        setMotor(MOTOR_LEFT, COAST, 0);
+      action = BRAKE;
+//      action = COAST;
     }
     else if (mWsFpsLeft < targetRevMFpsLeft) {
-        setMotor(MOTOR_LEFT, BRAKE, 0);
+      action = BRAKE;
     }
     else {
-        setMotor(MOTOR_LEFT, BKWD, getDecelPw(mWsFpsLeft, targetMFpsLeft));
+      action = BKWD;
+      pw = getDecelPw(mWsFpsLeft, targetMFpsLeft);
     }
   }
   else if (targetMFpsLeft < 0L) {
     if (mWsFpsLeft > targetMFpsLeft) {
-      setMotor(MOTOR_LEFT, BKWD, getAccelPw(mWsFpsLeft, targetMFpsLeft));
+      action = BKWD;
+      pw = getAccelPw(mWsFpsLeft, targetMFpsLeft);
     }
     else if (mWsFpsLeft > targetBrakeMFpsLeft) {
-        setMotor(MOTOR_LEFT, COAST, 0);
+      action = BRAKE;
+//      action = COAST;
     }
     else if (mWsFpsLeft > targetRevMFpsLeft) {
-        setMotor(MOTOR_LEFT, BRAKE, 0);
+      action = BRAKE;
     }
     else {
-        setMotor(MOTOR_LEFT, FWD, getDecelPw(mWsFpsLeft, targetMFpsLeft));
+      action = FWD;
+      pw = getDecelPw(mWsFpsLeft, targetMFpsLeft);
     }
   }
   else { // STOP
-    setMotor(MOTOR_LEFT, BRAKE, 0);
+    action = BRAKE;
   }
+  setMotor(MOTOR_LEFT, action, pw);
 } // end encoderIsrLeft();
 
 
 
+/************************************************************************
+ *  testReject() 
+ *      Return true if reject.
+ ************************************************************************/
+boolean testReject(int rejectCount, int last, int mWsFps) {
+  if (rejectCount >= 3) return false;      // Reject no more that three consecutive
+  if (abs(mWsFps) < 500)return false;      // Don't reject at < .5fps
+  if (mWsFps > 0) {
+    if (last < 0)  {
+      return true;          // Reject all in opposite direction
+    }
+    if (mWsFps > (last * 2)) {
+      return true;  // Reject if more than %50 faster than previous.
+    }
+  }
+  else {
+    if (last > 0)  {
+      return true;          // Reject all in opposite direction
+    }
+    if (mWsFps < (last * 2)) {
+      return true;  // Reject if more than %50 faster than previous.
+    }
+  }
+  return false;
+}
+
+
+
+/************************************************************************
+ *  getAccelPw() 
+ ************************************************************************/
 int getAccelPw(int wFps, int tFps) {
   int sum = abs(tFps) / 8;  // 0-1.0fps = 0-255
   sum = sum + (abs(tFps - wFps) / 8); // 0-1.0fps difference = 0-255
@@ -202,7 +244,9 @@ void checkMotorRight() {
 }
 
 
-/************************ checkMotorLeft *************************/
+/************************************************************************
+ *  checkMotorLeft() 
+ ************************************************************************/
 void checkMotorLeft() {
   int ws = (ENC_FACTOR_M / (micros() - tickTimeLeft)); // speed in milli-fps
   if (ws < 100) { // less than ~0.1 fps?
@@ -411,7 +455,7 @@ void readSpeed() {
   readSpeedLeft();
   tickDistance = tickDistanceRight + tickDistanceLeft;
   wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
-  mWheelSpeedFps = (mAverageFpsLeft + mAverageFpsLeft) /2;
+  mWheelSpeedFps = (mAverageFpsRight + mAverageFpsLeft) /2;
 }
 
 

@@ -48,8 +48,9 @@ void aTp5Run() {
 //    route();
 
     // Do the timed loop
-    if (digitalRead(MPU_INTR_PIN) == HIGH) {
-      imu9150.getIntStatus();  // Clear the bit.
+    if (readImu()) {
+//    if (digitalRead(MPU_INTR_PIN) == HIGH) {
+//      imu9150.getIntStatus();  // Clear the bit.
       actualLoopTime = timeMicroseconds - oldTimeTrigger;
       oldTimeTrigger = timeMicroseconds;
       tp5LoopSec = ((float) actualLoopTime)/1000000.0; 
@@ -58,6 +59,7 @@ void aTp5Run() {
       magTickCorrection();
       safeAngle();
       gravity();
+      runSwitch();
       checkMotorRight();
       checkMotorLeft();
 //    checkDrift();
@@ -74,15 +76,19 @@ void aTp5() {
   readSpeed();
   timeMicroseconds = micros(); // So algorithm will have latest time
   getTp5Angle();
-
-  float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle; //** 2
-  oldGaPitchAngle = gaPitchAngle; //** 2
+  
+//  float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle; //** 2
+//  oldGaPitchAngle = gaPitchAngle; //** 2
+  
+  float tp5AngleDelta = gyroPitchAngleDelta; //** 2
 
   // compute the Center of Oscillation Speed (COS)
   float tp5Cos = wheelSpeedFps + ((*currentValSet).v * tp5AngleDelta); // subtract out rotation **************
   tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little (0.2)
+  tp5LpfCosAccel = tp5LpfCos - tp5LpfCosOld;
   tp5LpfCosOld = tp5LpfCos;
 
+runLog((long) (tp5LpfCosAccel * 1000.0), (long) aPitch , (long) (gaPitchAngle * 1000.0), (long) (gaPitchAngle2 * 1000.0));
 //  // newCos
 //  int newCos = mWheelSpeedFps + (gyroPitchRaw / 10); // subtract out rotation **************
 //  newLpfCos = newLpfCosOld + (((newCos - newLpfCosOld) * 20) / 100); // smooth it out a little
@@ -128,8 +134,6 @@ void aTp5() {
   tp5Steer(tp5Fps);
   setTargetSpeedRight(tp5FpsRight);  // Need to set direction.  Does not set speed!
   setTargetSpeedLeft(tp5FpsLeft);  // Need to set direction.  Does not set speed!
-//runLog((long) (gaPitchAngle *1000.0), (long) (tp5TargetAngle * 1000.0) , (long) (tp5AngleErrorW * 1000.0), (long) (tp5FpsLeft * 1000.0f));
-//Serial.println(gaPitchAngle);
   
 //  // Set the values for the interrupt routines
 //  targetTDR = tickDistanceRight + (15.0 * tp5AngleError);  // Target beyond current tickDistance.
@@ -152,7 +156,7 @@ void sendTp5Status() {
   static int loopc = 0;
   loopc = ++loopc % 10;
   if (isDumpingData) {
-    dumpData();
+    if (loopc == 5)  dumpData();
   }
   else if (loopc == 0) sendStatusFrame(XBEE_HC); 
   else if (loopc == 3) sendStatusFrame(XBEE_PC);

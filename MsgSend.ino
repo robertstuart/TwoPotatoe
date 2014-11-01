@@ -10,11 +10,61 @@ int dumpPtr, dumpEnd;
  * sendStatusFrame() Send out status data.
  *********************************************************/
 void sendStatusFrame(int destId) { 
+  static int mainCycle = 0;
+  static int subCycle = 0;
+  int flag, val;
   if (!isDumpingData && !isReceivingBlock) {
-    sendArray[TP_SEND_MODE_STATUS] = mode;
-    sendArray[TP_SEND_STATE_STATUS] = tpState;
-    set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
-    set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
+    mainCycle = ++mainCycle % 3;
+    switch (mainCycle) {
+      case 0: 
+        flag = TP_SEND_FLAG_ANGLE;
+        val = (float) (gaPitchAngle * 100.0);
+        break;
+      case 1:
+        flag = TP_SEND_FLAG_SPEED;
+        val = mWheelSpeedFps / 10;
+        break;
+      case 2:
+        subCycle = ++subCycle % 7;
+        switch (subCycle) {
+          case 0:
+            flag = TP_SEND_FLAG_MODE;
+            val = mode;
+            break;
+          case 1:
+            flag = TP_SEND_FLAG_STATE;
+            val = tpState;
+            break;
+          case 2:
+            flag = TP_SEND_FLAG_BMBATT;
+            val = bmBattVolt;
+            break;
+          case 3:
+            flag = TP_SEND_FLAG_EMBATT;
+            val = emBattVolt;
+            break;
+          case 4:
+            flag = TP_SEND_FLAG_LBATT;
+            val = lBattVolt;
+            break;
+          case 5:
+            flag = TP_SEND_FLAG_VALSET;
+            val = vSetStatus;
+            break;
+          case 6:
+            flag = TP_SEND_FLAG_DEBUG;
+            val = tpDebug;
+            break;
+        }
+      break;
+    }
+    sendArray[TP_SEND_FLAG] = flag;
+    set2Byte(sendArray, TP_SEND_VALUE, val);
+//        
+//    sendArray[TP_SEND_MODE_STATUS] = mode;
+//    sendArray[TP_SEND_STATE_STATUS] = tpState;
+//    set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
+//    set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
     sendFrame(destId, TP_SEND_END);
   }
 }
@@ -25,8 +75,6 @@ void sendStatusFrame(int destId) {
  * sendFrame()
  *
  *     Set all frame bytes and send out.
- *     This must only be called if the serial buffer is empty.
- *
  *********************************************************/
 void sendFrame(int destId, int dataLength) {
   unsigned int sum = 0;
@@ -63,7 +111,7 @@ void sendFrame(int destId, int dataLength) {
     }
   }
   
-  MYSER.write(xbeeBuffer, oPtr);
+  XBEE_SER.write(xbeeBuffer, oPtr);
 //
 //  // Set up transmit buffer for flushSerial()
 //  transmitBufferPtr = 0;
@@ -89,7 +137,7 @@ void sendData() {
  * dumpData()
  *********************************************************/
 void dumpData() {
-    sendArray[TP_SEND_MODE_STATUS] = BLOCK_DATA;
+    sendArray[TP_SEND_FLAG] = TP_SEND_FLAG_DUMP;
     dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
     if (dumpPtr != dumpEnd) {
       set4Byte(sendArray, 1, aArray[dumpPtr]);

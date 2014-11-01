@@ -188,9 +188,10 @@ void controllerConnected() {
 void battery() {
 
   if (timeMilliseconds > batteryTrigger) {
-    batteryTrigger += 1000;  // 10 per second
-    int sensorValue = analogRead(BATTERY_PIN);
-    batteryVolt = 100 * (((float) sensorValue) * BATT_ATOD_MULTIPLIER);
+    batteryTrigger += 1000;  // 1 per second
+    bmBattVolt = (1000 * analogRead(MB_BATT_PIN)) / 455;
+    emBattVolt = ((1000 * analogRead(EB_BATT_PIN)) / 446) - bmBattVolt;
+    lBattVolt = (1000 * analogRead(L_BATT_PIN)) / 455;
 
     //    // Check for warning condition.
     //    if (batteryVolt < BATTERY_WARNING) {
@@ -274,6 +275,7 @@ void led() {
     }
 
     digitalWrite(BLUE_LED_PIN, b);
+  digitalWrite(MOTOR_RESET_PIN, b);
     digitalWrite(YELLOW_LED_PIN, y);
     digitalWrite(RED_LED_PIN, r);
   }
@@ -314,7 +316,11 @@ void beepIsr() {
   digitalWrite(SPEAKER_PIN, beepStat);
 }
 
-
+void runSwitch() {
+  if (digitalRead(YE_SW_PIN) == LOW) {
+    setStateBit(TP_STATE_RUN_READY, true);
+  }
+}
 
 /************************************************************************
  *  runLog() Put values in the dump arrays.
