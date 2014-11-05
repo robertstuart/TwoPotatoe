@@ -70,12 +70,6 @@ boolean readImu() {
       case 13: // Gyro yaw, lsb
         gYaw += b;
         bCycle = 0;
-//Serial.print(aPitch); Serial.print("\t");
-//Serial.print(aRoll); Serial.print("\t");
-//Serial.print(aPitchRoll); Serial.print("\t");
-//Serial.print(gPitch); Serial.print("\t");
-//Serial.print(gRoll); Serial.print("\t");
-//Serial.println(gYaw);
         return true;
         break;
     }

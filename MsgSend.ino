@@ -10,8 +10,9 @@ int dumpPtr, dumpEnd;
  * sendStatusFrame() Send out status data.
  *********************************************************/
 void sendStatusFrame(int destId) { 
-  static int mainCycle = 0;
-  static int subCycle = 0;
+//Serial.println("StatFrame");
+  static unsigned int mainCycle = 0;
+  static unsigned int subCycle = 0;
   int flag, val;
   if (!isDumpingData && !isReceivingBlock) {
     mainCycle = ++mainCycle % 3;
@@ -112,6 +113,7 @@ void sendFrame(int destId, int dataLength) {
   }
   
   XBEE_SER.write(xbeeBuffer, oPtr);
+//  Serial.print(xbeeBuffer[7]);
 //
 //  // Set up transmit buffer for flushSerial()
 //  transmitBufferPtr = 0;

@@ -39,7 +39,7 @@ const int MSG_STATE_HC_NAK = 5;
 const int ACK_PC = 100; // Message frames >= this have been sent to PC
 
 
-const float SPEED_MULTIPLIER = 3.0;
+const float SPEED_MULTIPLIER = 5.0;
 
 
 #define BRAKE 2
@@ -61,7 +61,7 @@ const float SPEED_MULTIPLIER = 3.0;
 #define YE_SW_PIN 24 // Yellow switch
 #define PWR_PIN 25 // Mosfet power controller
 #define SPEAKER_PIN 26 // 
-#define MOTOR_RESET_PIN 51  // motor low-power sleep
+//#define MOTOR_RESET_PIN 51  // motor low-power sleep
 #define MPU_INTR_PIN 38
 #define PRESSURE_PIN A0             // Pressure sensor
 #define L_BATT_PIN A1              // Logic battery
@@ -185,7 +185,7 @@ valSet tp4A = {
   0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.18,   // Y Target angle to WS 
-  -3.0};   // z accelerometer offset
+  1.05};   // z accelerometer offset
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
@@ -500,6 +500,8 @@ float tp5FpsRight = 0.0f;
 float tp6FpsLeft = 0.0f;
 float tp6FpsRight = 0.0f;
 
+int interruptErrors = 0;
+
 /*********************************************************
  *
  * setup()
@@ -595,7 +597,7 @@ void aPwmSpeed() {
   unsigned long tt;
   tpState = tpState | TP_STATE_RUNNING;
   motorInitTp();
-  angleInitTp7();
+//  angleInitTp7();
   setBlink(BLINK_SY);
   
   while (mode == MODE_PWM_SPEED) {
@@ -615,7 +617,7 @@ void aPwmSpeed() {
       setMotor(MOTOR_LEFT, action, abs(uVal));
       readSpeed();      
       sendStatusFrame(XBEE_PC);
-//      Serial.print(fpsRight); Serial.print("\t"); Serial.println(fpsLeft);
+      Serial.print(interruptErrors);Serial.print("\t"); Serial.print(fpsRight); Serial.print("\t"); Serial.println(fpsLeft);
     } // end timed loop 
   } // while
 } // aPwmSpeed()

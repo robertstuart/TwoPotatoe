@@ -39,7 +39,10 @@ void encoderIsrRight() {
   int action = BRAKE;
   int pw = 0;
   boolean encA = (!!(g_APinDescription[MOT_RIGHT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_RIGHT_ENCA].ulPin)) ? true : false;
-  if (encA == encAStat) return;  // Ignore if bogus interrupt!
+  if (encA == encAStat) {
+    interruptErrors++;
+    return;  // Ignore if bogus interrupt!
+  }
   encAStat = encA;
   unsigned long lastTickTime = tickTimeRight;
   tickTimeRight = micros();  
@@ -110,7 +113,10 @@ void encoderIsrLeft() {
   int action = BRAKE;
   int pw = 0;
   boolean encA = (!!(g_APinDescription[MOT_LEFT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_LEFT_ENCA].ulPin)) ? true : false;
-  if (encA == encAStat) return;
+  if (encA == encAStat) {
+    interruptErrors++;
+    return;
+  }
   unsigned long lastTickTime = tickTimeLeft;
   tickTimeLeft = micros();
   encAStat = encA;
@@ -171,34 +177,6 @@ void encoderIsrLeft() {
   }
   setMotor(MOTOR_LEFT, action, pw);
 } // end encoderIsrLeft();
-
-
-
-/************************************************************************
- *  testReject() 
- *      Return true if reject.
- ************************************************************************/
-boolean testReject(int rejectCount, int last, int mWsFps) {
-  if (rejectCount >= 3) return false;      // Reject no more that three consecutive
-  if (abs(mWsFps) < 500)return false;      // Don't reject at < .5fps
-  if (mWsFps > 0) {
-    if (last < 0)  {
-      return true;          // Reject all in opposite direction
-    }
-    if (mWsFps > (last * 2)) {
-      return true;  // Reject if more than %50 faster than previous.
-    }
-  }
-  else {
-    if (last > 0)  {
-      return true;          // Reject all in opposite direction
-    }
-    if (mWsFps < (last * 2)) {
-      return true;  // Reject if more than %50 faster than previous.
-    }
-  }
-  return false;
-}
 
 
 

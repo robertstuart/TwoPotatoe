@@ -38,13 +38,13 @@ void angleInit() {
 //  imu9150.setRate(79);
 }
 
-void angleInitTp7() {
+//void angleInitTp7() {
 //  Wire.begin();
 //  imu9150.initialize();
 ////  imu9150.setRate(39);
 //  imu9150.setRate(79);
 //  imu9150.setIntDataReadyEnabled(true);
-}
+//}
 
 //void angleInit() {
 //  Wire.begin();
@@ -57,7 +57,6 @@ void angleInitTp7() {
 //  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
 //  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
 //}
-
 
 float old1DeltaOverBase = 0.0;
 float old2DeltaOverBase = 0.0;
@@ -89,22 +88,23 @@ static int mAverageFpsLeftOld = 0;
 //  }
 
   // Compute pitch
-  gyroPitchRaw = gPitch + 333;  // add in constant error
+  gyroPitchRaw = gPitch - 180;  // add in constant error
   gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
   gyroPitchAngleDelta = (gyroPitchRate * actualLoopTime) / 1000000.0; // degrees changed during period
   gyroPitchAngle = gyroPitchAngle + gyroPitchAngleDelta;   // Not used.  Only for debuggin purposes
-  
   // uncomment this for -NO- acceleration weighted angle
 //  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
 //  accelPitchAngle = ((atan2(-aPitch, aPitchRoll)) * -RAD_TO_DEG) + (*currentValSet).z + (((float) zVal) / 1000.0); // angle from accelerometer
 //  gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
   
   // uncomment this for acceleration weighted angle
-  float k8 = 40.0;  // Should be 41
+//  float k8 = 40.0;  // Should be 41 for 9150
+  float k8 = 3.1;  // for MiniImu
   float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
-  accelPitchAngle =  ((atan2(-(aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * -RAD_TO_DEG) + (*currentValSet).z + (((float) zVal) / 1000.0);
+  accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
   gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
-
+//Serial.print(gyroPitchAngle); Serial.print("\t");Serial.println(accelPitchAngle);
+//Serial.print(aPitch); Serial.print("\t");Serial.print(aRoll); Serial.print("\t");Serial.println(aPitchRoll);
   // Add the tick information to compensate for gyro information being 40ms late.
   //  tickDistance = tickDistanceLeft + tickDistanceRight;
   //  tp5TickRate = oldTp5TickDistance - tickDistance;

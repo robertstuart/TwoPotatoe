@@ -275,7 +275,7 @@ void led() {
     }
 
     digitalWrite(BLUE_LED_PIN, b);
-  digitalWrite(MOTOR_RESET_PIN, b);
+//  digitalWrite(MOTOR_RESET_PIN, b);
     digitalWrite(YELLOW_LED_PIN, y);
     digitalWrite(RED_LED_PIN, r);
   }

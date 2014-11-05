@@ -234,6 +234,7 @@ void doMessage(int type, int val) {
     break;
   case TP_RCV_MSG_Z_VAL:
     zVal = val;
+    (*currentValSet).z = ((float) val) / 1000.0;
     break;
   default:
     break;    

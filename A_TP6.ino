@@ -32,7 +32,7 @@ void aTp6Run() {
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
   tp6RawIError = 0.0f;
   motorInitTp();
-  angleInitTp7();
+//  angleInitTp7();
   while(mode == MODE_TP6) { // main loop
     commonTasks();
 //    route();

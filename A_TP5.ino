@@ -42,7 +42,7 @@ void aTp5Run() {
   tickDistanceRight = tickDistanceLeft = tickDistance = 0L;
   tp5RawIError = 0.0f;
   motorInitTp();
-  angleInitTp7();
+//  angleInitTp7();
   while(mode == MODE_TP5) { // main loop
     commonTasks();
 //    route();
@@ -55,6 +55,7 @@ void aTp5Run() {
       oldTimeTrigger = timeMicroseconds;
       tp5LoopSec = ((float) actualLoopTime)/1000000.0; 
       aTp5(); 
+//Serial.println("tp5stat");
       sendTp5Status();
       magTickCorrection();
       safeAngle();
@@ -88,7 +89,7 @@ void aTp5() {
   tp5LpfCosAccel = tp5LpfCos - tp5LpfCosOld;
   tp5LpfCosOld = tp5LpfCos;
 
-runLog((long) (tp5LpfCosAccel * 1000.0), (long) aPitch , (long) (gaPitchAngle * 1000.0), (long) (gaPitchAngle2 * 1000.0));
+runLog((long) (tp5LpfCosAccel * 1000.0), (long) aPitch , (long) (gaPitchAngle * 1000.0), (long) 0);
 //  // newCos
 //  int newCos = mWheelSpeedFps + (gyroPitchRaw / 10); // subtract out rotation **************
 //  newLpfCos = newLpfCosOld + (((newCos - newLpfCosOld) * 20) / 100); // smooth it out a little
