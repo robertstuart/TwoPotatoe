@@ -49,13 +49,10 @@ void aTp5Run() {
 
     // Do the timed loop
     if (readImu()) {
-//    if (digitalRead(MPU_INTR_PIN) == HIGH) {
-//      imu9150.getIntStatus();  // Clear the bit.
       actualLoopTime = timeMicroseconds - oldTimeTrigger;
       oldTimeTrigger = timeMicroseconds;
       tp5LoopSec = ((float) actualLoopTime)/1000000.0; 
       aTp5(); 
-//Serial.println("tp5stat");
       sendTp5Status();
       magTickCorrection();
       safeAngle();
@@ -77,7 +74,6 @@ void aTp5() {
   readSpeed();
   timeMicroseconds = micros(); // So algorithm will have latest time
   getTp5Angle();
-  
 //  float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle; //** 2
 //  oldGaPitchAngle = gaPitchAngle; //** 2
   
@@ -89,7 +85,11 @@ void aTp5() {
   tp5LpfCosAccel = tp5LpfCos - tp5LpfCosOld;
   tp5LpfCosOld = tp5LpfCos;
 
-runLog((long) (tp5LpfCosAccel * 1000.0), (long) aPitch , (long) (gaPitchAngle * 1000.0), (long) 0);
+//runLog((long) (tp5LpfCosAccel * 1000.0), (long) aPitch , (long) (gaPitchAngle * 1000.0), (long) 0); // for calibration
+runLog((long) (wheelSpeedFps * 1000.0), (long) (tp5Fps * 1000.0), (long) (gaPitchAngle * 1000.0), 0L);
+//Serial.print(sState); Serial.print(cState); Serial.println(tState);
+//Serial.print(abs(gaPitchAngle)); Serial.print("\t"); Serial.println((abs(gaRollAngle) < 35.0));
+Serial.print(aPitch); Serial.print("\t"); Serial.println(aPitchRoll);
 //  // newCos
 //  int newCos = mWheelSpeedFps + (gyroPitchRaw / 10); // subtract out rotation **************
 //  newLpfCos = newLpfCosOld + (((newCos - newLpfCosOld) * 20) / 100); // smooth it out a little
@@ -157,7 +157,7 @@ void sendTp5Status() {
   static int loopc = 0;
   loopc = ++loopc % 10;
   if (isDumpingData) {
-    if (loopc == 5)  dumpData();
+    if ((loopc == 0) || (loopc == 4))  dumpData();
   }
   else if (loopc == 0) sendStatusFrame(XBEE_HC); 
   else if (loopc == 3) sendStatusFrame(XBEE_PC);

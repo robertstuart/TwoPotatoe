@@ -40,7 +40,7 @@ void encoderIsrRight() {
   int pw = 0;
   boolean encA = (!!(g_APinDescription[MOT_RIGHT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_RIGHT_ENCA].ulPin)) ? true : false;
   if (encA == encAStat) {
-    interruptErrors++;
+    interruptErrorsRight++;
     return;  // Ignore if bogus interrupt!
   }
   encAStat = encA;
@@ -114,7 +114,7 @@ void encoderIsrLeft() {
   int pw = 0;
   boolean encA = (!!(g_APinDescription[MOT_LEFT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_LEFT_ENCA].ulPin)) ? true : false;
   if (encA == encAStat) {
-    interruptErrors++;
+    interruptErrorsLeft++;
     return;
   }
   unsigned long lastTickTime = tickTimeLeft;

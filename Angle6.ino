@@ -24,7 +24,8 @@ boolean readImu() {
         }
         break;
       case 2: // Accelerometer roll, msb ********** aRoll *******
-        aRoll = b * 256;
+//        aRoll = b * 256;
+        aRoll = ((unsigned int) b) << 8;
         bCycle++;
         break;
       case 3: // Acceleromenter roll, lsb
@@ -32,7 +33,7 @@ boolean readImu() {
         bCycle++;
         break;
       case 4: // Accelerometer pitch, msb ********* aPitch ******
-        aPitch = b * 256;
+        aPitch = ((unsigned int) b) << 8;
         bCycle++;
         break;
       case 5: // Acceleromenter pitch, lsb
@@ -40,7 +41,7 @@ boolean readImu() {
         bCycle++;
         break;
       case 6: // Accelerometer pitch-roll, msb *** aPitchRoll ***
-        aPitchRoll = b * 256;
+        aPitchRoll = ((unsigned int) b) << 8;
         bCycle++;
         break;
       case 7: // Acceleromenter pitch-roll, lsb
@@ -48,7 +49,7 @@ boolean readImu() {
         bCycle++;
         break;
       case 8: // Gyro pitch, msb ****************** gPitch ******
-        gPitch = b * 256;
+        gPitch = ((unsigned int) b) << 8;
         bCycle++;
         break;
       case 9: // Gyro pich, lsb
@@ -56,7 +57,7 @@ boolean readImu() {
         bCycle++;
         break;
       case 10: // Gyro roll, msb ***************** gRoll ********
-        gRoll = b * 256;
+        gRoll = ((unsigned int) b) << 8;
         bCycle++;
         break;
       case 11: // Gyro roll, lsb
@@ -64,7 +65,7 @@ boolean readImu() {
         bCycle++;
         break;
       case 12: // Gyro yaw, msb ****************** gYaw *********
-        gYaw = b * 256;
+        gYaw = ((unsigned int) b) << 8;
         bCycle++;
         break;
       case 13: // Gyro yaw, lsb

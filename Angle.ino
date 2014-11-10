@@ -88,7 +88,7 @@ static int mAverageFpsLeftOld = 0;
 //  }
 
   // Compute pitch
-  gyroPitchRaw = gPitch - 180;  // add in constant error
+  gyroPitchRaw = gPitch + 210;  // add in constant error
   gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
   gyroPitchAngleDelta = (gyroPitchRate * actualLoopTime) / 1000000.0; // degrees changed during period
   gyroPitchAngle = gyroPitchAngle + gyroPitchAngleDelta;   // Not used.  Only for debuggin purposes
@@ -96,15 +96,13 @@ static int mAverageFpsLeftOld = 0;
 //  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
 //  accelPitchAngle = ((atan2(-aPitch, aPitchRoll)) * -RAD_TO_DEG) + (*currentValSet).z + (((float) zVal) / 1000.0); // angle from accelerometer
 //  gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
-  
   // uncomment this for acceleration weighted angle
 //  float k8 = 40.0;  // Should be 41 for 9150
-  float k8 = 3.1;  // for MiniImu
+//  float k8 = 3.1;  // for old MinImu
+  float k8 = 45.5;  // for new MinImu
   float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
   accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
   gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
-//Serial.print(gyroPitchAngle); Serial.print("\t");Serial.println(accelPitchAngle);
-//Serial.print(aPitch); Serial.print("\t");Serial.print(aRoll); Serial.print("\t");Serial.println(aPitchRoll);
   // Add the tick information to compensate for gyro information being 40ms late.
   //  tickDistance = tickDistanceLeft + tickDistanceRight;
   //  tp5TickRate = oldTp5TickDistance - tickDistance;
@@ -119,7 +117,7 @@ static int mAverageFpsLeftOld = 0;
   //  old1DeltaOverBase = deltaOverBase;
 
   // compute the Y plane to check for falling sideways
-  gyroRollRaw = gRoll - 80;
+  gyroRollRaw = gRoll + 108;
   gyroRollRate = gyroRollRaw * GYRO_SENS;
   float gyroRollAngleDelta = (gyroRollRate * actualLoopTime) / 1000000;
   gyroRollAngle = gyroRollAngle + gyroRollAngleDelta; // not used
@@ -128,7 +126,7 @@ static int mAverageFpsLeftOld = 0;
   gaRollAngle = (gyroRollWeightedAngle * GYRO_WEIGHT) + (accelRollAngle * (1 - GYRO_WEIGHT));
 
   // compute Z plane to measure turns
-  gyroYawRaw = -gYaw + 80;
+  gyroYawRaw = -gYaw - 85;
   gyroYawRate = (gyroYawRaw - driftYaw) * GYRO_SENS;
   float gyroYawAngleDelta = (gyroYawRate * actualLoopTime) / 1000000;
   gyroYawAngle = gyroYawAngle + gyroYawAngleDelta;

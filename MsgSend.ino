@@ -126,11 +126,13 @@ void sendFrame(int destId, int dataLength) {
 
 
 /*********************************************************
- * sendData() Set up to start a data dump.
+ * dumpData() Set up to start a data dump.
  *********************************************************/
-void sendData() {
+void sendDumpData() {
+  if (!noResendDumpData) {
     dumpEnd = dumpPtr =  dataArrayPtr;
     isDumpingData = true;
+  }
 }
 
 
@@ -139,20 +141,24 @@ void sendData() {
  * dumpData()
  *********************************************************/
 void dumpData() {
-    sendArray[TP_SEND_FLAG] = TP_SEND_FLAG_DUMP;
+  sendArray[TP_SEND_FLAG] = TP_SEND_FLAG_DUMP;
+  for (int k = 0; k < 6; k++) {
     dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
     if (dumpPtr != dumpEnd) {
-      set4Byte(sendArray, 1, aArray[dumpPtr]);
-      set4Byte(sendArray, 5, bArray[dumpPtr]);
-      set4Byte(sendArray, 9, cArray[dumpPtr]);
-      set4Byte(sendArray, 13, dArray[dumpPtr]);
-      sendFrame(XBEE_PC, 17);
+      set4Byte(sendArray, 1 + (16 * k), aArray[dumpPtr]);
+      set4Byte(sendArray, 5 + (16 * k), bArray[dumpPtr]);
+      set4Byte(sendArray, 9 + (16 * k), cArray[dumpPtr]);
+      set4Byte(sendArray, 13 + (16 * k), dArray[dumpPtr]);
     } 
     else { // end of data dump
       set4Byte(sendArray, 1, 0L);
       sendFrame(XBEE_PC, 17);
       isDumpingData = false;
+      return;
     }
+  }
+  sendFrame(XBEE_PC, 1 + (16 * 6));
+  Serial.println(dumpPtr);
 }
 
 

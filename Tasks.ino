@@ -24,7 +24,6 @@ unsigned long gravityTrigger = 0L;
 unsigned long errorTrigger = 0L;
 unsigned int taskPtr = 0;
 unsigned int pingTpHCCount = 0;
-unsigned long uprightTime = 0L;
 unsigned long onGroundTime = 0L;
 unsigned long warningTrigger = 0;
 unsigned long batteryLastGood = 0;
@@ -130,14 +129,29 @@ void setRunningState() {
  *
  *********************************************************/
 void safeAngle() {
-  if ((abs(gaPitchAngle) > 45.0) || ((abs(gaRollAngle) > 35))) {  // Not at a safe angle?
-    if (timeMilliseconds > (uprightTime + 50)) { // more that 1/20th of a second?
-      tpState = tpState & ~TP_STATE_UPRIGHT;
-    }
+//        setStateBit(TP_STATE_UPRIGHT, true);
+//  static unsigned long tTime = 0UL; // time of last state change
+//  static boolean tState = false;  // Timed state. true = upright
+//  
+//  boolean sState = isStateBitSet(TP_STATE_UPRIGHT);
+//  boolean cState = ((abs(gaPitchAngle) < 45.0) && ((abs(gaRollAngle) < 35)));
+sState = isStateBitSet(TP_STATE_UPRIGHT);
+cState = ((abs(gaPitchAngle) < 45.0) && ((abs(gaRollAngle) < 35)));
+  if (cState != tState) {
+    tTime = timeMilliseconds; // Start the timer for a state change.
+    tState = cState;
   }
   else {
-    tpState = tpState | TP_STATE_UPRIGHT;
-    uprightTime = timeMilliseconds;
+    if ((timeMilliseconds - tTime) > 50) {
+      // We have a persistent state change
+      if (sState != cState) {
+        // This is a state change.
+        setStateBit(TP_STATE_UPRIGHT, cState);
+        if (!cState) { // fallen?
+//          sendDumpData();
+        }
+      }
+    } 
   }
 }  // End safeAngle().
 

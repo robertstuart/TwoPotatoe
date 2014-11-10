@@ -202,7 +202,7 @@ void doMessage(int type, int val) {
     digitalWrite(REAR_BL_PIN, bo);
     break;
   case TP_RCV_MSG_DSTART:
-    sendData();
+    sendDumpData();
     break;
   case TP_RCV_MSG_BLOCK:
     isReceivingBlock = true;

@@ -25,9 +25,9 @@ const int MOT_RIGHT_DIR =  44;
 const int MOT_RIGHT_PWMH =   2; 
 const int MOT_RIGHT_ENCA =  41;  
 const int MOT_RIGHT_ENCB =  43; 
-const int MOT_LEFT_PWML =   47; 
+const int MOT_LEFT_PWML =   51; 
 const int MOT_LEFT_DIR =   45; 
-const int MOT_LEFT_PWMH =    3;  
+const int MOT_LEFT_PWMH =    7;  
 
 // State machine for messaging between TP, PC, & HC.
 const int MSG_STATE_TIMER_WAIT = 0;
@@ -114,7 +114,21 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 //#define PULSE_LENGTH 1500
 
 // Due has 96 kbytes sram
-#define DATA_ARRAY_SIZE 1000
+#define DATA_ARRAY_SIZE 200
+
+
+
+//
+//
+  unsigned long tTime = 0UL; // time of last state change
+  boolean tState = false;  // Timed state. true = upright
+//  
+  boolean sState;
+  boolean cState;
+//
+
+
+
 
 //MPU6050 imu9150;
 
@@ -185,7 +199,7 @@ valSet tp4A = {
   0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
   2.0,    // x CO speed error to angle factor
   0.18,   // Y Target angle to WS 
-  1.05};   // z accelerometer offset
+  -1.25};   // z accelerometer offset
 
 valSet tp4B = { 
   0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
@@ -500,7 +514,10 @@ float tp5FpsRight = 0.0f;
 float tp6FpsLeft = 0.0f;
 float tp6FpsRight = 0.0f;
 
-int interruptErrors = 0;
+int interruptErrorsRight = 0;
+int interruptErrorsLeft = 0;
+
+boolean noResendDumpData = false;
 
 /*********************************************************
  *
@@ -549,7 +566,7 @@ void setup() {
     aArray[i] = 42;
     bArray[i] = 9;
     cArray[i] = 4242;
-    dArray[i] = 99;
+    dArray[i] = i;
   }
 } // end setup()
 
@@ -617,7 +634,14 @@ void aPwmSpeed() {
       setMotor(MOTOR_LEFT, action, abs(uVal));
       readSpeed();      
       sendStatusFrame(XBEE_PC);
-      Serial.print(interruptErrors);Serial.print("\t"); Serial.print(fpsRight); Serial.print("\t"); Serial.println(fpsLeft);
+      Serial.print(interruptErrorsRight);
+      Serial.print("\t"); 
+      Serial.print(fpsRight); 
+      Serial.print("\t"); 
+      Serial.print(interruptErrorsLeft);
+      Serial.print("\t"); 
+      Serial.println(fpsLeft);
+      interruptErrorsRight = interruptErrorsLeft = 0;
     } // end timed loop 
   } // while
 } // aPwmSpeed()
@@ -705,7 +729,7 @@ void aPulseSequence() {
         mode = oldMode;
         if (isPwData) {
           isPwData = false;
-          sendData();
+          sendDumpData();
         }
       }
       else {
