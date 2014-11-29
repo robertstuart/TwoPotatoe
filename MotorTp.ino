@@ -50,11 +50,11 @@ void encoderIsrRight() {
     
   if (encA == encB) {
     tickPeriodRight = (long) tickTimeRight - (long) lastTickTime;
-    tickDistanceRight++;
+    tickPositionRight++;
   } 
   else {
     tickPeriodRight = (long) lastTickTime - (long) tickTimeRight;
-    tickDistanceRight--;
+    tickPositionRight--;
   }
   mWsFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
   mWsFpsRightSum += mWsFpsRight;
@@ -124,11 +124,11 @@ void encoderIsrLeft() {
   
   if (encA == encB) {
     tickPeriodLeft = (long) lastTickTime - (long) tickTimeLeft;
-    tickDistanceLeft--;
+    tickPositionLeft--;
   } 
   else {
     tickPeriodLeft = (long)tickTimeLeft - (long) lastTickTime;
-    tickDistanceLeft++;
+    tickPositionLeft++;
   }
   int mWsFpsLeft = (ENC_FACTOR_M / tickPeriodLeft); // speed in milli-fps
   mWsFpsLeftSum += mWsFpsLeft;
@@ -340,6 +340,9 @@ void setMotor(int motor, int state, int pw) {
   int pinDir;
   int pinPwmH;
 
+  if (pw > 255) pw = 255;
+  else if (pw < 0) pw = 0;
+  
   if (motor == MOTOR_RIGHT) {
     pinPwmL = MOT_RIGHT_PWML;
     pinDir = MOT_RIGHT_DIR;
@@ -347,7 +350,6 @@ void setMotor(int motor, int state, int pw) {
     if (state == FWD) state = BKWD;
     else if (state == BKWD) state = FWD;
     actionRight = state;
-//runLog(timeMicroseconds, state, pw, 0);
   }
   else {
     pinPwmL = MOT_LEFT_PWML; // Reversed
@@ -431,7 +433,7 @@ void readSpeedLeft() {
 void readSpeed() {
   readSpeedRight();
   readSpeedLeft();
-  tickDistance = tickDistanceRight + tickDistanceLeft;
+  tickPosition = tickPositionRight + tickPositionLeft;
   wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
   mWheelSpeedFps = (mAverageFpsRight + mAverageFpsLeft) /2;
 }

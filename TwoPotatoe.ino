@@ -114,18 +114,18 @@ const float BATT_ATOD_MULTIPLIER = 0.01525; // value to multiply atod output to 
 //#define PULSE_LENGTH 1500
 
 // Due has 96 kbytes sram
-#define DATA_ARRAY_SIZE 200
+#define DATA_ARRAY_SIZE 1000
 
 
 
-//
-//
-  unsigned long tTime = 0UL; // time of last state change
-  boolean tState = false;  // Timed state. true = upright
-//  
-  boolean sState;
-  boolean cState;
-//
+////
+////
+//  unsigned long tTime = 0UL; // time of last state change
+//  boolean tState = false;  // Timed state. true = upright
+////  
+//  boolean sState;
+//  boolean cState;
+////
 
 
 
@@ -141,9 +141,12 @@ int nzTickThreshold = 999;
 
 // Arrays to save data to be dumped in blocks.
 long aArray[ DATA_ARRAY_SIZE];
-long bArray[ DATA_ARRAY_SIZE];
-long cArray[ DATA_ARRAY_SIZE];
-long dArray[ DATA_ARRAY_SIZE];
+short bArray[ DATA_ARRAY_SIZE];
+short cArray[ DATA_ARRAY_SIZE];
+short dArray[ DATA_ARRAY_SIZE];
+short eArray[ DATA_ARRAY_SIZE];
+short fArray[ DATA_ARRAY_SIZE];
+short gArray[ DATA_ARRAY_SIZE];
 int dataArrayPtr = 0;
 boolean isDumpingData = false;
 boolean isSerialEmpty = true;
@@ -154,32 +157,14 @@ int BEEP_WARBLE[] = {2400, 300, 2600, 300,
                   2400, 300, 2600, 300, 
                   2400, 300, 2600, 300, 0};
 int BEEP_DOWN[] = {1000, 300, 1500, 300, 0};
-// bit0=blue, bin1= yellow, bit2=red
-// each state lasts 1/10 second
-byte BLINK_R_FB[] = {
-  1,4,4,4,4,4,4,4,END_MARKER};  // red on, flash blue
-byte BLINK_B_FY[] = {
-  2,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash yellow
-byte BLINK_FYR[] = {
-  6,6,6,0,0,0,END_MARKER};  // flash yellow red
-byte BLINK_B_FR[] = {
-  4,1,1,1,1,1,1,1,END_MARKER};  // blue on, flash red
-byte BLINK_FRB[] = {
-  4,1,END_MARKER};               // rapid red-blue
-byte BLINK_F_RB[] = {
-  4,4,4,4,1,END_MARKER};               // red, flash blue
-byte BLINK_SBYR[] = {
-  7,7,7,7,0,0,0,0,END_MARKER};  // blink all slow flash
-byte BLINK_FY[] = {
-  2,0,END_MARKER};                // yellow flash
-byte BLINK_FR[] = {
-  4,0,END_MARKER};                // red flash
-byte BLINK_FB[] = {
-  1,0,END_MARKER};                // blue flash
-byte BLINK_SB[] = {
-  1,1,1,1,1,1,1,1,0,0,0,0,END_MARKER};    // blue slow
-byte BLINK_SY[] = {
-  2,2,2,2,2,2,2,2,0,0,0,0,END_MARKER};    // yellow slow
+
+
+// new flash sequences
+byte BLINK_OFF[] = {0,END_MARKER};  // Off
+byte BLINK_SF[] = {1,0,0,0,0,0,0,0,END_MARKER};  // slow flash
+byte BLINK_FF[] = {1,0,END_MARKER};  // Fast flash
+byte BLINK_SB[] = {1,1,1,1,0,0,0,0,END_MARKER};  // slow blink
+byte BLINK_ON[] = {1,END_MARKER};  // Off
 
 typedef struct {
   float t;
@@ -222,6 +207,8 @@ valSet tp4C = {
 valSet *currentValSet = &tp4A;
 int vSetStatus = VAL_SET_A;
 
+int bbb = 42;
+
 // TODO do this with an array of structures
 byte actionArray[100];
 int aValArray[100];
@@ -232,12 +219,12 @@ boolean isRouteInProgress = false;
 //boolean isBlockInProgress = false;
 int routeCurrentAction = 0;
 float routeTargetHeading = 0.0;
-long routeTargetTickDistance = 0L;
+long routeTargettickPosition = 0L;
 long routeTargetTime = 0L;
 
 int msgState = MSG_STATE_TIMER_WAIT;
 
-int16_t aPitch, aRoll, aPitchRoll;
+int16_t aPitch = 0, aRoll = 0, aPitchRoll = 0;
 int16_t gPitch, gRoll, gYaw;
 int16_t mPitch, mRoll, mYaw;
 float mPitchVec, mRollVec, mYawVec;
@@ -245,10 +232,10 @@ float headX, headY;
 float magHeading;
 
 // Speed and position variables
-long tickDistanceRight = 0L;
-long tickDistanceLeft = 0L;
+long tickPositionRight = 0L;
+long tickPositionLeft = 0L;
 long tpDistanceDiff = 0L;
-long tickDistance;
+long tickPosition;
 
 unsigned long tickTimeRight = 0UL;  // time for the last interrupt
 unsigned long tickTimeLeft = 0UL;
@@ -339,7 +326,7 @@ int driftPitch = 0;
 int driftRoll = 0;
 int driftYaw = 0;
 float accelPitchAngle = 0.0;  // Vertical plane parallel to wheels
-float gaPitchAngle = 0.0f;
+float gaPitch = 0.0f;
 float accelPitchAngle2 = 0.0;  // Vertical plane parallel to wheels
 float gaPitchAngle2 = 0.0f;
 
@@ -394,10 +381,10 @@ int txRateCounter = 0;
 int bmBattVolt = 0; // Base motor battery * 100
 int emBattVolt = 0; // Extended motor battery * 100
 int lBattVolt = 0; // Logic battery * 100
-int tpDebug = 4242;
+int tpDebug = 4241;
 float gyroXAngleDelta = 0;
 
-long oldTickDistance = 0;
+long oldtickPosition = 0;
 int oldTickSpeed = 0;
 float oldTickAngle = 0.0f;
 
@@ -430,10 +417,6 @@ int ackMsgVal = 0;
 
 boolean isHcCommand = false;
 
-const byte* blinkPattern = BLINK_FY;
-int blinkPatternSize = sizeof(BLINK_FY);
-int blinkPtr = 0;
-
 /* roll pitch and yaw angles computed by iecompass */
 int iPhi, iThe, iPsi; 
 /* magnetic field readings corrected for hard iron effects and PCB orientation */
@@ -448,8 +431,8 @@ long ttdR = 0;
 long ttdL = 0;
 long targetTDR = 0;
 long targetTDL = 0;
-long loopTickDistanceR = 0;
-long loopTickDistanceL = 0;
+long looptickPositionR = 0;
+long looptickPositionL = 0;
 long tp5LoopTimeR = 0;
 long tp5LoopTimeL = 0;
 long tp6LoopTimeR = 0L;
@@ -459,9 +442,9 @@ long fpsLeftLong = 0L;
 unsigned long tp5LoopTime = 0;
 
 unsigned long baseTickTimeRight = 0UL;
-unsigned long baseTargetTickDistanceRight = 0UL;
+unsigned long baseTargettickPositionRight = 0UL;
 unsigned long baseTickTimeLeft = 0UL;
-unsigned long baseTargetTickDistanceLeft = 0UL;
+unsigned long baseTargettickPositionLeft = 0UL;
 
 long cosTickPeriodRight = 0;
 long cosTickPeriodLeft = 0;
@@ -518,6 +501,7 @@ int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;
 
 boolean noResendDumpData = false;
+boolean isLights = false;
 
 /*********************************************************
  *
@@ -595,8 +579,8 @@ void loop() { //Main Loop
   case MODE_TP5:
     aTp5Run();
     break;
-  case MODE_TP6:
-    aTp6Run();
+  case MODE_POSITION:
+    aPos();
     break;
   default:
     readXBee();
@@ -615,7 +599,7 @@ void aPwmSpeed() {
   tpState = tpState | TP_STATE_RUNNING;
   motorInitTp();
 //  angleInitTp7();
-  setBlink(BLINK_SY);
+  setBlink(RED_LED_PIN, BLINK_SF);
   
   while (mode == MODE_PWM_SPEED) {
     commonTasks();
@@ -655,7 +639,7 @@ void aTpSpeed() {
   unsigned long tpTrigger = 0;
   tpState = tpState | TP_STATE_RUNNING;
   motorInitTp();
-  setBlink(BLINK_SY);
+  setBlink(RED_LED_PIN, BLINK_SF);
   
   while (mode == MODE_TP_SPEED) {
     commonTasks();

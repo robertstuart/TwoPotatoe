@@ -29,6 +29,14 @@ unsigned long warningTrigger = 0;
 unsigned long batteryLastGood = 0;
 
 
+const byte* patternBlue = BLINK_OFF;       
+const byte* patternYellow = BLINK_OFF;       
+const byte* patternRed = BLINK_OFF;       
+int blinkPtrBlue = 0;
+int blinkPtrYellow = 0;
+int blinkPtrRed = 0;
+
+
 /**************************************************************************.
  *
  * commonTasks()
@@ -43,18 +51,18 @@ unsigned long batteryLastGood = 0;
  *
  **************************************************************************/
 void commonTasks() {
-  timeMicroseconds = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
   readXBee();  // Read commands from PC or Hand Controller
   motorIdle();
   led();
   battery();
   controllerConnected();
   setRunningState();
+  timeMicroseconds = micros();
+  timeMilliseconds = timeMicroseconds / 1000;
 }
 
 
-/*********************************************************
+/**************************************************************************.
  *
  * setRunningState()
  *
@@ -69,53 +77,49 @@ void commonTasks() {
  *
  *      Set blinking according to the above states.
  *
- *********************************************************/
+ **************************************************************************/
 void setRunningState() {
-  byte* blinkState = BLINK_SBYR;
 
-  // Set the bit
+  // Set the runnng bit
   if (     ((tpState & TP_STATE_RUN_READY) != 0)
            && ((tpState & TP_STATE_UPRIGHT) != 0)
            && ((tpState & TP_STATE_ON_GROUND) != 0)) {
-    //    if (!(tpState & TP_STATE_RUNNING)) { // only zero for state change
     tpState = tpState | TP_STATE_RUNNING;
-    //      if (!isRouteInProgress) {
-    //        tickDistanceRight = 0;
-    //        tickDistanceLeft = (long) (magHeading * TICKS_PER_YAW_DEGREE);
-    //        getTp5Angle();
-    //        targetHeading = tickHeading;
-    //      }
-    //    }
   }
   else {
     tpState = tpState & ~TP_STATE_RUNNING;
   }
+  
+  // Set the blue connection led
+  if (isStateBit(TP_STATE_HC_ACTIVE)) setBlink(BLUE_LED_PIN, BLINK_ON);
+  else if (isStateBit(TP_STATE_PC_ACTIVE)) setBlink(BLUE_LED_PIN, BLINK_SB);
+  else setBlink(BLUE_LED_PIN, BLINK_FF);
 
-  // set x, y, and blink state if no controller connected
-  if (!(tpState & (TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE))) {
-    controllerY = 0.0f;
-    controllerX = 0.0f;
-    blinkState = BLINK_SBYR;  // Slow blinking if no connection
-  }
-  else {
-    switch (mode) {
-    case MODE_TP5:
-      if (isStateBitClear(TP_STATE_RUNNING)  && isStateBitSet(TP_STATE_RUN_READY)) {
-        blinkState = BLINK_FRB;
-      }
-      else blinkState = BLINK_B_FR;
-      break;
-    case MODE_TP6: 
-      if (isStateBitClear(TP_STATE_RUNNING)  && isStateBitSet(TP_STATE_RUN_READY)) {
-        blinkState = BLINK_FRB;
-      }
-      else blinkState = BLINK_B_FY;
-      break;
-    default:
-      blinkState = BLINK_FYR; // some testing mode
+  // set x and y if no controller connected
+  switch (mode) {
+  case MODE_TP5:
+    setBlink(RED_LED_PIN, BLINK_SB);    
+    if (isStateBit(TP_STATE_RUNNING)) setBlink(YELLOW_LED_PIN, BLINK_ON);
+    else if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_FF);
+    else setBlink(YELLOW_LED_PIN, BLINK_SF);
+    if (!(isStateBit(TP_STATE_HC_ACTIVE) | isStateBit(TP_STATE_PC_ACTIVE))) {
+      controllerY = 0.0f;
+      controllerX = 0.0f;
     }
+    break;
+  case MODE_POSITION: 
+    setBlink(RED_LED_PIN, BLINK_SF);    
+    if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_SF);
+    else setBlink(YELLOW_LED_PIN, BLINK_ON);
+    break;
+  default:
+    setBlink(RED_LED_PIN, BLINK_SF);    
+    if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_SF);
+    else setBlink(YELLOW_LED_PIN, BLINK_ON);
+    break;
   }
-  setBlink(blinkState);
+  
+  
 }
 
 
@@ -129,14 +133,14 @@ void setRunningState() {
  *
  *********************************************************/
 void safeAngle() {
-//        setStateBit(TP_STATE_UPRIGHT, true);
-//  static unsigned long tTime = 0UL; // time of last state change
-//  static boolean tState = false;  // Timed state. true = upright
-//  
-//  boolean sState = isStateBitSet(TP_STATE_UPRIGHT);
-//  boolean cState = ((abs(gaPitchAngle) < 45.0) && ((abs(gaRollAngle) < 35)));
-sState = isStateBitSet(TP_STATE_UPRIGHT);
-cState = ((abs(gaPitchAngle) < 45.0) && ((abs(gaRollAngle) < 35)));
+        setStateBit(TP_STATE_UPRIGHT, true);
+  static unsigned long tTime = 0UL; // time of last state change
+  static boolean tState = false;  // Timed state. true = upright
+  
+  boolean sState = isStateBit(TP_STATE_UPRIGHT);
+  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRollAngle) < 35)));
+//sState = isStateBitSet(TP_STATE_UPRIGHT);
+//cState = ((abs(gaPitchAngle) < 45.0) && ((abs(gaRollAngle) < 35)));
   if (cState != tState) {
     tTime = timeMilliseconds; // Start the timer for a state change.
     tState = cState;
@@ -230,15 +234,6 @@ void battery() {
   } // end batteryTrigger
 }
 
-// Set the blink pattern
-void setBlink(byte* pattern) {
-  if (pattern != blinkPattern) {
-    blinkPattern = pattern;
-    blinkPtr = 0;
-  }
-}
-
-
 
 /***************************************************************
  *
@@ -264,39 +259,58 @@ void motorIdle() {
 }
 
 
-/***************************************************************
- *
- * led()  Call at least 10/sec
- *
- ***************************************************************/
+/**************************************************************************.
+ *  led() Call at least 10/sec
+ **************************************************************************/
 void led() {
   if (timeMilliseconds > blinkTrigger) {
-    int b = LOW, y = LOW, r = LOW;
     blinkTrigger += 100;  // 10 per second
-    byte blink = blinkPattern[blinkPtr++];
-    if (blinkPattern[blinkPtr] == END_MARKER) {
-      blinkPtr = 0;
-    }
-
-    if (blink & 1) {
-      b = HIGH;
-    }
-    if (blink & 2) {
-      y = HIGH;
-    }
-    if (blink & 4) {
-      r = HIGH;
-    }
-
+    
+    int b = (patternBlue[blinkPtrBlue++] == 1) ? HIGH : LOW;
+    if (patternBlue[blinkPtrBlue] == END_MARKER) blinkPtrBlue = 0;
     digitalWrite(BLUE_LED_PIN, b);
-//  digitalWrite(MOTOR_RESET_PIN, b);
-    digitalWrite(YELLOW_LED_PIN, y);
-    digitalWrite(RED_LED_PIN, r);
+    b = (patternYellow[blinkPtrYellow++] == 1) ? HIGH : LOW;
+    if (patternYellow[blinkPtrYellow] == END_MARKER) blinkPtrYellow = 0;
+    digitalWrite(YELLOW_LED_PIN, b);
+    b = (patternRed[blinkPtrRed++] == 1) ? HIGH : LOW;
+    if (patternRed[blinkPtrRed] == END_MARKER) blinkPtrRed = 0;
+    digitalWrite(RED_LED_PIN, b);
   }
 }
 
-
-
+/**************************************************************************.
+ *  setBlink() Set blink patter for led
+ **************************************************************************/
+void setBlink(int led, byte* pattern) {
+  switch (led) {
+    case BLUE_LED_PIN:
+      if (patternBlue != pattern) {
+        patternBlue = pattern;
+        blinkPtrBlue = 0;
+        blinkPtrYellow = 0;
+        blinkPtrRed = 0;
+      }
+      break;
+    case YELLOW_LED_PIN:
+      if (patternYellow != pattern) {
+        patternYellow = pattern;
+        blinkPtrBlue = 0;
+        blinkPtrYellow = 0;
+        blinkPtrRed = 0;
+      }
+      break;
+    case RED_LED_PIN:
+      if (patternRed != pattern) {
+        patternRed = pattern;
+        blinkPtrBlue = 0;
+        blinkPtrYellow = 0;
+        blinkPtrRed = 0;
+      }
+      break;
+    default:
+      break;
+  }
+}
 
 
 void beep(int seq[]) {
@@ -330,22 +344,33 @@ void beepIsr() {
   digitalWrite(SPEAKER_PIN, beepStat);
 }
 
-void runSwitch() {
+/**************************************************************************.
+ * switches()
+ *      Toggle TP_STATE_RUN_READY on yellow switch.  1 sec dead period.
+ **************************************************************************/
+void switches() {
+  static int yeTrigger = 0;
   if (digitalRead(YE_SW_PIN) == LOW) {
-    setStateBit(TP_STATE_RUN_READY, true);
+    if (timeMilliseconds > yeTrigger) {
+      yeTrigger = timeMilliseconds + 1000;
+      setStateBit(TP_STATE_RUN_READY, !isStateBit(TP_STATE_RUN_READY));
+    }
   }
 }
 
-/************************************************************************
- *  runLog() Put values in the dump arrays.
- ************************************************************************/
-void runLog(long aVal, long bVal, long cVal, long dVal) {
+/**************************************************************************.
+ *  addLog() Put values in the dump arrays.
+ **************************************************************************/
+void addLog(long aVal, short bVal, short cVal, short dVal, short eVal, short fVal, short gVal) {
   if (!isDumpingData) {
     if (aVal == 0L) aVal = 1L; // don't indicate end
     aArray[dataArrayPtr] = aVal;
     bArray[dataArrayPtr] = bVal;
     cArray[dataArrayPtr] = cVal;
     dArray[dataArrayPtr] = dVal;
+    eArray[dataArrayPtr] = eVal;
+    fArray[dataArrayPtr] = fVal;
+    gArray[dataArrayPtr] = gVal;
     dataArrayPtr++;
     dataArrayPtr = dataArrayPtr %  DATA_ARRAY_SIZE;
   }
@@ -359,13 +384,11 @@ void setStateBit(byte by, boolean bo) {
 boolean isBitClear(int test, byte b) {
   return ((test & b) == 0);
 }
-boolean isStateBitClear(byte b) {
-  return ((tpState & b) == 0);
-}
+
 boolean isBitSet(int test, byte b) {
   return ((test & b) != 0);
 }
-boolean isStateBitSet(byte b) {
+boolean isStateBit(byte b) {
   return ((tpState & b) != 0);
 }
 

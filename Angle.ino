@@ -61,7 +61,7 @@ void angleInit() {
 float old1DeltaOverBase = 0.0;
 float old2DeltaOverBase = 0.0;
 
-long oldTp5TickDistance = 0L;
+long oldTp5tickPosition = 0L;
 
 /*********************************************************
  * getTp5Angle()
@@ -69,7 +69,7 @@ long oldTp5TickDistance = 0L;
 float getTp5Angle() {
 static int mAverageFpsLeftOld = 0;
   // Compute the tickHeading.
-  long td = (tickDistanceLeft - tickDistanceRight) % TICKS_PER_360_YAW;
+  long td = (tickPositionLeft - tickPositionRight) % TICKS_PER_360_YAW;
   if (td < 0) td += TICKS_PER_360_YAW;
   tickHeading = magCorrection + (((float) td) / TICKS_PER_YAW_DEGREE);
 
@@ -100,13 +100,13 @@ static int mAverageFpsLeftOld = 0;
 //  float k8 = 40.0;  // Should be 41 for 9150
 //  float k8 = 3.1;  // for old MinImu
   float k8 = 45.5;  // for new MinImu
-  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
+  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitch;  // used in weighting final angle
   accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
-  gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
+  gaPitch = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
   // Add the tick information to compensate for gyro information being 40ms late.
-  //  tickDistance = tickDistanceLeft + tickDistanceRight;
-  //  tp5TickRate = oldTp5TickDistance - tickDistance;
-  //  oldTp5TickDistance = tickDistance;
+  //  tickPosition = tickPositionLeft + tickPositionRight;
+  //  tp5TickRate = oldTp5tickPosition - tickPosition;
+  //  oldTp5TickPosition = tickPosition;
   //  tp5IntTickRate = (((float)(tp5TickRate - tp5IntTickRate)) * .2) + tp5IntTickRate;
   //  deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
   //  deltaSum += deltaOverBase;
@@ -176,8 +176,8 @@ void getCompass() {
   //  float cosPitch = cos(DEG_TO_RAD * gaPitchAngle);
   //  float sinPitch = 1.0 - (cosPitch * cosPitch);
 
-  headX = (mRollVec * 1.0) + (mPitchVec * sin(DEG_TO_RAD * gaPitchAngle) * 0.0) + (mYawVec * cos(DEG_TO_RAD * gaPitchAngle) * 0.0);
-  headY = (mPitchVec * cos(DEG_TO_RAD * gaPitchAngle)) - (mYawVec * sin(DEG_TO_RAD * gaPitchAngle));
+  headX = (mRollVec * 1.0) + (mPitchVec * sin(DEG_TO_RAD * gaPitch) * 0.0) + (mYawVec * cos(DEG_TO_RAD * gaPitch) * 0.0);
+  headY = (mPitchVec * cos(DEG_TO_RAD * gaPitch)) - (mYawVec * sin(DEG_TO_RAD * gaPitch));
 
   // magnetic heading
   magHeading = atan2(headX, -headY) * RAD_TO_DEG;
@@ -304,6 +304,82 @@ void apCompass(float roll, float pitch) {
   // Optimization for external DCM use. Calculate normalized components
   heading_x = cos(magHeading);
   heading_y = sin(magHeading);
+}
+
+/*********************************************************
+ * readImu()
+ * Read serial from the MinMImu
+ *********************************************************/
+boolean readImu() {
+  static int bCycle = 0;
+  while (MINI_SER.available() > 0) {
+    byte b = MINI_SER.read();
+    switch (bCycle) {
+      case 0: // looking for 0x0A
+        if (b == 0x0A) {
+          bCycle++;
+        }
+        break;
+      case 1:
+        if (b == 0x0D) {
+          bCycle++;
+        } else {
+          bCycle = 0;
+        }
+        break;
+      case 2: // Accelerometer roll, msb ********** aRoll *******
+//        aRoll = b * 256;
+        aRoll = ((unsigned int) b) << 8;
+        bCycle++;
+        break;
+      case 3: // Acceleromenter roll, lsb
+        aRoll += b;
+        bCycle++;
+        break;
+      case 4: // Accelerometer pitch, msb ********* aPitch ******
+        aPitch = ((unsigned int) b) << 8;
+        bCycle++;
+        break;
+      case 5: // Acceleromenter pitch, lsb
+        aPitch += b;
+        bCycle++;
+        break;
+      case 6: // Accelerometer pitch-roll, msb *** aPitchRoll ***
+        aPitchRoll = ((unsigned int) b) << 8;
+        bCycle++;
+        break;
+      case 7: // Acceleromenter pitch-roll, lsb
+        aPitchRoll += b;
+        bCycle++;
+        break;
+      case 8: // Gyro pitch, msb ****************** gPitch ******
+        gPitch = ((unsigned int) b) << 8;
+        bCycle++;
+        break;
+      case 9: // Gyro pich, lsb
+        gPitch += b;
+        bCycle++;
+        break;
+      case 10: // Gyro roll, msb ***************** gRoll ********
+        gRoll = ((unsigned int) b) << 8;
+        bCycle++;
+        break;
+      case 11: // Gyro roll, lsb
+        gRoll += b;
+        bCycle++;
+        break;
+      case 12: // Gyro yaw, msb ****************** gYaw *********
+        gYaw = ((unsigned int) b) << 8;
+        bCycle++;
+        break;
+      case 13: // Gyro yaw, lsb
+        gYaw += b;
+        bCycle = 0;
+        return true;
+        break;
+    }
+  }
+  return false;
 }
 
 

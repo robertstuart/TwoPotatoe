@@ -19,7 +19,7 @@ void sendStatusFrame(int destId) {
     switch (mainCycle) {
       case 0: 
         flag = TP_SEND_FLAG_ANGLE;
-        val = (float) (gaPitchAngle * 100.0);
+        val = (float) (gaPitch * 100.0);
         break;
       case 1:
         flag = TP_SEND_FLAG_SPEED;
@@ -146,9 +146,12 @@ void dumpData() {
     dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
     if (dumpPtr != dumpEnd) {
       set4Byte(sendArray, 1 + (16 * k), aArray[dumpPtr]);
-      set4Byte(sendArray, 5 + (16 * k), bArray[dumpPtr]);
-      set4Byte(sendArray, 9 + (16 * k), cArray[dumpPtr]);
-      set4Byte(sendArray, 13 + (16 * k), dArray[dumpPtr]);
+      set2Byte(sendArray, 5 + (16 * k), bArray[dumpPtr]);
+      set2Byte(sendArray, 7 + (16 * k), cArray[dumpPtr]);
+      set2Byte(sendArray, 9 + (16 * k), dArray[dumpPtr]);
+      set2Byte(sendArray, 11 + (16 * k), eArray[dumpPtr]);
+      set2Byte(sendArray, 13 + (16 * k), fArray[dumpPtr]);
+      set2Byte(sendArray, 15 + (16 * k), gArray[dumpPtr]);
     } 
     else { // end of data dump
       set4Byte(sendArray, 1, 0L);

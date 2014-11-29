@@ -2,7 +2,7 @@ const unsigned int NO_DEBUG = 0x4242;  // If received, not displayed.
 
 
 // Modes of operation
-const int MODE_PID1           = 0;  // Original pid on board
+const int MODE_POSITION       = 0;  // 
 const int MODE_PWM_SPEED      = 1;  // pw values sent from controller
 const int MODE_DRIVE          = 2;  // sequences batch-loaded from controller
 const int MODE_TP4            = 3;  // Motor speed controlled from interrupts

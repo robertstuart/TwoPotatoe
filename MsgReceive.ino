@@ -193,13 +193,19 @@ void doMessage(int type, int val) {
   case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
+    if (mode != MODE_POSITION) tickPositionRight = tickPositionLeft = tickPosition = 0L;
     break;
   case TP_RCV_MSG_LIGHTS: // 
-    if (val != 0) bo = HIGH;
-    else bo = LOW;
-    digitalWrite(RIGHT_HL_PIN, bo);
-    digitalWrite(LEFT_HL_PIN, bo);
-    digitalWrite(REAR_BL_PIN, bo);
+    isLights = true; // don't allow access
+    if (val != 0) {
+      analogWrite(RIGHT_HL_PIN, 255);
+      analogWrite(LEFT_HL_PIN, 255);
+      analogWrite(REAR_BL_PIN, 255);
+    } else {
+      analogWrite(RIGHT_HL_PIN, 0);
+      analogWrite(LEFT_HL_PIN, 0);
+      analogWrite(REAR_BL_PIN, 0);
+    }
     break;
   case TP_RCV_MSG_DSTART:
     sendDumpData();
