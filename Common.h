@@ -22,7 +22,7 @@ const int TP_STATE_UPRIGHT         = 0B00000100;  // Status: tp is upright (not 
 const int TP_STATE_ON_GROUND       = 0B00001000;  // Status: pressure sensor indicates standing.
 const int TP_STATE_HC_ACTIVE       = 0B00010000;  // Status: Hand Controller connected
 const int TP_STATE_PC_ACTIVE       = 0B00100000;  // Status: PC connected
-const int TP_STATE_UNUSED          = 0B01000000;
+const int TP_STATE_RUN_AIR         = 0B01000000;  // True not on ground but still running
 const int TP_STATE_DUMPING         = 0B10000000;  // Dumping in either direction
 
 // value sets
@@ -75,7 +75,7 @@ const int TP_RCV_MSG_POWER =       8;  //
 const int TP_RCV_MSG_HOME =        9;  // 
 const int TP_RCV_MSG_LIGHTS =     10;  // 1st 3 bits of val
 const int TP_RCV_MSG_ROTATE =     14;    
-const int TP_RCV_CMD_START_PW =   15;  // Run loaded pulse sequence.
+const int TP_RCV_MSG_START_PW =   15;  // Run loaded pulse sequence.
 const int TP_RCV_MSG_RESET =      16;  // 
 const int TP_RCV_MSG_MODE =       17;  //
 const int TP_RCV_MSG_VALSET =     18;  // 

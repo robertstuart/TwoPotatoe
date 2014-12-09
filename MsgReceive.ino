@@ -215,28 +215,34 @@ void doMessage(int type, int val) {
     blockCount = 0;
     pulseCount = 0;
     break;
-  case TP_RCV_CMD_START_PW:
+  case TP_RCV_MSG_START_PW:
     oldMode = mode;
     mode = MODE_PULSE_SEQUENCE;
     if (val != 0) isPwData = true;
     break;
   case TP_RCV_MSG_T_VAL:
     tVal = val;
+    (*currentValSet).t = ((float) val) / 100.0;
     break;
   case TP_RCV_MSG_U_VAL:
     uVal = val;
+    (*currentValSet).u = ((float) val) / 100.0;
     break;
   case TP_RCV_MSG_V_VAL:
     vVal = val;
+    (*currentValSet).v = ((float) val) / 100.0;
     break;
   case TP_RCV_MSG_W_VAL:
     wVal = val;
+    (*currentValSet).w = ((float) val) / 100.0;
     break;
   case TP_RCV_MSG_X_VAL:
     xVal = val;
+    (*currentValSet).x = ((float) val) / 100.0;
     break;
   case TP_RCV_MSG_Y_VAL:
     yVal = val;
+    (*currentValSet).y = ((float) val) / 100.0;
     break;
   case TP_RCV_MSG_Z_VAL:
     zVal = val;

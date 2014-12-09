@@ -14,6 +14,8 @@ const int pitchMax = 439;
 const int yawMin = -628;
 const int yawMax = 403;
 
+float mPitchVec, mRollVec, mYawVec;
+
 ///******************************* from old code *****************************************************
 // *  // TODO revisit these parameters
 // *  compass.init(LSM303DLHC_DEVICE, 0);
@@ -73,95 +75,39 @@ static int mAverageFpsLeftOld = 0;
   if (td < 0) td += TICKS_PER_360_YAW;
   tickHeading = magCorrection + (((float) td) / TICKS_PER_YAW_DEGREE);
 
-  //  getIMU(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw, &mPitch, &mRoll, &mYaw);
-//  imu9150.getMotion6(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw);
-
-//  // get drift on pitch angle
-//  static int loopc;
-//  static int loopsum;
-//  loopsum += gPitch;
-//  loopc++;
-//  if (loopc > 99) {
-//    Serial.println(loopsum / 100);
-//    loopc = 0;
-//    loopsum = 0;
-//  }
-
   // Compute pitch
   gyroPitchRaw = gPitch + 210;  // add in constant error
   gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
-  gyroPitchAngleDelta = (gyroPitchRate * actualLoopTime) / 1000000.0; // degrees changed during period
-  gyroPitchAngle = gyroPitchAngle + gyroPitchAngleDelta;   // Not used.  Only for debuggin purposes
-  // uncomment this for -NO- acceleration weighted angle
-//  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitchAngle;  // used in weighting final angle
-//  accelPitchAngle = ((atan2(-aPitch, aPitchRoll)) * -RAD_TO_DEG) + (*currentValSet).z + (((float) zVal) / 1000.0); // angle from accelerometer
-//  gaPitchAngle = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
-  // uncomment this for acceleration weighted angle
-//  float k8 = 40.0;  // Should be 41 for 9150
-//  float k8 = 3.1;  // for old MinImu
+  gyroPitchDelta = (gyroPitchRate * actualLoopTime) / 1000000.0; // degrees changed during period
+  gyroPitch = gyroPitch + gyroPitch;   // Not used.  Only for debuggin purposes
   float k8 = 45.5;  // for new MinImu
-  float gyroPitchWeightedAngle = gyroPitchAngleDelta + gaPitch;  // used in weighting final angle
-  accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
+  float gyroPitchWeightedAngle = gyroPitchDelta + gaPitch;  // used in weighting final angle
+  if (!isStateBit(TP_STATE_RUN_AIR)) accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
   gaPitch = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
-  // Add the tick information to compensate for gyro information being 40ms late.
-  //  tickPosition = tickPositionLeft + tickPositionRight;
-  //  tp5TickRate = oldTp5tickPosition - tickPosition;
-  //  oldTp5TickPosition = tickPosition;
-  //  tp5IntTickRate = (((float)(tp5TickRate - tp5IntTickRate)) * .2) + tp5IntTickRate;
-  //  deltaOverBase = (tp5TickRate - tp5IntTickRate) * 0.05;
-  //  deltaSum += deltaOverBase;
-  //  deltaSum -= old2DeltaOverBase;
-  //  gaPitchTickAngle = gaPitchAngle + deltaSum; // Causing problems over cracks in surface.
-  ////  gaPitchTickAngle = gaPitchAngle;
-  //  old2DeltaOverBase = old1DeltaOverBase;
-  //  old1DeltaOverBase = deltaOverBase;
 
   // compute the Y plane to check for falling sideways
   gyroRollRaw = gRoll + 108;
   gyroRollRate = gyroRollRaw * GYRO_SENS;
-  float gyroRollAngleDelta = (gyroRollRate * actualLoopTime) / 1000000;
-  gyroRollAngle = gyroRollAngle + gyroRollAngleDelta; // not used
-  float gyroRollWeightedAngle = gyroRollAngleDelta + gaRollAngle;
-  accelRollAngle = atan2(aRoll, aPitchRoll) * RAD_TO_DEG;
-  gaRollAngle = (gyroRollWeightedAngle * GYRO_WEIGHT) + (accelRollAngle * (1 - GYRO_WEIGHT));
+  float gyroRollDelta = (gyroRollRate * actualLoopTime) / 1000000;
+  gyroRoll = gyroRoll + gyroRollDelta; // not used
+  float gyroWeightedRoll = gyroRollDelta + gaRoll;
+  accelRoll = atan2(aRoll, aPitchRoll) * RAD_TO_DEG;
+  gaRoll = (gyroWeightedRoll * GYRO_WEIGHT) + (accelRoll * (1 - GYRO_WEIGHT));
 
   // compute Z plane to measure turns
   gyroYawRaw = -gYaw - 85;
   gyroYawRate = (gyroYawRaw - driftYaw) * GYRO_SENS;
-  float gyroYawAngleDelta = (gyroYawRate * actualLoopTime) / 1000000;
-  gyroYawAngle = gyroYawAngle + gyroYawAngleDelta;
+  float gyroYawDelta = (gyroYawRate * actualLoopTime) / 1000000;
+  gyroYawAngle = gyroYawAngle + gyroYawDelta;
 
   getCompass();
 }
 
 
-/*********************************************************
- * getTp7Angle()
- *********************************************************/
-//float getTp7Angle() {
-//  imu9150.getMotion6(&aPitch, &aRoll, &aYaw, &gPitch, &gRoll, &gYaw);
-//
-//  // Compute angle around the x axis
-//  gyroPitchRaw = gPitch;  //
-//  gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
-//  gyroPitchDelta = (gyroPitchRate * ((float) actualLoopTime))/1000000.0f; // degrees changed during period
-//  gyroPitch = gyroPitch + gyroPitchDelta;   // Not used.  Only for debuggin purposes
-//  float weightedGyroPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
-//  accelPitch = ((atan2(-aRoll, aYaw))*-RAD_TO_DEG) + (*currentValSet).z;  // angle from accelerometer
-//  gaPitch = (weightedGyroPitch * GYRO_WEIGHT) + (accelPitch * (1 - GYRO_WEIGHT)); // Weigh factors
-//}
-
-
 
 /*********************************************************
  *
- * getCompass()
- *
- *     Computes the heading. Does compensation for tilt.
- *     TODO: Don't need to do this every time
- *     since a call to the compass will return a new value
- *     infrequently.
- *
+ * getCompass()  Heading with tilt compensation.
  *********************************************************/
 void getCompass() {
   // Scale for hard-iron effects

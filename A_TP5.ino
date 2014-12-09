@@ -1,37 +1,17 @@
 /************************************************************************
  * ----- TP5 ------
  ************************************************************************/
-float tp5RawIError = 0.0f; 
-float tp5ErrorSpeedFps = 0.0f;
-float tp5ISpeed = 0.0f;
 float tp5Fps = 0.0f;
-float tp5CoSpeed = 0.0f;
-float tp5OldCospeed = 0.0f; 
 float tp5AngleErrorW = 0.0f;
-boolean tp5IsHome = false;
-//long tp5HomeDistance = 0L;
-float tp5HomeSpeed = 0.0f;
-long tp5AccumDistanceError = 0l;
 float tp5ControllerSpeed = 0;
 float tp5LoopSec = 0.0f;
-unsigned int tp5LoopCounter = 0;
 float tp5LpfCos = 0.0;
 float tp5LpfCosOld = 0.0;
-float oldGaPitchAngle = 0.0;
-long routeResetTime = 0L;
-boolean clockwise = true;
 float targetHeading = 0.0;
-long targettickPosition = 0L;
-float turnSpeedAdjustment = 0.0;
 float tp5LpfAngleErrorWOld = 0.0;
 float tp5LpfAngleErrorW = 0.0;
 float tp5AngleError = 0.0;
-float dampValue = 0.0;
-float zeroAcc = 0.0;
-
-float tp5LpfCosLeft = 0.0f;
-float tp5LpfCosLeftOld = 0.0f;
-
+float aDiff;
 
 /************************************************************************
  *  aTp5Run() 
@@ -40,7 +20,6 @@ void aTp5Run() {
   timeMicroseconds = timeTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
-  tp5RawIError = 0.0f;
   motorInitTp();
   setBlink(RED_LED_PIN, BLINK_SB);
   while(mode == MODE_TP5) { // main loop
@@ -56,7 +35,6 @@ void aTp5Run() {
       sendTp5Status();
       magTickCorrection();
       safeAngle();
-      gravity();
       switches();
       checkMotorRight();
       checkMotorLeft();
@@ -74,15 +52,12 @@ void aTp5() {
   readSpeed();
   timeMicroseconds = micros(); // So algorithm will have latest time
   getTp5Angle();
-//  float tp5AngleDelta = gaPitchAngle - oldGaPitchAngle; //** 2
-//  oldGaPitchAngle = gaPitchAngle; //** 2
   
-  float tp5AngleDelta = gyroPitchAngleDelta; //** 2
-
   // compute the Center of Oscillation Speed (COS)
-  float tp5Rotation = ((*currentValSet).v * tp5AngleDelta);
+  float tp5Rotation = 1.4 * gyroPitchDelta;
   float tp5Cos = wheelSpeedFps + tp5Rotation; // subtract out rotation **************
-  tp5LpfCos = tp5LpfCosOld + ((tp5Cos - tp5LpfCosOld) * (*currentValSet).w); // smooth it out a little (0.2)
+//  tp5LpfCos = (tp5LpfCosOld * (1.0 - ((*currentValSet).w))) + (tp5Cos * (*currentValSet).w); // smooth it out a little (0.2)
+  tp5LpfCos = (tp5LpfCosOld * (1.0 - 0.2)) + (tp5Cos * 0.2); // smooth it out a little (0.2)
   tp5LpfCosAccel = tp5LpfCos - tp5LpfCosOld;
   tp5LpfCosOld = tp5LpfCos;
 
@@ -92,43 +67,41 @@ void aTp5() {
   float tp5SpeedError = tp5ControllerSpeed - tp5LpfCos;
 
   // compute a weighted angle to eventually correct the speed error
-  float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
+//  float tp5TargetAngle = tp5SpeedError * (*currentValSet).x; //************ Speed error to angle *******************
+  float tp5TargetAngle = tp5SpeedError * 2.0; //************ Speed error to angle *******************
 
   // Compute angle error and weight factor
   tp5AngleError = gaPitch - tp5TargetAngle;  //** 2
 
   // Original value for y: 0.09
-  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
-  tp5LpfAngleErrorW = tp5LpfAngleErrorWOld + ((tp5AngleErrorW - tp5LpfAngleErrorWOld) * 0.1);
+//  tp5AngleErrorW = tp5AngleError * (*currentValSet).y; //******************* Angle error to speed *******************
+  tp5AngleErrorW = tp5AngleError * 0.18; //******************* Angle error to speed *******************
+  tp5LpfAngleErrorW = (tp5LpfAngleErrorWOld * (1.0 - 0.1)) + (tp5AngleErrorW * 0.1);
   tp5LpfAngleErrorWOld = tp5LpfAngleErrorW;
 
   // Add the angle error to the base speed to get the target speed.
   tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
+//  tp5Fps = tp5AngleErrorW + tp5LpfCos;
 //  if (damp()) {
 //    tp5Fps = tp5LpfCos;
 //  }
-
-  tp5Steer(tp5Fps);
-  setTargetSpeedRight(tp5FpsRight);  // Need to set direction.  Does not set speed!
-  setTargetSpeedLeft(tp5FpsLeft);  // Need to set direction.  Does not set speed!
-  
-addLog((long) (tickPosition),
-       (short) (wheelSpeedFps * 100.0),
-       (short) (gyroPitchAngleDelta  * 100.0),
-       (short) (tp5Rotation * 100.0),
-       (short) (tp5Cos * 100.0), 
-       (short) (tp5LpfCos * 100.0),
-       (short) (gaPitch * 100.0));
-  
-//  // Set the values for the interrupt routines
-//  targetTDR = tickPositionRight + (15.0 * tp5AngleError);  // Target beyond current tickPosition.
-//  targetTDL = tickPositionLeft + (15.0 * tp5AngleError);  // Target beyond current tickPosition.
-//  fpsRightLong = (long) (tp5FpsRight * 100.0);
-//  fpsLeftLong = (long) (tp5FpsLeft * 100.0);
-//  looptickPositionR = tickPositionRight;
-//  looptickPositionL = tickPositionLeft;
-//  tp5LoopTimeR = tickTimeRight;
-//  tp5LoopTimeL = tickTimeLeft;
+  if (!isStateBit(TP_STATE_RUN_AIR)) {
+    tp5Steer(tp5Fps);
+    setTargetSpeedRight(tp5FpsRight);
+    setTargetSpeedLeft(tp5FpsLeft);
+  }
+  else {
+    setTargetSpeedRight(airFps);
+    setTargetSpeedLeft(airFps);
+  }
+ 
+//addLog((long) (tpState),
+//       (short) (tickPositionRight),
+//       (short) (tickPositionLeft),
+//       (short) (tickHeading * 10.0),
+//       (short) (targetHeading * 10.0), 
+//       (short) (tp5FpsRight * 100.0),
+//       (short) (tp5FpsLeft * 100.0));
   
 } // end aTp5() 
 
@@ -158,8 +131,12 @@ void tp5Steer(float fps) {
 //    steerRoute();
 //  }
 //  else  {
-    targetHeading += (controllerX * 2.0);
-    fixHeading(tickHeading, targetHeading, fps);
+      float speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
+//      float speedAdjustment = controllerX * 1.0;
+  tp5FpsLeft = tp6FpsLeft = fps + speedAdjustment;
+  tp5FpsRight = tp6FpsRight = fps - speedAdjustment;
+//    targetHeading += (controllerX * 2.0);
+//    fixHeading(tickHeading, targetHeading, fps);
 //  }
 }
 
@@ -184,13 +161,22 @@ void fixHeading(float hheading, float target, float fps) {
   target = ((float) intTarget) / 100.0;
 
 
-  float aDiff = target - hheading;
+  aDiff = target - hheading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
   speedAdjustment = constrain(aDiff * 0.02, -1.0, 1.0);
   tp5FpsLeft = tp6FpsLeft = fps + speedAdjustment;
   tp5FpsRight = tp6FpsRight = fps - speedAdjustment;
   magTickCorrection();
+  
+  addLog((long) (tpState),
+       (short) (tickHeading * 10.0),
+       (short) (targetHeading * 10.0),
+       (short) (hheading * 10.0),
+       (short) (target * 10.0), 
+       (short) (speedAdjustment * 100.0),
+       (short) (tp5FpsLeft * 100.0));
+
 }
 
 

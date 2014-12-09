@@ -230,10 +230,10 @@ void checkMotorLeft() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsLeft / 2)) { // less than 1/2 target speed?
       if (targetMFpsLeft > 0) {
-        setMotor(MOTOR_LEFT, FWD, 60);
+        setMotor(MOTOR_LEFT, FWD, 199);
       }
       else {
-        setMotor(MOTOR_LEFT, BKWD, 60);
+        setMotor(MOTOR_LEFT, BKWD, 199);
       }
     }
   }

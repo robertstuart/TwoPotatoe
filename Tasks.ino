@@ -56,6 +56,7 @@ void commonTasks() {
   led();
   battery();
   controllerConnected();
+  gravity();
   setRunningState();
   timeMicroseconds = micros();
   timeMilliseconds = timeMicroseconds / 1000;
@@ -69,7 +70,7 @@ void commonTasks() {
  *     Set the TP_STATE_RUNNING bit if the following are true:
  *         TP_STATE_RUN_READY is true
  *         TP_STATE_UPRIGHT is true
- *         TP_STATE_ON_GROUND is true
+ *         TP_STATE_ON_GROUND or TP_STATE_RUN_AIR is true
  *         TP_STATE_MOTOR_FAULT ????
  *
  *      Set x and y to zero if there is no connection to
@@ -80,14 +81,14 @@ void commonTasks() {
  **************************************************************************/
 void setRunningState() {
 
-  // Set the runnng bit
-  if (     ((tpState & TP_STATE_RUN_READY) != 0)
-           && ((tpState & TP_STATE_UPRIGHT) != 0)
-           && ((tpState & TP_STATE_ON_GROUND) != 0)) {
-    tpState = tpState | TP_STATE_RUNNING;
+  // Set the runnng bit to control motors
+  if (     isStateBit(TP_STATE_RUN_READY)
+           && isStateBit(TP_STATE_UPRIGHT)
+           && (isStateBit(TP_STATE_ON_GROUND) || isStateBit(TP_STATE_RUN_AIR))) {
+    setStateBit(TP_STATE_RUNNING, true);
   }
   else {
-    tpState = tpState & ~TP_STATE_RUNNING;
+    setStateBit(TP_STATE_RUNNING, false);
   }
   
   // Set the blue connection led
@@ -95,10 +96,20 @@ void setRunningState() {
   else if (isStateBit(TP_STATE_PC_ACTIVE)) setBlink(BLUE_LED_PIN, BLINK_SB);
   else setBlink(BLUE_LED_PIN, BLINK_FF);
 
-  // set x and y if no controller connected
+  // set red (mode) and yellow (state)
   switch (mode) {
   case MODE_TP5:
     setBlink(RED_LED_PIN, BLINK_SB);    
+    if (isStateBit(TP_STATE_RUNNING)) setBlink(YELLOW_LED_PIN, BLINK_ON);
+    else if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_FF);
+    else setBlink(YELLOW_LED_PIN, BLINK_SF);
+    if (!(isStateBit(TP_STATE_HC_ACTIVE) | isStateBit(TP_STATE_PC_ACTIVE))) {
+      controllerY = 0.0f;
+      controllerX = 0.0f;
+    }
+    break;
+  case MODE_TP6:
+    setBlink(RED_LED_PIN, BLINK_SF);    
     if (isStateBit(TP_STATE_RUNNING)) setBlink(YELLOW_LED_PIN, BLINK_ON);
     else if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_FF);
     else setBlink(YELLOW_LED_PIN, BLINK_SF);
@@ -118,8 +129,6 @@ void setRunningState() {
     else setBlink(YELLOW_LED_PIN, BLINK_ON);
     break;
   }
-  
-  
 }
 
 
@@ -138,7 +147,7 @@ void safeAngle() {
   static boolean tState = false;  // Timed state. true = upright
   
   boolean sState = isStateBit(TP_STATE_UPRIGHT);
-  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRollAngle) < 35)));
+  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 35)));
 //sState = isStateBitSet(TP_STATE_UPRIGHT);
 //cState = ((abs(gaPitchAngle) < 45.0) && ((abs(gaRollAngle) < 35)));
   if (cState != tState) {
@@ -160,29 +169,36 @@ void safeAngle() {
 }  // End safeAngle().
 
 
-/*********************************************************
- *
- * gravity()
- *
- *     Check to see if we sitting on the ground.
- *     If so, set the STATE_UPRIGHT bit.
- *     Otherwise, unset the bit.
- *
- *********************************************************/
+/**************************************************************************.
+ * gravity() set  TP_STATE_ON_GROUND & TP_STATE_RUN_AIR bits
+ **************************************************************************/
 void gravity() {
-  pressure = analogRead(PRESSURE_PIN);
-  if (pressure > 300) {  // Not on ground?
-    if (timeMilliseconds > (onGroundTime + 100)) {  // more that 1/10 of a second?
-      tpState = tpState & ~TP_STATE_ON_GROUND;
+  boolean isOnGround = isStateBit(TP_STATE_ON_GROUND);
+  boolean isNewOnGround = analogRead(PRESSURE_PIN) < 300;
+  if (isOnGround) {
+    if (!isNewOnGround) { // new state?
+       setStateBit(TP_STATE_ON_GROUND, false);
+       setStateBit(TP_STATE_RUN_AIR, true);
+       airTrigger = timeMilliseconds + 1000; // Allow one second of being lifted.
+       airFps = tp5LpfCos;
+       accelPitchAngle = gaPitch;
     }
   }
-  else {
-    tpState = tpState | TP_STATE_ON_GROUND;
-    onGroundTime = timeMilliseconds;
+  else { // in air
+    if (isNewOnGround) { // landed? If so, wait .5 before changing state
+      setStateBit(TP_STATE_ON_GROUND, true);
+      setStateBit(TP_STATE_RUN_AIR, false);
+    }     
+    else {
+      if (isStateBit(TP_STATE_RUN_AIR)) {
+        if (timeMilliseconds > airTrigger) setStateBit(TP_STATE_RUN_AIR, false);
+      }
+    }
   }
-}
+}  
 
-/*********************************************************
+
+/**************************************************************************.
  *
  * controllerConnected()
  *
@@ -196,46 +212,20 @@ void controllerConnected() {
 
 
 
-/***************************************************************
- *
+/**************************************************************************.
  * battery()
- *
- *       check battery, set batteryVoltage, turn off if too low
- *
  ***************************************************************/
 void battery() {
-
   if (timeMilliseconds > batteryTrigger) {
     batteryTrigger += 1000;  // 1 per second
     bmBattVolt = (1000 * analogRead(MB_BATT_PIN)) / 455;
     emBattVolt = ((1000 * analogRead(EB_BATT_PIN)) / 446) - bmBattVolt;
     lBattVolt = (1000 * analogRead(L_BATT_PIN)) / 455;
-
-    //    // Check for warning condition.
-    //    if (batteryVolt < BATTERY_WARNING) {
-    //      // Continuously low for a second?
-    //      if ((batteryLastGood + 1000) < timeMilliseconds) {
-    //        if (timeMilliseconds > warningTrigger) {
-    //          beep(BEEP_WARBLE);
-    //          warningTrigger += 60000;
-    //        }
-    //      }
-    //    }
-    //    else {
-    //      batteryLastGood = timeMilliseconds;
-    //    }
-    //
-    //    // Check for critical condition.
-    //    if (batteryVolt < BATTERY_CRITICAL) {
-    //      if ((timeMilliseconds + 10000) > warningTrigger) {
-    //        digitalWrite(PWR_PIN, LOW);  // Power down TwoPotatoe
-    //      }
-    //    }
-  } // end batteryTrigger
+  } 
 }
 
 
-/***************************************************************
+/**************************************************************************.
  *
  * compass()  Read the compass
  *
@@ -244,6 +234,10 @@ void myCompass() {
 
 }
 
+
+/**************************************************************************.
+ * motorIdle() Power down if motor idle for period
+ **************************************************************************/
 void motorIdle() {
   static unsigned long lastActiveTime;
   static int rMotor = 42;
