@@ -1,10 +1,10 @@
-//________ Pololu MinIMU-9 v2 --------
-//#include <Wire.h>
-//#include <L3G.h>
-//#include <LSM303.h>
-//
-//L3G gyro;
-//LSM303 compass;
+//________ Pololu MinIMU-9 v3 --------
+#include <Wire.h>
+#include <L3G.h>
+#include <LSM303.h>
+
+L3G gyro;
+LSM303 compass;
 
 // These are min/max for complete sphere
 const int rollMin = -692;
@@ -16,49 +16,16 @@ const int yawMax = 403;
 
 float mPitchVec, mRollVec, mYawVec;
 
-///******************************* from old code *****************************************************
-// *  // TODO revisit these parameters
-// *  compass.init(LSM303DLHC_DEVICE, 0);
-// *  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
-// *  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
-// *  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
-// *  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
-// *  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
-// *//  gyro.writeReg(L3G_CTRL_REG2, 0x00); // 250 dps full scale
-// *//  gyro.writeReg(L3G_CTRL_REG5, 0x10); // high-pass enable
-// *//  gyro.writeReg(L3G_CTRL_REG2, 0x03); // high-pass frequency
-// *//  gyro.writeReg(L3G_CTRL_REG4, 0x20); // 2000 dps full scale
-// **********************************************************************************************
-
-//
-//
-////---------- Uncomment everything below this line for the Sparkfun imu9150 --------
-
 void angleInit() {
-//  Wire.begin();
-//  imu9150.initialize();
-//  imu9150.setRate(79);
+  Wire.begin();
+  delay(100);
+  compass.init();
+  compass.writeAccReg(LSM303::CTRL1, 0x67); // 100 HZ, all axis enabled
+  compass.writeAccReg(LSM303::CTRL0, 0x40); // fifo enable
+  gyro.init();
+  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
+  gyro.writeReg(L3G_CTRL_REG5, 0x40); // fifo enabled
 }
-
-//void angleInitTp7() {
-//  Wire.begin();
-//  imu9150.initialize();
-////  imu9150.setRate(39);
-//  imu9150.setRate(79);
-//  imu9150.setIntDataReadyEnabled(true);
-//}
-
-//void angleInit() {
-//  Wire.begin();
-//  delay(100);
-//  compass.init(LSM303DLHC_DEVICE,LSM303_SA0_A_HIGH);
-//  compass.enableDefault();
-//  compass.writeAccReg(LSM303_CTRL_REG1_A, 0x57); // normal power mode, all axes enabled, 100 Hz
-//  compass.writeAccReg(LSM303_CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10 on DLHC; high resolution output mode
-//  gyro.init(L3GD20_DEVICE, L3G_SA0_HIGH);
-//  gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
-//  gyro.writeReg(L3G_CTRL_REG1, 0xFF); // high data rate & bandwidth
-//}
 
 float old1DeltaOverBase = 0.0;
 float old2DeltaOverBase = 0.0;
@@ -68,7 +35,7 @@ long oldTp5tickPosition = 0L;
 /*********************************************************
  * getTp5Angle()
  *********************************************************/
-float getTp5Angle() {
+float getAngle() {
 static int mAverageFpsLeftOld = 0;
   // Compute the tickHeading.
   long td = (tickPositionLeft - tickPositionRight) % TICKS_PER_360_YAW;
@@ -79,10 +46,12 @@ static int mAverageFpsLeftOld = 0;
   gyroPitchRaw = gPitch + 210;  // add in constant error
   gyroPitchRate = ((float) gyroPitchRaw) * GYRO_SENS;  // Rate in degreesChange/sec
   gyroPitchDelta = (gyroPitchRate * actualLoopTime) / 1000000.0; // degrees changed during period
-  gyroPitch = gyroPitch + gyroPitch;   // Not used.  Only for debuggin purposes
+  gyroPitch = gyroPitch + gyroPitchDelta;   // Not used.  Only for debugging purposes
   float k8 = 45.5;  // for new MinImu
   float gyroPitchWeightedAngle = gyroPitchDelta + gaPitch;  // used in weighting final angle
-  if (!isStateBit(TP_STATE_RUN_AIR)) accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
+//  if (!isStateBit(TP_STATE_RUN_AIR)) accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
+  accelPitchAngle =  ((atan2((aPitch + (k8 * 1000.0 * tp5LpfCosAccel)), aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
+//  accelPitchAngle =  ((atan2(aPitch, aPitchRoll)) * RAD_TO_DEG) + (*currentValSet).z;
   gaPitch = (gyroPitchWeightedAngle * GYRO_WEIGHT) + (accelPitchAngle * (1 - GYRO_WEIGHT)); // Weigh factors
 
   // compute the Y plane to check for falling sideways
@@ -252,82 +221,107 @@ void apCompass(float roll, float pitch) {
   heading_y = sin(magHeading);
 }
 
+///*********************************************************
+// * readImu()
+// * Read serial from the MinMImu
+// *********************************************************/
+//boolean readImu() {
+//  static int bCycle = 0;
+//  while (MINI_SER.available() > 0) {
+//    byte b = MINI_SER.read();
+//    switch (bCycle) {
+//      case 0: // looking for 0x0A
+//        if (b == 0x0A) {
+//          bCycle++;
+//        }
+//        break;
+//      case 1:
+//        if (b == 0x0D) {
+//          bCycle++;
+//        } else {
+//          bCycle = 0;
+//        }
+//        break;
+//      case 2: // Accelerometer roll, msb ********** aRoll *******
+////        aRoll = b * 256;
+//        aRoll = ((unsigned int) b) << 8;
+//        bCycle++;
+//        break;
+//      case 3: // Acceleromenter roll, lsb
+//        aRoll += b;
+//        bCycle++;
+//        break;
+//      case 4: // Accelerometer pitch, msb ********* aPitch ******
+//        aPitch = ((unsigned int) b) << 8;
+//        bCycle++;
+//        break;
+//      case 5: // Acceleromenter pitch, lsb
+//        aPitch += b;
+//        bCycle++;
+//        break;
+//      case 6: // Accelerometer pitch-roll, msb *** aPitchRoll ***
+//        aPitchRoll = ((unsigned int) b) << 8;
+//        bCycle++;
+//        break;
+//      case 7: // Acceleromenter pitch-roll, lsb
+//        aPitchRoll += b;
+//        bCycle++;
+//        break;
+//      case 8: // Gyro pitch, msb ****************** gPitch ******
+//        gPitch = ((unsigned int) b) << 8;
+//        bCycle++;
+//        break;
+//      case 9: // Gyro pich, lsb
+//        gPitch += b;
+//        bCycle++;
+//        break;
+//      case 10: // Gyro roll, msb ***************** gRoll ********
+//        gRoll = ((unsigned int) b) << 8;
+//        bCycle++;
+//        break;
+//      case 11: // Gyro roll, lsb
+//        gRoll += b;
+//        bCycle++;
+//        break;
+//      case 12: // Gyro yaw, msb ****************** gYaw *********
+//        gYaw = ((unsigned int) b) << 8;
+//        bCycle++;
+//        break;
+//      case 13: // Gyro yaw, lsb
+//        gYaw += b;
+//        bCycle = 0;
+//        return true;
+//        break;
+//    }
+//  }
+//  return false;
+//}
+
+
 /*********************************************************
  * readImu()
  * Read serial from the MinMImu
  *********************************************************/
-boolean readImu() {
-  static int bCycle = 0;
-  while (MINI_SER.available() > 0) {
-    byte b = MINI_SER.read();
-    switch (bCycle) {
-      case 0: // looking for 0x0A
-        if (b == 0x0A) {
-          bCycle++;
-        }
-        break;
-      case 1:
-        if (b == 0x0D) {
-          bCycle++;
-        } else {
-          bCycle = 0;
-        }
-        break;
-      case 2: // Accelerometer roll, msb ********** aRoll *******
-//        aRoll = b * 256;
-        aRoll = ((unsigned int) b) << 8;
-        bCycle++;
-        break;
-      case 3: // Acceleromenter roll, lsb
-        aRoll += b;
-        bCycle++;
-        break;
-      case 4: // Accelerometer pitch, msb ********* aPitch ******
-        aPitch = ((unsigned int) b) << 8;
-        bCycle++;
-        break;
-      case 5: // Acceleromenter pitch, lsb
-        aPitch += b;
-        bCycle++;
-        break;
-      case 6: // Accelerometer pitch-roll, msb *** aPitchRoll ***
-        aPitchRoll = ((unsigned int) b) << 8;
-        bCycle++;
-        break;
-      case 7: // Acceleromenter pitch-roll, lsb
-        aPitchRoll += b;
-        bCycle++;
-        break;
-      case 8: // Gyro pitch, msb ****************** gPitch ******
-        gPitch = ((unsigned int) b) << 8;
-        bCycle++;
-        break;
-      case 9: // Gyro pich, lsb
-        gPitch += b;
-        bCycle++;
-        break;
-      case 10: // Gyro roll, msb ***************** gRoll ********
-        gRoll = ((unsigned int) b) << 8;
-        bCycle++;
-        break;
-      case 11: // Gyro roll, lsb
-        gRoll += b;
-        bCycle++;
-        break;
-      case 12: // Gyro yaw, msb ****************** gYaw *********
-        gYaw = ((unsigned int) b) << 8;
-        bCycle++;
-        break;
-      case 13: // Gyro yaw, lsb
-        gYaw += b;
-        bCycle = 0;
-        return true;
-        break;
-    }
+boolean readImu() {  
+  unsigned long t = micros();
+  byte gyroStatus = gyro.readReg(0x27);
+  if ((gyroStatus & 0x08) != 0) {
+    gyro.read();
+    gPitch = -gyro.g.x;
+    gRoll = gyro.g.y;
+    gYaw = -gyro.g.z;
+    compass.readAcc();
+    aRoll = -((int) (compass.a.x));
+    aPitch = -((int) (compass.a.y));
+    aPitchRoll = (int) (compass.a.z);
+//    // check accelerometer after gyro read
+//    byte accelStatus = compass.readReg(LSM303::STATUS_A);
+//    if((accelStatus & 0x08) != 0) {
+//    }
+    return true;
   }
   return false;
 }
-
 
 
 

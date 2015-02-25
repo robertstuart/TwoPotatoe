@@ -4,7 +4,7 @@
 #include "Common.h"
 
 #define XBEE_SER Serial3
-#define MINI_SER Serial1
+#define BLUE_SER Serial1
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
@@ -41,10 +41,9 @@ const float SPEED_MULTIPLIER = 5.0;
 #define YE_SW_PIN 24 // Yellow switch
 #define PWR_PIN 25 // Mosfet power controller
 #define SPEAKER_PIN 26 // 
-#define PRESSURE_PIN A0             // Pressure sensor
-#define L_BATT_PIN A1              // Logic battery
-#define MB_BATT_PIN A2              // Base Motor battery
-#define EB_BATT_PIN A3              // Extended Motor battery
+#define R_PRESSURE_PIN A0             // Pressure sensor
+#define L_PRESSURE_PIN A1             // Pressure sensor
+#define BATT_PIN A2              // Logic battery
 
 //Encoder factor
 const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
@@ -230,9 +229,7 @@ float gyroYawRate = 0.0f;
 float gyroYawAngle = 0.0f;
 float gyroYawRawSum = 0.0;
 
-int bmBattVolt = 0; // Base motor battery * 100
-int emBattVolt = 0; // Extended motor battery * 100
-int lBattVolt = 0; // Logic battery * 100
+int battVolt = 0; // battery 
 int tpDebug = 4241;
 
 unsigned long tHc = 0L;  // Time of last Hc packet
@@ -248,6 +245,7 @@ unsigned int packetSource;
 unsigned int packetSignal;
 boolean isTxStatusMessage = false;
 int txAckFrame = 0;
+boolean isBluePassthrough = false;
 
 int ackMsgType = TP_RCV_MSG_NULL;
 int ackMsgVal = 0;
@@ -333,7 +331,12 @@ void setup() {
 
   // XBee, See bottom of this page for settings.
   XBEE_SER.begin(57600);  // XBee
-  MINI_SER.begin(115200);  // Mini IMU processor
+  BLUE_SER.begin(115200);  // Bluetooth
+//  delay(200);
+//  BLUE_SER.print("$$$");  // Enter command mode
+//  delay(200);
+//  BLUE_SER.println("E");  // 
+  
   Serial.begin(115200); // for debugging output
   //  resetXBee();
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
@@ -344,8 +347,7 @@ void setup() {
   pinMode(REAR_BL_PIN, OUTPUT);
   pinMode(PWR_PIN,OUTPUT);  // Power mosfet control
   pinMode(SPEAKER_PIN, OUTPUT);
-  pinMode(MB_BATT_PIN, INPUT);
-  pinMode(EB_BATT_PIN, INPUT);
+  pinMode(BATT_PIN, INPUT);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
 
   digitalWrite(PWR_PIN, HIGH);
@@ -437,13 +439,13 @@ void aPwmSpeed() {
       setMotor(MOTOR_LEFT, action, abs(uVal));
       readSpeed();      
       sendStatusFrame(XBEE_PC);
-      Serial.print(interruptErrorsRight);
-      Serial.print("\t"); 
-      Serial.print(fpsRight); 
-      Serial.print("\t"); 
-      Serial.print(interruptErrorsLeft);
-      Serial.print("\t"); 
-      Serial.println(fpsLeft);
+//      Serial.print(interruptErrorsRight);
+//      Serial.print("\t"); 
+//      Serial.print(fpsRight); 
+//      Serial.print("\t"); 
+//      Serial.print(interruptErrorsLeft);
+//      Serial.print("\t"); 
+//      Serial.println(fpsLeft);
       interruptErrorsRight = interruptErrorsLeft = 0;
     } // end timed loop 
   } // while

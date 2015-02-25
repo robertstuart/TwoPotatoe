@@ -10,7 +10,6 @@ int dumpPtr, dumpEnd;
  * sendStatusFrame() Send out status data.
  *********************************************************/
 void sendStatusFrame(int destId) { 
-//Serial.println("StatFrame");
   static unsigned int mainCycle = 0;
   static unsigned int subCycle = 0;
   int flag, val;
@@ -26,7 +25,7 @@ void sendStatusFrame(int destId) {
         val = mWheelSpeedFps / 10;
         break;
       case 2:
-        subCycle = ++subCycle % 7;
+        subCycle = ++subCycle % 5;
         switch (subCycle) {
           case 0:
             flag = TP_SEND_FLAG_MODE;
@@ -37,22 +36,15 @@ void sendStatusFrame(int destId) {
             val = tpState;
             break;
           case 2:
-            flag = TP_SEND_FLAG_BMBATT;
-            val = bmBattVolt;
+            flag = TP_SEND_FLAG_BATT;
+            val = battVolt;
+            break;
             break;
           case 3:
-            flag = TP_SEND_FLAG_EMBATT;
-            val = emBattVolt;
-            break;
-          case 4:
-            flag = TP_SEND_FLAG_LBATT;
-            val = lBattVolt;
-            break;
-          case 5:
             flag = TP_SEND_FLAG_VALSET;
             val = vSetStatus;
             break;
-          case 6:
+          case 4:
             flag = TP_SEND_FLAG_DEBUG;
             val = tpDebug;
             break;
@@ -61,12 +53,8 @@ void sendStatusFrame(int destId) {
     }
     sendArray[TP_SEND_FLAG] = flag;
     set2Byte(sendArray, TP_SEND_VALUE, val);
-//        
-//    sendArray[TP_SEND_MODE_STATUS] = mode;
-//    sendArray[TP_SEND_STATE_STATUS] = tpState;
-//    set2Byte(sendArray, TP_SEND_BATTERY, batteryVolt);
-//    set2Byte(sendArray, TP_SEND_DEBUG, debugVal);
-    sendFrame(destId, TP_SEND_END);
+    if (destId == BLUETOOTH) sendBlueFrame();
+    else sendFrame(destId, TP_SEND_END);
   }
 }
  
@@ -113,17 +101,27 @@ void sendFrame(int destId, int dataLength) {
   }
   
   XBEE_SER.write(xbeeBuffer, oPtr);
-//  Serial.print(xbeeBuffer[7]);
-//
-//  // Set up transmit buffer for flushSerial()
-//  transmitBufferPtr = 0;
-//  transmitBufferLength = 8 + dataLength;
-//  transmitBuffer[transmitBufferLength] = checkSum;
-//  transmitNextWriteTime = 0UL;
-//  isSerialEmpty = false;
 }
 
-
+/*********************************************************
+ * sendBlueFrame
+ *********************************************************/
+void sendBlueFrame() {
+//  byte blueBuffer[4];
+//  int oPtr = 1;
+//  blueBuffer[0] = 0x7E;
+//  for (int i = 1; i < 3; i++) {
+//    int b = transmitBuffer[i];
+//    if ((b == 0x7E) || (b == 0x7D)) {
+//      blueBuffer[oPtr++] = 0x7D;
+//      blueBuffer[oPtr++] = b ^ 0x20;
+//    }
+//    else {
+//      blueBuffer[oPtr++] = b;
+//    }
+//  }
+//  if (!isBluePassthrough) BLUE_SER.write(blueBuffer, oPtr);
+}
 
 /*********************************************************
  * dumpData() Set up to start a data dump.
@@ -161,7 +159,6 @@ void dumpData() {
     }
   }
   sendFrame(XBEE_PC, 1 + (16 * 6));
-  Serial.println(dumpPtr);
 }
 
 

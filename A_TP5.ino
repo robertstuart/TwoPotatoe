@@ -20,6 +20,7 @@ void aTp5Run() {
   timeMicroseconds = timeTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
+  angleInit();
   motorInitTp();
   setBlink(RED_LED_PIN, BLINK_SB);
   while(mode == MODE_TP5) { // main loop
@@ -31,6 +32,7 @@ void aTp5Run() {
       actualLoopTime = timeMicroseconds - oldTimeTrigger;
       oldTimeTrigger = timeMicroseconds;
       tp5LoopSec = ((float) actualLoopTime)/1000000.0;  
+
       aTp5(); 
       sendTp5Status();
       magTickCorrection();
@@ -49,10 +51,8 @@ void aTp5Run() {
  *  aTp5() 
  ************************************************************************/
 void aTp5() {
+  getAngle();
   readSpeed();
-  timeMicroseconds = micros(); // So algorithm will have latest time
-  getTp5Angle();
-  
   // compute the Center of Oscillation Speed (COS)
   float tp5Rotation = 1.4 * gyroPitchDelta;
   float tp5Cos = wheelSpeedFps + tp5Rotation; // subtract out rotation **************
@@ -117,7 +117,11 @@ void sendTp5Status() {
     if ((loopc == 0) || (loopc == 4))  dumpData();
   }
   else if (loopc == 0) sendStatusFrame(XBEE_HC); 
-  else if (loopc == 3) sendStatusFrame(XBEE_PC);
+  else if (loopc == 1) sendStatusFrame(BLUETOOTH); 
+  else if (loopc == 2) {
+    sendStatusFrame(XBEE_PC);
+//    Serial.println(controllerY);
+  }
 }
 
 

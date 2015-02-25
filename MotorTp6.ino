@@ -1,14 +1,10 @@
-int lastMWsFpsRight = 0;
-int lastMWsFpsLeft = 0;
-int rejectCountRight = 0;
-int rejectCountLeft = 0;
 
 
 
-/************************************************************************
- *  motorInitTp() 
- ************************************************************************/
-void motorInitTp() {
+/**************************************************************************.
+ *  motorInitTp6() 
+ **************************************************************************/
+void motorInitTp6() {
   // Set the pin modes
   pinMode(MOT_RIGHT_PWML, OUTPUT);
   pinMode(MOT_RIGHT_DIR, OUTPUT);
@@ -18,23 +14,23 @@ void motorInitTp() {
   setMotor(MOTOR_RIGHT, COAST, 0);
   setMotor(MOTOR_LEFT, COAST, 0);
 
-  setTargetSpeedRight(0.0);
-  setTargetSpeedLeft(0.0);
+  setTargetSpeed6Right(0.0);
+  setTargetSpeed6Left(0.0);
 
-  attachInterrupt(MOT_RIGHT_ENCA, encoderIsrRight, CHANGE);
-  attachInterrupt(MOT_LEFT_ENCA, encoderIsrLeft, CHANGE);
+  attachInterrupt(MOT_RIGHT_ENCA, encoderIsr6Right, CHANGE);
+  attachInterrupt(MOT_LEFT_ENCA, encoderIsr6Left, CHANGE);
 }
 
 
-/*********************************************************
+/**************************************************************************.
  *
- * encoderIsrRight()
+ * encoderIsr6Right()
  *
  *    Responds to interrupts from the encoder.
  *    Controls the motor directly from this isr.
  *
- *********************************************************/
-void encoderIsrRight() {
+ ***************************************************************************/
+void encoderIsr6Right() {
   static boolean encAStat;
   int action = BRAKE;
   int pw = 0;
@@ -59,7 +55,6 @@ void encoderIsrRight() {
   mWsFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
   mWsFpsRightSum += mWsFpsRight;
   mWsFpsRightCount++;
-//runLog((long) tickTimeRight, (long) mWsFpsRight , (long) encA, (long) encB);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
   
@@ -101,14 +96,20 @@ void encoderIsrRight() {
     action = BRAKE;
   }
   setMotor(MOTOR_RIGHT, action, pw);
-//tp7Log(targetMFpsRight, mWsFpsRight, action, pw);
-} // encoderIsrRight()
+addLog((long) tickTimeRight,
+       (short) tickPositionRight,
+       (short) action,
+       (short) pw,
+       (short) mWsFpsRight, 
+       (short) (tp5FpsRight * 100.0),
+       (short) (tp5FpsLeft * 100.0));
+} // encoderIsr6Right()
 
 
-/************************************************************************
+/**************************************************************************.
  *  encoderIsrLeft() 
- ************************************************************************/
-void encoderIsrLeft() {
+ **************************************************************************/
+void encoderIsr6Left() {
   static boolean encAStat;
   int action = BRAKE;
   int pw = 0;
@@ -134,7 +135,6 @@ void encoderIsrLeft() {
   mWsFpsLeftSum += mWsFpsLeft;
   mWsFpsLeftCount++;  
   
-//runLog((long) tickTimeLeft, (long) mWsFpsLeft , (long) encA, (long) encB);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
 
@@ -176,20 +176,20 @@ void encoderIsrLeft() {
     action = BRAKE;
   }
   setMotor(MOTOR_LEFT, action, pw);
-} // end encoderIsrLeft();
+} // end encoderIsr6Left();
 
 
 
-/************************************************************************
+/**************************************************************************.
  *  getAccelPw() 
- ************************************************************************/
-int getAccelPw(int wFps, int tFps) {
+ **************************************************************************/
+int getAccelPw6(int wFps, int tFps) {
   int sum = abs(tFps) / 8;  // 0-1.0fps = 0-255
   sum = sum + (abs(tFps - wFps) / 8); // 0-1.0fps difference = 0-255
   if (sum > 255) sum = 255;
   return sum;
 }
-int getDecelPw(int wFps, int tFps) {
+int getDecelPw6(int wFps, int tFps) {
   int sum = -abs(tFps) / 8;  // 0-2.0fps = 0-255
   sum = sum + (abs(tFps - wFps) / 8); // 0-2.0fps difference = 0-255
   if (sum < 0) sum = 0;
@@ -199,16 +199,15 @@ int getDecelPw(int wFps, int tFps) {
 
 
 
-/*********************************************************
+/**************************************************************************.
  *
  * checkMotorXXX()
  *
  *    Starts the motor if idle
  *
- *********************************************************/
-void checkMotorRight() {
+ **************************************************************************/
+void checkMotor6Right() {
   int ws = (ENC_FACTOR_M / (micros() - tickTimeRight)); // speed in milli-fps
-//runLog((long) ws, (long) targetMFpsRight , 9, 99);
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsRight / 2)) { // less than 1/2 target speed?
       if (targetMFpsRight > 0) {
@@ -222,10 +221,10 @@ void checkMotorRight() {
 }
 
 
-/************************************************************************
+/**************************************************************************.
  *  checkMotorLeft() 
- ************************************************************************/
-void checkMotorLeft() {
+ **************************************************************************/
+void checkMotor6Left() {
   int ws = (ENC_FACTOR_M / (micros() - tickTimeLeft)); // speed in milli-fps
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsLeft / 2)) { // less than 1/2 target speed?
@@ -241,15 +240,15 @@ void checkMotorLeft() {
 
 
 
-/*********************************************************
+/**************************************************************************.
  *
  * setTargetSpeedRight()
  *
  *    Set the targetTickPeriodRight targetBrakePeriodRight
  *    and the waitPeriodRight given the targetSpeed.
  *
- *********************************************************/
-void setTargetSpeedRight(float targetSpeed) {
+ **************************************************************************/
+void setTargetSpeed6Right(float targetSpeed) {
   targetSpeedRight = targetSpeed;
   targetMFpsRight = (int) (targetSpeed * 1000.0);//////////////////////////////
   
@@ -288,7 +287,7 @@ void setTargetSpeedRight(float targetSpeed) {
 
 
 /********************* setTargetSpeedLeft() ********************/
-void setTargetSpeedLeft(float targetSpeed) {
+void setTargetSpeed6Left(float targetSpeed) {
   targetSpeedLeft = targetSpeed;
   targetMFpsLeft = (int) (targetSpeed * 1000.0);//////////////////////////////
   
@@ -328,60 +327,6 @@ void setTargetSpeedLeft(float targetSpeed) {
   }
 }
 
-/*********************************************************
- *
- * setMotor()
- *
- *    Set the motor to the specified action.
- *
- *********************************************************/
-void setMotor(int motor, int action, int pw) {
-  int pinPwmL;
-  int pinDir;
-  int pinPwmH;
-
-  if (pw > 255) pw = 255;
-  else if (pw < 0) pw = 0;
-  
-  if (motor == MOTOR_RIGHT) {
-    pinPwmL = MOT_RIGHT_PWML;
-    pinDir = MOT_RIGHT_DIR;
-    pinPwmH = MOT_RIGHT_PWMH;
-    if (action == FWD) action = BKWD;
-    else if (action == BKWD) action = FWD;
-    actionRight = action;
-  }
-  else {
-    pinPwmL = MOT_LEFT_PWML; // Reversed
-    pinDir = MOT_LEFT_DIR;
-    pinPwmH = MOT_LEFT_PWMH;
-    actionLeft = action;
-  }
-  if ((mode == MODE_TP5) || (mode == MODE_TP6)) {
-    if ((tpState & TP_STATE_RUNNING) == 0) action = COAST;
-  }
-  
-  switch(action) {
-  case FWD:
-    g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGHT
-    g_APinDescription[pinDir].pPort -> PIO_CODR = g_APinDescription[pinDir].ulPin;   // LOW
-    analogWrite(pinPwmH, pw);
-    break;
-  case BKWD:
-    g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGH
-    g_APinDescription[pinDir].pPort -> PIO_SODR = g_APinDescription[pinDir].ulPin; // HIGH
-    analogWrite(pinPwmH, pw);
-    break;
-  case COAST:
-    g_APinDescription[pinPwmL].pPort -> PIO_CODR = g_APinDescription[pinPwmL].ulPin; // LOW
-    analogWrite(pinPwmH, 0);
-    break;
-  case BRAKE:
-    g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGH
-    analogWrite(pinPwmH, 0);
-    break;
-  }
-}
 //// example: digitalWriteDirect(10, HIGH)
 //inline void digitalWriteDirect(int pin, boolean val){
 //  if(val) g_APinDescription[pin].pPort -> PIO_SODR = g_APinDescription[pin].ulPin;
@@ -391,12 +336,12 @@ void setMotor(int motor, int action, int pw) {
 
 
 
-/*********************************************************
+/**************************************************************************.
  *
  *  getSpeedXXX() average speed since last read
  *
- *********************************************************/
-void readSpeedRight() {
+ **************************************************************************/
+void readSpeed6Right() {
   noInterrupts();
   long sum = mWsFpsRightSum;
   int count =  mWsFpsRightCount;
@@ -408,7 +353,7 @@ void readSpeedRight() {
   fpsRight =((float) mAverageFpsRight) / 1000.0;
 }
 
-void readSpeedLeft() {
+void readSpeed6Left() {
   noInterrupts();
   long sum = mWsFpsLeftSum;
   int count =  mWsFpsLeftCount;
@@ -422,17 +367,17 @@ void readSpeedLeft() {
 
 
 
-/*********************************************************
+/**************************************************************************.
  *
  * readSpeed()
  *
  *    Sets the speed variables for both wheels and 
  *    sets average.
  *
- *********************************************************/
-void readSpeed() {
-  readSpeedRight();
-  readSpeedLeft();
+ **************************************************************************/
+void readSpeed6() {
+  readSpeed6Right();
+  readSpeed6Left();
   tickPosition = tickPositionRight + tickPositionLeft;
   wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
   mWheelSpeedFps = (mAverageFpsRight + mAverageFpsLeft) /2;

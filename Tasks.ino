@@ -52,6 +52,7 @@ int blinkPtrRed = 0;
  **************************************************************************/
 void commonTasks() {
   readXBee();  // Read commands from PC or Hand Controller
+  readBluetooth();
   motorIdle();
   led();
   battery();
@@ -174,7 +175,8 @@ void safeAngle() {
  **************************************************************************/
 void gravity() {
   boolean isOnGround = isStateBit(TP_STATE_ON_GROUND);
-  boolean isNewOnGround = analogRead(PRESSURE_PIN) < 300;
+  pressure = analogRead(L_PRESSURE_PIN);
+  boolean isNewOnGround = pressure < 900;
   if (isOnGround) {
     if (!isNewOnGround) { // new state?
        setStateBit(TP_STATE_ON_GROUND, false);
@@ -218,9 +220,7 @@ void controllerConnected() {
 void battery() {
   if (timeMilliseconds > batteryTrigger) {
     batteryTrigger += 1000;  // 1 per second
-    bmBattVolt = (1000 * analogRead(MB_BATT_PIN)) / 455;
-    emBattVolt = ((1000 * analogRead(EB_BATT_PIN)) / 446) - bmBattVolt;
-    lBattVolt = (1000 * analogRead(L_BATT_PIN)) / 455;
+    battVolt = (1000 * analogRead(BATT_PIN)) / 455;
   } 
 }
 
@@ -385,13 +385,3 @@ boolean isBitSet(int test, byte b) {
 boolean isStateBit(byte b) {
   return ((tpState & b) != 0);
 }
-
-void debugFloat(char msg[], float f) {
-  Serial.print(msg);
-  Serial.println(f);
-}
-void debugInt(char msg[], int i) {
-  Serial.print(msg);
-  Serial.println(i);
-}
-
