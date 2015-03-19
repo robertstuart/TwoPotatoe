@@ -46,15 +46,15 @@ void sendStatusFrame(int destId) {
             break;
           case 4:
             flag = TP_SEND_FLAG_DEBUG;
-            val = tpDebug;
+            val = 999;
             break;
         }
       break;
     }
     sendArray[TP_SEND_FLAG] = flag;
     set2Byte(sendArray, TP_SEND_VALUE, val);
-    if (destId == BLUETOOTH) sendBlueFrame();
-    else sendFrame(destId, TP_SEND_END);
+//    if (destId == BLUETOOTH) sendBlueFrame();
+    sendFrame(destId, TP_SEND_END);
   }
 }
  

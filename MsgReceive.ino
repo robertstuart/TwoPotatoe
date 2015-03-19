@@ -27,7 +27,7 @@ void readXBee() {
   
   while (XBEE_SER.available() > 0) {
     byte b = XBEE_SER.read();
-    
+xBeeCount++;    
     // Fix escape sequences
     if (packetInProgress != PACKET_DELIM) {
       if (escState) {
@@ -155,17 +155,18 @@ int doRx(int b) {
  *     Hand Controller or PC.  
  *
  *********************************************************/
-void newPacket() {  
+void newPacket() { 
+ static unsigned int packetCount = 0; 
   if (packetSource == XBEE_PC) tPc = timeMilliseconds;
   else tHc = timeMilliseconds;
-  
   int msgType = packetByteArray[TP_RCV_MSG_TYPE];
   if (msgType < TP_BLOCK_NULL) {
     int x = get1Byte(TP_RCV_X);
     int y = get1Byte(TP_RCV_Y);
     controllerX = ((float) x) / 128.0f;
     controllerY = ((float) y) / 128.0f;
-Serial.print(x); Serial.print("\t"); Serial.print(controllerX); Serial.print("\t"); Serial.print(y); Serial.print("\t") ;Serial.println(controllerY);
+    
+//Serial.print(packetCount); Serial.print("\t"); Serial.print(x); Serial.print("\t"); Serial.print(controllerX); Serial.print("\t"); Serial.print(y); Serial.print("\t") ;Serial.println(controllerY);
     ackMsgType = msgType;
     ackMsgVal = get2Byte(TP_RCV_MSG_VAL);
     if (msgType != TP_RCV_MSG_NULL) {
@@ -189,14 +190,16 @@ void doMessage(int type, int val) {
   case TP_RCV_MSG_MODE:
     mode = val;
     break;
+  case TP_RCV_MSG_VALSET:
+    // not implemented
+    break;
   case TP_RCV_MSG_BLUE:
     isBluePassthrough = (val == 0) ? false : true;
-    digitalWrite(PWR_PIN, LOW);
     break;
   case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
-    if (mode != MODE_POSITION) tickPositionRight = tickPositionLeft = tickPosition = 0L;
+    tickPositionRight = tickPositionLeft = tickPosition = 0L;
     break;
   case TP_RCV_MSG_LIGHTS: // 
     isLights = true; // don't allow access
@@ -225,23 +228,24 @@ void doMessage(int type, int val) {
     break;
   case TP_RCV_MSG_T_VAL:
     tVal = val;
-    (*currentValSet).t = ((float) val) / 100.0;
+ Serial.println(tVal);
+    (*currentValSet).t = ((float) val) / 1000.0;
     break;
   case TP_RCV_MSG_U_VAL:
     uVal = val;
-    (*currentValSet).u = ((float) val) / 100.0;
+    (*currentValSet).u = ((float) val) / 10000.0;
     break;
   case TP_RCV_MSG_V_VAL:
     vVal = val;
-    (*currentValSet).v = ((float) val) / 100.0;
+    (*currentValSet).v = ((float) val) / 1000.0;
     break;
   case TP_RCV_MSG_W_VAL:
     wVal = val;
-    (*currentValSet).w = ((float) val) / 100.0;
+    (*currentValSet).w = ((float) val) / 10000.0;
     break;
   case TP_RCV_MSG_X_VAL:
     xVal = val;
-    (*currentValSet).x = ((float) val) / 100.0;
+    (*currentValSet).x = ((float) val) / 1000.0;
     break;
   case TP_RCV_MSG_Y_VAL:
     yVal = val;
@@ -283,43 +287,43 @@ void doPulseBlock() {
  *
  *********************************************************/
 void readBluetooth() {
-  static boolean escState = false;
-  static boolean isReceivingBlue = false;
-  static int blueByteCount = 0;
-  static byte blueArray[TP_RCV_MAX];
-  byte b;
-  while (BLUE_SER.available() > 0) {
-    b = BLUE_SER.read();
-    if (isBluePassthrough)  Serial.write(b);
-    else {
-//      if (b == 0x7E) Serial.println(); // Debugging
-//      if (b < 16) Serial.print(" ");   // Debugging
-//      Serial.print(b,HEX);             // Debugging
-      
-      if (b == 0x7E) {
-        blueByteCount = 0;
-        isReceivingBlue = true;
-      }
-      else if (isReceivingBlue) {
-        blueArray[blueByteCount++] = b;
-        if (blueByteCount >= TP_RCV_MAX) {
-          for (int i = 0; i < 5; i++) packetByteArray[i] = blueArray[i];
-          packetByteArray[3] = packetByteArray[3] - 129;
-          packetByteArray[4] = packetByteArray[4] - 129;
-          newPacket();
-          isReceivingBlue = false;
-        }
-      }
-    }
-  }
-
-  // Send character from console to bluetooth while in passthrough mode
-  if (isBluePassthrough) {
-    while (Serial.available() > 0)  {
-      b = Serial.read();
-      BLUE_SER.write(b);
-    }
-  }
+//  static boolean escState = false;
+//  static boolean isReceivingBlue = false;
+//  static int blueByteCount = 0;
+//  static byte blueArray[TP_RCV_MAX];
+//  byte b;
+//  while (BLUE_SER.available() > 0) {
+//    b = BLUE_SER.read();
+//    if (isBluePassthrough)  Serial.write(b);
+//    else {
+////      if (b == 0x7E) Serial.println(); // Debugging
+////      if (b < 16) Serial.print(" ");   // Debugging
+////      Serial.print(b,HEX);             // Debugging
+//      
+//      if (b == 0x7E) {
+//        blueByteCount = 0;
+//        isReceivingBlue = true;
+//      }
+//      else if (isReceivingBlue) {
+//        blueArray[blueByteCount++] = b;
+//        if (blueByteCount >= TP_RCV_MAX) {
+//          for (int i = 0; i < 5; i++) packetByteArray[i] = blueArray[i];
+//          packetByteArray[3] = packetByteArray[3] - 129;
+//          packetByteArray[4] = packetByteArray[4] - 129;
+//          newPacket();
+//          isReceivingBlue = false;
+//        }
+//      }
+//    }
+//  }
+//
+//  // Send character from console to bluetooth while in passthrough mode
+//  if (isBluePassthrough) {
+//    while (Serial.available() > 0)  {
+//      b = Serial.read();
+//      BLUE_SER.write(b);
+//    }
+//  }
 }
 
 

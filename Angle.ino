@@ -27,10 +27,6 @@ void angleInit() {
   gyro.writeReg(L3G_CTRL_REG5, 0x40); // fifo enabled
 }
 
-float old1DeltaOverBase = 0.0;
-float old2DeltaOverBase = 0.0;
-
-long oldTp5tickPosition = 0L;
 
 /*********************************************************
  * getTp5Angle()
@@ -300,7 +296,7 @@ void apCompass(float roll, float pitch) {
 
 /*********************************************************
  * readImu()
- * Read serial from the MinMImu
+ * Read I2C from the MinMImu
  *********************************************************/
 boolean readImu() {  
   unsigned long t = micros();

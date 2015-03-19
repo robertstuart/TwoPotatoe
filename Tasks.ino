@@ -1,4 +1,3 @@
-#include <DueTimer.h>
 
 //const int BATTERY_WARNING = 1090;  // about 10% capacity (centivolts)
 //const int BATTERY_CRITICAL = 1000; // about 1% cap (centivolts)
@@ -52,8 +51,8 @@ int blinkPtrRed = 0;
  **************************************************************************/
 void commonTasks() {
   readXBee();  // Read commands from PC or Hand Controller
-  readBluetooth();
-  motorIdle();
+//  readBluetooth();
+//  motorIdle();
   led();
   battery();
   controllerConnected();
@@ -82,16 +81,22 @@ void commonTasks() {
  **************************************************************************/
 void setRunningState() {
 
-  // Set the runnng bit to control motors
-  if (     isStateBit(TP_STATE_RUN_READY)
-           && isStateBit(TP_STATE_UPRIGHT)
-           && (isStateBit(TP_STATE_ON_GROUND) || isStateBit(TP_STATE_RUN_AIR))) {
-    setStateBit(TP_STATE_RUNNING, true);
+  if ((mode == MODE_TP5) || (mode == MODE_TP6)) {
+    // Set the runnng bit to control motors
+    if (     isStateBit(TP_STATE_RUN_READY)
+             && isStateBit(TP_STATE_UPRIGHT)
+             && (isStateBit(TP_STATE_ON_GROUND) || isStateBit(TP_STATE_RUN_AIR))) {
+      setStateBit(TP_STATE_RUNNING, true);
+    }
+    else {
+      setStateBit(TP_STATE_RUNNING, false);
+    }
   }
-  else {
-    setStateBit(TP_STATE_RUNNING, false);
+  else { // For all test modes, just set accoding to ready bit
+      setStateBit(TP_STATE_RUNNING, isStateBit(TP_STATE_RUN_READY));    
   }
   
+ 
   // Set the blue connection led
   if (isStateBit(TP_STATE_HC_ACTIVE)) setBlink(BLUE_LED_PIN, BLINK_ON);
   else if (isStateBit(TP_STATE_PC_ACTIVE)) setBlink(BLUE_LED_PIN, BLINK_SB);
@@ -118,11 +123,6 @@ void setRunningState() {
       controllerY = 0.0f;
       controllerX = 0.0f;
     }
-    break;
-  case MODE_POSITION: 
-    setBlink(RED_LED_PIN, BLINK_SF);    
-    if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_SF);
-    else setBlink(YELLOW_LED_PIN, BLINK_ON);
     break;
   default:
     setBlink(RED_LED_PIN, BLINK_SF);    
@@ -220,7 +220,7 @@ void controllerConnected() {
 void battery() {
   if (timeMilliseconds > batteryTrigger) {
     batteryTrigger += 1000;  // 1 per second
-    battVolt = (1000 * analogRead(BATT_PIN)) / 455;
+    battVolt = (1000 * analogRead(BATT_PIN)) / 451;
   } 
 }
 
@@ -239,17 +239,6 @@ void myCompass() {
  * motorIdle() Power down if motor idle for period
  **************************************************************************/
 void motorIdle() {
-  static unsigned long lastActiveTime;
-  static int rMotor = 42;
-  static int lMotor = 42;
-  int rMotorTmp = digitalRead(MOT_RIGHT_ENCA);
-  int lMotorTmp = digitalRead(MOT_LEFT_ENCA);
-  if ((rMotorTmp != rMotor) || (lMotorTmp != lMotor)) {
-    lastActiveTime = timeMilliseconds;
-    rMotor = rMotorTmp;
-    lMotor = lMotorTmp;
-  }
-  if ((timeMilliseconds - lastActiveTime) > (1000 * 60 * 10)) digitalWrite(PWR_PIN, LOW);
 }
 
 

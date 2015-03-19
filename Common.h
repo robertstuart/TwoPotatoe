@@ -2,7 +2,7 @@ const unsigned int NO_DEBUG = 0x4242;  // If received, not displayed.
 
 
 // Modes of operation
-const int MODE_POSITION       = 0;  // 
+const int MODE_XXXXXXXX       = 0;  // 
 const int MODE_PWM_SPEED      = 1;  // pw values sent from controller
 const int MODE_DRIVE          = 2;  // sequences batch-loaded from controller
 const int MODE_TP4            = 3;  // Motor speed controlled from interrupts
@@ -34,7 +34,7 @@ const int VAL_SET_C           = 2;
 const int XBEE_TWOPOTATOE =  0x7770;
 const int XBEE_PC =          0x7771;
 const int XBEE_HC =          0x7772;
-const int BLUETOOTH =        0x9999;
+//const int BLUETOOTH =        0x9999;
 const int XBEE_BROADCAST =   0xFFFF;
 
 // XBee data packet bytes. Constant indicates positon i byte array.

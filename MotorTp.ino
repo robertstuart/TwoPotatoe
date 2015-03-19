@@ -23,8 +23,14 @@ void motorInitTp() {
 
   attachInterrupt(MOT_RIGHT_ENCA, encoderIsrRight, CHANGE);
   attachInterrupt(MOT_LEFT_ENCA, encoderIsrLeft, CHANGE);
+//  Timer2.attachInterrupt(pollIsr);
+//  Timer2.start(100);
 }
 
+//void pollIsr() {
+//  tpDebug++;
+//  tpDebug++;
+//}
 
 /*********************************************************
  *
@@ -56,45 +62,45 @@ void encoderIsrRight() {
     tickPeriodRight = (long) lastTickTime - (long) tickTimeRight;
     tickPositionRight--;
   }
-  mWsFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
-  mWsFpsRightSum += mWsFpsRight;
-  mWsFpsRightCount++;
+  wsMFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
+  wsMFpsRightSum += wsMFpsRight;
+  wsMFpsRightCount++;
 //runLog((long) tickTimeRight, (long) mWsFpsRight , (long) encA, (long) encB);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
   
   if (targetMFpsRight > 0L) {
-    if (mWsFpsRight < targetMFpsRight) {
+    if (wsMFpsRight < targetMFpsRight) {
       action = FWD;
-      pw = getAccelPw(mWsFpsRight, targetMFpsRight);
+      pw = getAccelPw(wsMFpsRight, targetMFpsRight);
     }
-    else if (mWsFpsRight < targetBrakeMFpsRight) {
+    else if (wsMFpsRight < targetBrakeMFpsRight) {
 //      action = COAST;
       action = BRAKE;
     }
-    else if (mWsFpsRight < targetRevMFpsRight) {
+    else if (wsMFpsRight < targetRevMFpsRight) {
       action = BRAKE;
     }
     else {
       action = BKWD;
-      pw = getDecelPw(mWsFpsRight, targetMFpsRight);
+      pw = getDecelPw(wsMFpsRight, targetMFpsRight);
     }
   }
   else if (targetMFpsRight < 0L) {
-    if (mWsFpsRight > targetMFpsRight) {
+    if (wsMFpsRight > targetMFpsRight) {
       action = BKWD;
-      pw = getAccelPw(mWsFpsRight, targetMFpsRight);
+      pw = getAccelPw(wsMFpsRight, targetMFpsRight);
     }
-    else if (mWsFpsRight > targetBrakeMFpsRight) {
+    else if (wsMFpsRight > targetBrakeMFpsRight) {
 //      action = COAST;
       action = BRAKE;
     }
-    else if (mWsFpsRight > targetRevMFpsRight) {
+    else if (wsMFpsRight > targetRevMFpsRight) {
       action = BRAKE;
     }
     else {
       action = FWD;
-      pw = getDecelPw(mWsFpsRight, targetMFpsRight);
+      pw = getDecelPw(wsMFpsRight, targetMFpsRight);
     }
   }
   else { // STOP
@@ -130,46 +136,46 @@ void encoderIsrLeft() {
     tickPeriodLeft = (long)tickTimeLeft - (long) lastTickTime;
     tickPositionLeft++;
   }
-  int mWsFpsLeft = (ENC_FACTOR_M / tickPeriodLeft); // speed in milli-fps
-  mWsFpsLeftSum += mWsFpsLeft;
-  mWsFpsLeftCount++;  
+  int wsMFpsLeft = (ENC_FACTOR_M / tickPeriodLeft); // speed in milli-fps
+  wsMFpsLeftSum += wsMFpsLeft;
+  wsMFpsLeftCount++;  
   
 //runLog((long) tickTimeLeft, (long) mWsFpsLeft , (long) encA, (long) encB);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
 
   if (targetMFpsLeft > 0L) {
-    if (mWsFpsLeft < targetMFpsLeft) {
+    if (wsMFpsLeft < targetMFpsLeft) {
       action = FWD;
-      pw = getAccelPw(mWsFpsLeft, targetMFpsLeft);
+      pw = getAccelPw(wsMFpsLeft, targetMFpsLeft);
     }
-    else if (mWsFpsLeft < targetBrakeMFpsLeft) {
+    else if (wsMFpsLeft < targetBrakeMFpsLeft) {
       action = BRAKE;
 //      action = COAST;
     }
-    else if (mWsFpsLeft < targetRevMFpsLeft) {
+    else if (wsMFpsLeft < targetRevMFpsLeft) {
       action = BRAKE;
     }
     else {
       action = BKWD;
-      pw = getDecelPw(mWsFpsLeft, targetMFpsLeft);
+      pw = getDecelPw(wsMFpsLeft, targetMFpsLeft);
     }
   }
   else if (targetMFpsLeft < 0L) {
-    if (mWsFpsLeft > targetMFpsLeft) {
+    if (wsMFpsLeft > targetMFpsLeft) {
       action = BKWD;
-      pw = getAccelPw(mWsFpsLeft, targetMFpsLeft);
+      pw = getAccelPw(wsMFpsLeft, targetMFpsLeft);
     }
-    else if (mWsFpsLeft > targetBrakeMFpsLeft) {
+    else if (wsMFpsLeft > targetBrakeMFpsLeft) {
       action = BRAKE;
 //      action = COAST;
     }
-    else if (mWsFpsLeft > targetRevMFpsLeft) {
+    else if (wsMFpsLeft > targetRevMFpsLeft) {
       action = BRAKE;
     }
     else {
       action = FWD;
-      pw = getDecelPw(mWsFpsLeft, targetMFpsLeft);
+      pw = getDecelPw(wsMFpsLeft, targetMFpsLeft);
     }
   }
   else { // STOP
@@ -397,27 +403,38 @@ void setMotor(int motor, int action, int pw) {
  *
  *********************************************************/
 void readSpeedRight() {
+  static unsigned int lastSpeedRight = 0;
   noInterrupts();
-  long sum = mWsFpsRightSum;
-  int count =  mWsFpsRightCount;
-  mWsFpsRightSum = 0L;
-  mWsFpsRightCount = 0;
+  long sum = wsMFpsRightSum;
+  int count =  wsMFpsRightCount;
+  wsMFpsRightSum = 0L;
+  wsMFpsRightCount = 0;
   interrupts();
-  if (count == 0) mAverageFpsRight = 0;
-  else mAverageFpsRight = sum / count;
-  fpsRight =((float) mAverageFpsRight) / 1000.0;
+  if (count == 0) {
+    int newMFps = ENC_FACTOR_M / (micros() - tickTimeRight);
+    if (newMFps < mFpsRight) mFpsRight = newMFps; // Set new if lower
+  }
+  else {
+    mFpsRight = sum / count;
+  }
+  fpsRight =((float) mFpsRight) / 1000.0;
 }
 
 void readSpeedLeft() {
   noInterrupts();
-  long sum = mWsFpsLeftSum;
-  int count =  mWsFpsLeftCount;
-  mWsFpsLeftSum = 0L;
-  mWsFpsLeftCount = 0;
+  long sum = wsMFpsLeftSum;
+  int count =  wsMFpsLeftCount;
+  wsMFpsLeftSum = 0L;
+  wsMFpsLeftCount = 0;
   interrupts();
-  if (count == 0) mAverageFpsLeft = 0;
-  else mAverageFpsLeft = sum / count;
-  fpsLeft =((float) mAverageFpsLeft) / 1000.0;
+  if (count == 0) {
+    int newMFps = ENC_FACTOR_M / (micros() - tickTimeLeft);
+    if (newMFps < mFpsLeft) mFpsLeft = newMFps; // Set new if lower
+  }
+  else {
+    mFpsLeft = sum / count;
+  }
+  fpsLeft =((float) mFpsLeft) / 1000.0;
 }
 
 
@@ -435,7 +452,7 @@ void readSpeed() {
   readSpeedLeft();
   tickPosition = tickPositionRight + tickPositionLeft;
   wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
-  mWheelSpeedFps = (mAverageFpsRight + mAverageFpsLeft) /2;
+  mWheelSpeedFps = (mFpsRight + mFpsLeft) /2;
 }
 
 

@@ -2,21 +2,23 @@
 
 #include <stdlib.h>
 #include "Common.h"
+#include <DueTimer.h>
 
 #define XBEE_SER Serial3
-#define BLUE_SER Serial1
+//#define BLUE_SER Serial1
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
-const int MOT_LEFT_ENCA = 40;   
-const int MOT_LEFT_ENCB = 42; 
-const int MOT_RIGHT_PWML =  46;   
-const int MOT_RIGHT_DIR =  44;   
-const int MOT_RIGHT_PWMH =   2; 
+const int MOT_LEFT_ENCA =   40;   
 const int MOT_RIGHT_ENCA =  41;  
+const int MOT_LEFT_ENCB =   42; 
 const int MOT_RIGHT_ENCB =  43; 
-const int MOT_LEFT_PWML =   51; 
-const int MOT_LEFT_DIR =   45; 
+const int MOT_RIGHT_DIR =   50;   
+const int MOT_LEFT_DIR =    51; 
+const int MOT_RIGHT_PWML =  44;   
+const int MOT_LEFT_PWML =   45; 
+//const int MOT_RIGHT_PWMH =   2; 
+const int MOT_RIGHT_PWMH =   6b; 
 const int MOT_LEFT_PWMH =    7;  
 
 const float SPEED_MULTIPLIER = 5.0;
@@ -38,12 +40,17 @@ const float SPEED_MULTIPLIER = 5.0;
 #define LEFT_HL_PIN 9 // headlamp
 #define REAR_BL_PIN 8 // rear lamp
 
+#define BU_SW_PIN 29 // Blue switch
 #define YE_SW_PIN 24 // Yellow switch
-#define PWR_PIN 25 // Mosfet power controller
+#define RE_SW_PIN 27 // Yellow switch
+#define GN_SW_PIN 25 // Yellow switch
+
 #define SPEAKER_PIN 26 // 
-#define R_PRESSURE_PIN A0             // Pressure sensor
+#define BATT_PIN A0
 #define L_PRESSURE_PIN A1             // Pressure sensor
-#define BATT_PIN A2              // Logic battery
+#define R_PRESSURE_PIN A2             // Pressure sensor
+#define R_CURRENT_PIN A3             // Right motor current
+#define L_CURRENT_PIN A4             // Left motor current
 
 //Encoder factor
 const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
@@ -79,8 +86,9 @@ int dataArrayPtr = 0;
 boolean isDumpingData = false;
 boolean isSerialEmpty = true;
 
-unsigned int mode = MODE_TP5;
-unsigned int oldMode = MODE_TP5;
+unsigned int mode = MODE_TP6;
+//unsigned int mode = MODE_TP_SPEED;
+unsigned int oldMode = MODE_TP5;  // Used by PULSE_SEQUENCE
 
 int BEEP_UP [] = {1200, 100, 1500, 100, 0};
 int BEEP_WARBLE[] = {2400, 300, 2600, 300, 
@@ -91,11 +99,11 @@ int BEEP_DOWN[] = {1000, 300, 1500, 300, 0};
 
 // new flash sequences
 const byte END_MARKER = 42;
-byte BLINK_OFF[] = {0,END_MARKER};  // Off
-byte BLINK_SF[] = {1,0,0,0,0,0,0,0,END_MARKER};  // slow flash
-byte BLINK_FF[] = {1,0,END_MARKER};  // Fast flash
-byte BLINK_SB[] = {1,1,1,1,0,0,0,0,END_MARKER};  // slow blink
-byte BLINK_ON[] = {1,END_MARKER};  // Off
+byte BLINK_OFF[] = {0,END_MARKER};               // Off
+byte BLINK_SF[] = {1,0,0,0,0,0,0,0,END_MARKER};  // Slow flash
+byte BLINK_FF[] = {1,0,END_MARKER};              // Fast flash
+byte BLINK_SB[] = {1,1,1,1,0,0,0,0,END_MARKER};  // Slow blink
+byte BLINK_ON[] = {1,END_MARKER};                // On
 
 typedef struct {
   float t;
@@ -109,33 +117,42 @@ typedef struct {
 valSet;
 
 valSet tp4A = { 
-  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
-  0.0,    // u tick angle added in.  ~0-2.0. 
-  0.7,    // v rotation subtraction, 0-2.0?
-  0.2,    // w cos smoothing rate.  0-1.0 **** changed from0.2 **************
-  2.0,    // x CO speed error to angle factor
-  0.18,   // Y Target angle to WS 
-  -1.25};   // z accelerometer offset
+  0.5,    // t 
+  0.0,    // u 
+  0.7,    // v
+  0.2,    // w 
+  2.0,    // x 
+  0.18,   // Y 
+  -1.25};   // z 
 
 valSet tp4B = { 
-  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
-  0.0,    // u tick angle added in.  ~0-2.0. 
- 1.13,    // v rotation subtraction, 0-2.0?
-  0.3,    // w cos smoothing rate.  0-1.0
-  3.0,    // x CO speed error to angle factor
-  0.15,   // Y Target angle to WS
-  -2.7}; // z accelerometer offset
+  0.5,    // t 
+  0.0,    // u 
+ 1.13,    // v 
+  0.3,    // w 
+  3.0,    // x 
+  0.15,   // Y 
+  -2.7}; // z 
 
 valSet tp4C = { 
-  0.5,    // t tick angle decay rate. zero = rapid decay rate, 1 = none.
-  0.0,    // u tick angle added in.  ~0-2.0. 
- 1.13,    // v rotation subtraction, 0-2.0?
-  0.3,    // w cos smoothing rate.  0-1.0
-  3.0,    // x CO speed error to angle factor
-  0.15,   // Y Target angle to WS
-  -2.7}; // z accelerometer offset
+  0.5,    // t 
+  0.0,    // u 
+ 1.13,    // v 
+  0.3,    // w 
+  3.0,    // x 
+  0.15,   // Y 
+  -2.7}; // z 
 
-valSet *currentValSet = &tp4A;
+valSet tp6 = { 
+  3.6,    // t
+  0.2,    // u
+  2.0,    // v
+  0.18,    // w
+  0.1,    // x
+  45.0,   // y
+  -1.25}; // z accelerometer offset
+
+valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
 
 int bbb = 42;
@@ -290,16 +307,23 @@ int xVal = 0;
 int yVal = 0;
 int zVal = 0;
 
-int mWsFpsRight = 0;
-int mAverageFpsRight = 0;
-int mWsFpsLeft = 0;
-int mAverageFpsLeft = 0;
-long mWsFpsRightSum = 0;
-int mWsFpsRightCount = 0;;
-long mWsFpsLeftSum = 0;
-int mWsFpsLeftCount = 0;;
+int wsMFpsRight = 0;
+int wsMFpsLeft = 0;
+int mFpsRight = 0;
+int mFpsLeft = 0;
+long wsMFpsRightSum = 0;
+long wsMFpsLeftSum = 0;
+int wsMFpsRightCount = 0;;
+int wsMFpsLeftCount = 0;;
 float airFps = 0.0;
 unsigned long airTrigger = 0L;
+int pwPlusSumRight = 0;
+int pwMinusSumRight = 0;
+boolean motorStateRight = false;
+boolean motorStateLeft = false;
+int signPwRight = 0;
+unsigned int startTimeRight = 0;
+unsigned int startTimeLeft = 0;
 
 int ackFrameNumber = 0;
 int ackFailure = 0;
@@ -319,6 +343,14 @@ int interruptErrorsLeft = 0;
 
 boolean noResendDumpData = false;
 boolean isLights = false;
+float aDiff;
+
+unsigned int xBeeCount = 0;
+int rightK = 0;
+int leftK = 0;
+unsigned int tr;
+unsigned int stopTimeRight = UNSIGNED_LONG_MAX;
+unsigned int stopTimeLeft = UNSIGNED_LONG_MAX;
 
 /*********************************************************
  *
@@ -331,7 +363,7 @@ void setup() {
 
   // XBee, See bottom of this page for settings.
   XBEE_SER.begin(57600);  // XBee
-  BLUE_SER.begin(115200);  // Bluetooth
+//  BLUE_SER.begin(115200);  // Bluetooth
 //  delay(200);
 //  BLUE_SER.print("$$$");  // Enter command mode
 //  delay(200);
@@ -345,12 +377,15 @@ void setup() {
   pinMode(RIGHT_HL_PIN, OUTPUT);
   pinMode(LEFT_HL_PIN, OUTPUT);
   pinMode(REAR_BL_PIN, OUTPUT);
-  pinMode(PWR_PIN,OUTPUT);  // Power mosfet control
   pinMode(SPEAKER_PIN, OUTPUT);
+  
   pinMode(BATT_PIN, INPUT);
+  
+  pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
+  pinMode(RE_SW_PIN, INPUT_PULLUP);
+  pinMode(GN_SW_PIN, INPUT_PULLUP);
 
-  digitalWrite(PWR_PIN, HIGH);
   digitalWrite(LED_PIN, HIGH);
   digitalWrite(RED_LED_PIN, LOW);
   digitalWrite(RIGHT_HL_PIN, LOW);
@@ -359,8 +394,8 @@ void setup() {
   digitalWrite(SPEAKER_PIN, LOW);
   digitalWrite(YELLOW_LED_PIN, LOW);
 
-  mode = MODE_TP5;
-  angleInit();
+//  if (digitalRead(RE_SW_PIN)) mode = MODE_TP5;
+//  else mode = MODE_TP6;
   timeTrigger = micros();
   beep(BEEP_UP);
   delay(100);
@@ -399,9 +434,6 @@ void loop() { //Main Loop
     break;
   case MODE_TP6:
     aTp6Run();
-    break;
-  case MODE_POSITION:
-    aPos();
     break;
   default:
     readXBee();
@@ -457,9 +489,12 @@ void aPwmSpeed() {
  * aTpSpeed()
  **************************************************************************/
 void aTpSpeed() {
+  unsigned int loopCount = 0;
   unsigned long tpTrigger = 0;
+  tVal = 0;
+  uVal = 0;
   tpState = tpState | TP_STATE_RUNNING;
-  motorInitTp();
+  motorInitTp6();
   setBlink(RED_LED_PIN, BLINK_SF);
   
   while (mode == MODE_TP_SPEED) {
@@ -470,13 +505,23 @@ void aTpSpeed() {
     }
     if (timeMicroseconds > tpTrigger) {
       int action = FWD;
-      tpTrigger = timeMicroseconds + 100000; // 10/sec
-      setTargetSpeedRight(((float) tVal) / 1000.0);
-      setTargetSpeedLeft(((float) uVal) / 1000.0);
-      readSpeed();      
-      sendStatusFrame(XBEE_PC);  // Send status message to controller.
-      checkMotorRight();
-      checkMotorLeft();
+      tpTrigger = timeMicroseconds + 2500; // 400/sec
+      targetMFpsRight = tVal; // 
+      targetMFpsLeft = uVal; // 
+      readSpeedRight();      
+      readSpeedLeft();      
+      checkMotor6Right();
+      checkMotor6Left();
+      loopCount = ++loopCount % 40; // 1/sec
+      if (!loopCount) {
+//        mWheelSpeedFps = mFpsRight;
+        mWheelSpeedFps = mFpsLeft;
+        sendStatusFrame(XBEE_PC);  // Send status message to controller.
+//        Serial.print("tVal: ");
+//        Serial.print(tVal);
+//        Serial.print("\ttargetMFpsRight: "); 
+//        Serial.println(targetMFpsRight);
+      }
     } // end timed loop 
   } // while
 } // aTpSpeed()
@@ -567,15 +612,15 @@ void aPulseSequence() {
  *     The XBee is configured with the default settings 
  *     except for the following:
  *
- *     CH     0x19
- *     ID     2221   (Is this needed?)
- *     MY     7770  TwoPotatoe
- *            7771  PC
- *            7772  Hand Controller
- *     MM     0     Digi mode
+ *     CH     0x19  Channel
+ *     ID     2221  PAN ID (Is this needed?)
+ *     MY     7770  Source Address :TwoPotatoe
+ *            7771                  PC
+ *            7772                  Hand Controller
+ *     MM     0     MAC Mode: Digi mode
  *     RR     2     retries
- *     BD     7     115200 baud
- *     AP     1     API mode
+ *     BD     6     57600 baud
+ *     AP     2     API mode: API enabled w/ppp
  *
  *********************************************************/
 

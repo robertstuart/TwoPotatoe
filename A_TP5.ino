@@ -11,7 +11,6 @@ float targetHeading = 0.0;
 float tp5LpfAngleErrorWOld = 0.0;
 float tp5LpfAngleErrorW = 0.0;
 float tp5AngleError = 0.0;
-float aDiff;
 
 /************************************************************************
  *  aTp5Run() 
@@ -22,6 +21,7 @@ void aTp5Run() {
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
   angleInit();
   motorInitTp();
+  currentValSet = &tp4A;
   setBlink(RED_LED_PIN, BLINK_SB);
   while(mode == MODE_TP5) { // main loop
     commonTasks();
@@ -55,7 +55,7 @@ void aTp5() {
   readSpeed();
   // compute the Center of Oscillation Speed (COS)
   float tp5Rotation = 1.4 * gyroPitchDelta;
-  float tp5Cos = wheelSpeedFps + tp5Rotation; // subtract out rotation **************
+  float tp5Cos = wheelSpeedFps + tp5Rotation; // subtract rotation 
 //  tp5LpfCos = (tp5LpfCosOld * (1.0 - ((*currentValSet).w))) + (tp5Cos * (*currentValSet).w); // smooth it out a little (0.2)
   tp5LpfCos = (tp5LpfCosOld * (1.0 - 0.2)) + (tp5Cos * 0.2); // smooth it out a little (0.2)
   tp5LpfCosAccel = tp5LpfCos - tp5LpfCosOld;
@@ -81,10 +81,6 @@ void aTp5() {
 
   // Add the angle error to the base speed to get the target speed.
   tp5Fps = tp5LpfAngleErrorW + tp5LpfCos;
-//  tp5Fps = tp5AngleErrorW + tp5LpfCos;
-//  if (damp()) {
-//    tp5Fps = tp5LpfCos;
-//  }
   if (!isStateBit(TP_STATE_RUN_AIR)) {
     tp5Steer(tp5Fps);
     setTargetSpeedRight(tp5FpsRight);
@@ -94,7 +90,7 @@ void aTp5() {
     setTargetSpeedRight(airFps);
     setTargetSpeedLeft(airFps);
   }
- 
+
 //addLog((long) (tpState),
 //       (short) (tickPositionRight),
 //       (short) (tickPositionLeft),
@@ -111,16 +107,29 @@ void aTp5() {
  *  sendTp5Status() 
  ************************************************************************/
 void sendTp5Status() {
-  static int loopc = 0;
+  static unsigned int loopc = 0;
   loopc = ++loopc % 10;
   if (isDumpingData) {
     if ((loopc == 0) || (loopc == 4))  dumpData();
   }
-  else if (loopc == 0) sendStatusFrame(XBEE_HC); 
-  else if (loopc == 1) sendStatusFrame(BLUETOOTH); 
+  else if (loopc == 0) {
+    sendStatusFrame(XBEE_HC); 
+  }
+//  else if (loopc == 1) {
+//  sendStatusFrame(BLUETOOTH); 
+//}
   else if (loopc == 2) {
     sendStatusFrame(XBEE_PC);
-//    Serial.println(controllerY);
+  }
+  else if (loopc == 4) { // print some debug info
+    int a = digitalRead(BU_SW_PIN); // Blue switch
+    int b = digitalRead(YE_SW_PIN); // 
+    int c = digitalRead(RE_SW_PIN); // 
+    int d = digitalRead(GN_SW_PIN); // 
+    Serial.print(a); Serial.print("\t");
+    Serial.print(b); Serial.print("\t");
+    Serial.print(c); Serial.print("\t");
+    Serial.print(d); Serial.println();
   }
 }
 
@@ -137,8 +146,8 @@ void tp5Steer(float fps) {
 //  else  {
       float speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
 //      float speedAdjustment = controllerX * 1.0;
-  tp5FpsLeft = tp6FpsLeft = fps + speedAdjustment;
-  tp5FpsRight = tp6FpsRight = fps - speedAdjustment;
+  tp5FpsLeft = fps + speedAdjustment;
+  tp5FpsRight = fps - speedAdjustment;
 //    targetHeading += (controllerX * 2.0);
 //    fixHeading(tickHeading, targetHeading, fps);
 //  }
