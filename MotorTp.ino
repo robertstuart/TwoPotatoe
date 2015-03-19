@@ -9,6 +9,11 @@ int rejectCountLeft = 0;
  *  motorInitTp() 
  ************************************************************************/
 void motorInitTp() {
+  // Initialize the pwm frequency
+  pwm_set_resolution(16);  
+  pwm_setup(MOT_RIGHT_PWMH, TP_PWM_FREQUENCY, 1);  // on clock A
+  pwm_setup(MOT_LEFT_PWMH, TP_PWM_FREQUENCY, 1);  // on clock A
+
   // Set the pin modes
   pinMode(MOT_RIGHT_PWML, OUTPUT);
   pinMode(MOT_RIGHT_DIR, OUTPUT);
@@ -345,9 +350,12 @@ void setMotor(int motor, int action, int pw) {
   int pinPwmL;
   int pinDir;
   int pinPwmH;
+  
 
   if (pw > 255) pw = 255;
   else if (pw < 0) pw = 0;
+  
+  pw = pw * 255; // Convert for new pwm control
   
   if (motor == MOTOR_RIGHT) {
     pinPwmL = MOT_RIGHT_PWML;
@@ -371,20 +379,24 @@ void setMotor(int motor, int action, int pw) {
   case FWD:
     g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGHT
     g_APinDescription[pinDir].pPort -> PIO_CODR = g_APinDescription[pinDir].ulPin;   // LOW
-    analogWrite(pinPwmH, pw);
+//    analogWrite(pinPwmH, pw);
+    pwm_write_duty(pinPwmH, pw);  // 50% duty cycle on Pin 6
     break;
   case BKWD:
     g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGH
     g_APinDescription[pinDir].pPort -> PIO_SODR = g_APinDescription[pinDir].ulPin; // HIGH
-    analogWrite(pinPwmH, pw);
-    break;
+//    analogWrite(pinPwmH, pw);
+     pwm_write_duty(pinPwmH, pw);  // 50% duty cycle on Pin 6
+     break;
   case COAST:
     g_APinDescription[pinPwmL].pPort -> PIO_CODR = g_APinDescription[pinPwmL].ulPin; // LOW
-    analogWrite(pinPwmH, 0);
-    break;
+//    analogWrite(pinPwmH, 0);
+     pwm_write_duty(pinPwmH, 0);  // 50% duty cycle on Pin 6
+     break;
   case BRAKE:
     g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGH
-    analogWrite(pinPwmH, 0);
+//    analogWrite(pinPwmH, 0);
+    pwm_write_duty(pinPwmH, 0);  // 50% duty cycle on Pin 6
     break;
   }
 }

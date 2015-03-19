@@ -233,7 +233,7 @@ void doMessage(int type, int val) {
     break;
   case TP_RCV_MSG_U_VAL:
     uVal = val;
-    (*currentValSet).u = ((float) val) / 10000.0;
+    (*currentValSet).u = ((float) val) / 1000.0;
     break;
   case TP_RCV_MSG_V_VAL:
     vVal = val;
@@ -241,7 +241,7 @@ void doMessage(int type, int val) {
     break;
   case TP_RCV_MSG_W_VAL:
     wVal = val;
-    (*currentValSet).w = ((float) val) / 10000.0;
+    (*currentValSet).w = ((float) val) / 1000.0;
     break;
   case TP_RCV_MSG_X_VAL:
     xVal = val;

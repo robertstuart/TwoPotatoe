@@ -23,7 +23,8 @@ void aTp6Run() {
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
   angleInit6();
-  motorInitTp6();
+//  motorInitTp6();
+  motorInitTp();
   currentValSet = &tp6;
   setBlink(RED_LED_PIN, BLINK_SB);
   while(mode == MODE_TP6) { // main loop
@@ -41,8 +42,10 @@ void aTp6Run() {
       magTickCorrection();
       safeAngle();
       switches();
-      checkMotor6Right();
-      checkMotor6Left();
+//      checkMotor6Right();
+//      checkMotor6Left();
+      checkMotorRight();
+      checkMotorLeft();
 //    checkDrift();
       log6();
       timeTrigger +=  2500; // 400/sec

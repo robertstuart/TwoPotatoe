@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "Common.h"
 #include <DueTimer.h>
+#include "C:\Program Files (x86)\Arduino\hardware\arduino\sam\libraries\Pwm01\pwm01.h"
 
 #define XBEE_SER Serial3
 //#define BLUE_SER Serial1
@@ -18,10 +19,11 @@ const int MOT_LEFT_DIR =    51;
 const int MOT_RIGHT_PWML =  44;   
 const int MOT_LEFT_PWML =   45; 
 //const int MOT_RIGHT_PWMH =   2; 
-const int MOT_RIGHT_PWMH =   6b; 
+const int MOT_RIGHT_PWMH =   6; 
 const int MOT_LEFT_PWMH =    7;  
 
 const float SPEED_MULTIPLIER = 5.0;
+const unsigned int TP_PWM_FREQUENCY = 10000;
 
 
 #define BRAKE 2
@@ -145,10 +147,10 @@ valSet tp4C = {
 
 valSet tp6 = { 
   3.6,    // t
-  0.2,    // u
+  0.1,    // u
   2.0,    // v
   0.18,    // w
-  0.1,    // x
+  0.05,    // x
   45.0,   // y
   -1.25}; // z accelerometer offset
 
@@ -494,7 +496,7 @@ void aTpSpeed() {
   tVal = 0;
   uVal = 0;
   tpState = tpState | TP_STATE_RUNNING;
-  motorInitTp6();
+  motorInitTp();
   setBlink(RED_LED_PIN, BLINK_SF);
   
   while (mode == MODE_TP_SPEED) {
@@ -510,8 +512,8 @@ void aTpSpeed() {
       targetMFpsLeft = uVal; // 
       readSpeedRight();      
       readSpeedLeft();      
-      checkMotor6Right();
-      checkMotor6Left();
+      checkMotorRight();
+      checkMotorLeft();
       loopCount = ++loopCount % 40; // 1/sec
       if (!loopCount) {
 //        mWheelSpeedFps = mFpsRight;
