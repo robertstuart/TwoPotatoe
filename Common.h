@@ -22,7 +22,7 @@ const int TP_STATE_UPRIGHT         = 0B00000100;  // Status: tp is upright (not 
 const int TP_STATE_ON_GROUND       = 0B00001000;  // Status: pressure sensor indicates standing.
 const int TP_STATE_HC_ACTIVE       = 0B00010000;  // Status: Hand Controller connected
 const int TP_STATE_PC_ACTIVE       = 0B00100000;  // Status: PC connected
-const int TP_STATE_RUN_AIR         = 0B01000000;  // True not on ground but still running
+const int TP_XXXXXXXXXXXXX         = 0B01000000;  // 
 const int TP_STATE_DUMPING         = 0B10000000;  // Dumping in either direction
 
 // value sets
@@ -42,7 +42,9 @@ const int XBEE_BROADCAST =   0xFFFF;
 	// Message\ sent by TP - byte position
 const int TP_SEND_FLAG =             0;  // 1-byte, Flag and packet type
 const int TP_SEND_VALUE =            1;  // 2-byte, value
-const int TP_SEND_END =              3;  // offset after last value	
+const int TP_SEND_SONAR =            3;  // Sonar distance
+const int TP_SEND_YAW =              5;  // Yaw/Bearing
+const int TP_SEND_END =              7;  // offset after last value	
 	
 	// Flag byte in TP_SEND_XXX
 const int TP_SEND_FLAG_ANGLE =      0;  // 1-byte, Flag and packet type
@@ -50,8 +52,6 @@ const int TP_SEND_FLAG_SPEED =      1;
 const int TP_SEND_FLAG_MODE =       2; 
 const int TP_SEND_FLAG_STATE =      3;
 const int TP_SEND_FLAG_BATT =       4;
-const int TP_SEND_FLAG_xxxxxx =     5;
-const int TP_SEND_FLAG_yyyyy =      6;
 const int TP_SEND_FLAG_VALSET =     7;
 const int TP_SEND_FLAG_DEBUG =      8;	
 const int TP_SEND_FLAG_DUMP =      25;

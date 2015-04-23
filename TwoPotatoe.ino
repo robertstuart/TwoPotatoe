@@ -10,15 +10,17 @@
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
-const int MOT_LEFT_ENCA =   40;   
-const int MOT_RIGHT_ENCA =  41;  
-const int MOT_LEFT_ENCB =   42; 
-const int MOT_RIGHT_ENCB =  43; 
-const int MOT_RIGHT_DIR =   50;   
-const int MOT_LEFT_DIR =    51; 
-const int MOT_RIGHT_PWML =  44;   
-const int MOT_LEFT_PWML =   45; 
-//const int MOT_RIGHT_PWMH =   2; 
+const int MOT_RIGHT_ENCA =  22;  
+const int MOT_LEFT_ENCA =   23;   
+const int MOT_RIGHT_ENCB =  24; 
+const int MOT_LEFT_ENCB =   25; 
+const int MOT_RIGHT_ENCZ =  26; 
+const int MOT_LEFT_ENCZ =   27; 
+
+const int MOT_RIGHT_PWML =  50;   
+const int MOT_LEFT_PWML =   51; 
+const int MOT_RIGHT_DIR =   48;   
+const int MOT_LEFT_DIR =    49; 
 const int MOT_RIGHT_PWMH =   6; 
 const int MOT_LEFT_PWMH =    7;  
 
@@ -41,22 +43,26 @@ const unsigned int TP_PWM_FREQUENCY = 10000;
 #define RIGHT_HL_PIN 10 // headlamp
 #define LEFT_HL_PIN 9 // headlamp
 #define REAR_BL_PIN 8 // rear lamp
+//#define GREEN_LED_PIN 28 // LED in switch
 
 #define BU_SW_PIN 29 // Blue switch
-#define YE_SW_PIN 24 // Yellow switch
-#define RE_SW_PIN 27 // Yellow switch
-#define GN_SW_PIN 25 // Yellow switch
+#define YE_SW_PIN 34 // Yellow switch
+#define RE_SW_PIN 37 // Red switch
+#define GN_SW_PIN 35 // Green switch
 
-#define SPEAKER_PIN 26 // 
+#define SPEAKER_PIN 36 // 
 #define BATT_PIN A0
-#define L_PRESSURE_PIN A1             // Pressure sensor
-#define R_PRESSURE_PIN A2             // Pressure sensor
+#define R_FORCE_PIN A1             // Force sensor
+#define L_FORCE_PIN A2             // Force sensor
 #define R_CURRENT_PIN A3             // Right motor current
 #define L_CURRENT_PIN A4             // Left motor current
+#define SONAR_PIN A8
 
 //Encoder factor
-const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
-const long ENC_FACTOR_M = 1329000L;  // Change pulse width to milli-fps speed, 1/29 gear
+//const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
+//const long ENC_FACTOR_M = 1329000L;  // Change pulse width to milli-fps speed, 1/29 gear
+const float ENC_FACTOR = 650.0f;  // Change pulse width to fps speed, 1/29 gear
+const long ENC_FACTOR_M = 650000L;  // Change pulse width to milli-fps speed, 1/29 gear
 const float FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
 const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
@@ -69,12 +75,13 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define TICKS_PER_180_YAW 1515
 #define TICKS_PER_YAW_DEGREE 8.4166
 #define TICKS_PER_PITCH_DEGREE 20.0
-#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
+//#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
+#define GYRO_SENS 0.0091     // Multiplier to get degree. -0.075/8?
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
 
 // Due has 96 kbytes sram
-#define DATA_ARRAY_SIZE 1000
+#define DATA_ARRAY_SIZE 2048
 
 // Arrays to save data to be dumped in blocks.
 long aArray[ DATA_ARRAY_SIZE];
@@ -125,7 +132,7 @@ valSet tp4A = {
   0.2,    // w 
   2.0,    // x 
   0.18,   // Y 
-  -1.25};   // z 
+  3.3};   // z 
 
 valSet tp4B = { 
   0.5,    // t 
@@ -134,7 +141,7 @@ valSet tp4B = {
   0.3,    // w 
   3.0,    // x 
   0.15,   // Y 
-  -2.7}; // z 
+  3.3}; // z 
 
 valSet tp4C = { 
   0.5,    // t 
@@ -143,16 +150,16 @@ valSet tp4C = {
   0.3,    // w 
   3.0,    // x 
   0.15,   // Y 
-  -2.7}; // z 
+  3.3}; // z 
 
 valSet tp6 = { 
-  3.6,    // t
+  4.8,    // t
   0.1,    // u
   2.0,    // v
   0.18,    // w
   0.05,    // x
   45.0,   // y
-  -1.25}; // z accelerometer offset
+  3.3}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -213,10 +220,13 @@ unsigned long oldTimeTrigger = 0L;
 unsigned long timeMicroseconds = 0L; // Set in main loop.  Used by several routines.
 unsigned long timeMilliseconds = 0L; // Set in main loop from above.  Used by several routines.
 
-int tpState = 0; // contains STATE_READY, STATE_RUNNING,STATE_UPRIGHT, STATE_ON_GROUND, STATE_MOTOR_FAULT bits
+int tpState = 0; // contains system state bits
+boolean isJump = false;
 int cmdState = 0;  // READY, PWR, & HOME command bits
 
-unsigned int pressure = 0; // pressure sensor value
+unsigned int forceRight = 0; // force sensor value
+unsigned int forceLeft = 0; // force sensor value
+unsigned int sonarDist = 0;
 
 unsigned int actualLoopTime; // Time since the last
 float controllerX = 0.0; // +1.0 to -1.0 from controller
@@ -230,12 +240,12 @@ int driftCount;
 int driftPitch = 0;
 int driftRoll = 0;
 int driftYaw = 0;
-float accelPitchAngle = 0.0;  // Vertical plane parallel to wheels
+float accelPitch = 0.0;  // Vertical plane parallel to wheels
+float accelPitchComp = 0.0;  // Vertical plane parallel to wheels, acceleration compensated
 float gaPitch = 0.0f;
 float oldGaPitch = 0.0;
 float gyroPitchDelta = 0.0;
 float gyroPitch = 0.0; // not needed
-float accelPitch = 0.0;
 
 int gyroRollRaw = 0;
 float gyroRollRate;
@@ -319,13 +329,13 @@ int wsMFpsRightCount = 0;;
 int wsMFpsLeftCount = 0;;
 float airFps = 0.0;
 unsigned long airTrigger = 0L;
-int pwPlusSumRight = 0;
-int pwMinusSumRight = 0;
-boolean motorStateRight = false;
-boolean motorStateLeft = false;
-int signPwRight = 0;
-unsigned int startTimeRight = 0;
-unsigned int startTimeLeft = 0;
+//int pwPlusSumRight = 0;
+//int pwMinusSumRight = 0;
+//boolean motorStateRight = false;
+//boolean motorStateLeft = false;
+//int signPwRight = 0;
+//unsigned int startTimeRight = 0;
+//unsigned int startTimeLeft = 0;
 
 int ackFrameNumber = 0;
 int ackFailure = 0;
@@ -373,6 +383,10 @@ void setup() {
   
   Serial.begin(115200); // for debugging output
   //  resetXBee();
+  
+  pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
+  
+  
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
   pinMode(YELLOW_LED_PIN,OUTPUT);
   pinMode(RED_LED_PIN,OUTPUT);
@@ -382,6 +396,7 @@ void setup() {
   pinMode(SPEAKER_PIN, OUTPUT);
   
   pinMode(BATT_PIN, INPUT);
+  pinMode(SONAR_PIN, INPUT);
   
   pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
@@ -432,7 +447,7 @@ void loop() { //Main Loop
     aTpSequence();
     break;
   case MODE_TP5:
-    aTp5Run();
+//    aTp5Run();
     break;
   case MODE_TP6:
     aTp6Run();
@@ -512,12 +527,12 @@ void aTpSpeed() {
       targetMFpsLeft = uVal; // 
       readSpeedRight();      
       readSpeedLeft();      
-      checkMotorRight();
-      checkMotorLeft();
+//      checkMotorRight();
+//      checkMotorLeft();
       loopCount = ++loopCount % 40; // 1/sec
       if (!loopCount) {
-//        mWheelSpeedFps = mFpsRight;
-        mWheelSpeedFps = mFpsLeft;
+        mWheelSpeedFps = mFpsRight;
+//        mWheelSpeedFps = mFpsLeft;
         sendStatusFrame(XBEE_PC);  // Send status message to controller.
 //        Serial.print("tVal: ");
 //        Serial.print(tVal);

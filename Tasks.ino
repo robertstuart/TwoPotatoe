@@ -70,7 +70,7 @@ void commonTasks() {
  *     Set the TP_STATE_RUNNING bit if the following are true:
  *         TP_STATE_RUN_READY is true
  *         TP_STATE_UPRIGHT is true
- *         TP_STATE_ON_GROUND or TP_STATE_RUN_AIR is true
+ *         TP_STATE_ON_GROUND or isJump is true
  *         TP_STATE_MOTOR_FAULT ????
  *
  *      Set x and y to zero if there is no connection to
@@ -85,7 +85,7 @@ void setRunningState() {
     // Set the runnng bit to control motors
     if (     isStateBit(TP_STATE_RUN_READY)
              && isStateBit(TP_STATE_UPRIGHT)
-             && (isStateBit(TP_STATE_ON_GROUND) || isStateBit(TP_STATE_RUN_AIR))) {
+             && (isStateBit(TP_STATE_ON_GROUND) || isJump)) {
       setStateBit(TP_STATE_RUNNING, true);
     }
     else {
@@ -171,31 +171,28 @@ void safeAngle() {
 
 
 /**************************************************************************.
- * gravity() set  TP_STATE_ON_GROUND & TP_STATE_RUN_AIR bits
+ * gravity() set  TP_STATE_ON_GROUND & isAirRunning states
+ *
+ *      The TP_STATE_ON_GROUND bit is set whenever both wheels show a force
+ *      greater than the threshold.  Whenever the force on either wheels 
+ *      drops below the threshold TP_STATE_ON_GROUND is cleared but  
+ *      isJump is set to true.  After 0.3 seconds in the "off-ground"
+ *      isJump is set to false.
  **************************************************************************/
 void gravity() {
-  boolean isOnGround = isStateBit(TP_STATE_ON_GROUND);
-  pressure = analogRead(L_PRESSURE_PIN);
-  boolean isNewOnGround = pressure < 900;
+  int groundTime = 0;
+  forceLeft = analogRead(L_FORCE_PIN);
+  forceRight = analogRead(R_FORCE_PIN);
+  boolean isOnGround = (forceLeft < 700) && (forceRight < 900);
   if (isOnGround) {
-    if (!isNewOnGround) { // new state?
-       setStateBit(TP_STATE_ON_GROUND, false);
-       setStateBit(TP_STATE_RUN_AIR, true);
-       airTrigger = timeMilliseconds + 1000; // Allow one second of being lifted.
-       airFps = tp5LpfCos;
-       accelPitchAngle = gaPitch;
-    }
+    setStateBit(TP_STATE_ON_GROUND, true);
+    isJump = false;
+    groundTime = timeMilliseconds;
   }
   else { // in air
-    if (isNewOnGround) { // landed? If so, wait .5 before changing state
-      setStateBit(TP_STATE_ON_GROUND, true);
-      setStateBit(TP_STATE_RUN_AIR, false);
-    }     
-    else {
-      if (isStateBit(TP_STATE_RUN_AIR)) {
-        if (timeMilliseconds > airTrigger) setStateBit(TP_STATE_RUN_AIR, false);
-      }
-    }
+    setStateBit(TP_STATE_ON_GROUND, false);
+    if (timeMilliseconds < (groundTime + 300)) isJump = true;
+    else isJump = false; 
   }
 }  
 
@@ -339,6 +336,13 @@ void switches() {
       setStateBit(TP_STATE_RUN_READY, !isStateBit(TP_STATE_RUN_READY));
     }
   }
+}
+
+/**************************************************************************.
+ * readSonar()
+ **************************************************************************/
+void readSonar() {
+  sonarDist = analogRead(SONAR_PIN);
 }
 
 /**************************************************************************.

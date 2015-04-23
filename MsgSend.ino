@@ -14,6 +14,7 @@ void sendStatusFrame(int destId) {
   static unsigned int subCycle = 0;
   int flag, val;
   if (!isDumpingData && !isReceivingBlock) {
+    
     mainCycle = ++mainCycle % 3;
     switch (mainCycle) {
       case 0: 
@@ -39,20 +40,20 @@ void sendStatusFrame(int destId) {
             flag = TP_SEND_FLAG_BATT;
             val = battVolt;
             break;
-            break;
           case 3:
             flag = TP_SEND_FLAG_VALSET;
             val = vSetStatus;
             break;
           case 4:
             flag = TP_SEND_FLAG_DEBUG;
-            val = 999;
+            val = 997;
             break;
         }
       break;
     }
     sendArray[TP_SEND_FLAG] = flag;
     set2Byte(sendArray, TP_SEND_VALUE, val);
+    set2Byte(sendArray, TP_SEND_SONAR, analogRead(SONAR_PIN));
 //    if (destId == BLUETOOTH) sendBlueFrame();
     sendFrame(destId, TP_SEND_END);
   }

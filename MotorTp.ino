@@ -20,8 +20,8 @@ void motorInitTp() {
   pinMode(MOT_LEFT_PWML, OUTPUT);
   pinMode(MOT_LEFT_DIR, OUTPUT);
 
-  setMotor(MOTOR_RIGHT, COAST, 0);
-  setMotor(MOTOR_LEFT, COAST, 0);
+  setMotor(MOTOR_RIGHT, BRAKE, 0);
+  setMotor(MOTOR_LEFT, BRAKE, 0);
 
   setTargetSpeedRight(0.0);
   setTargetSpeedLeft(0.0);
@@ -70,20 +70,20 @@ void encoderIsrRight() {
   wsMFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
   wsMFpsRightSum += wsMFpsRight;
   wsMFpsRightCount++;
-//runLog((long) tickTimeRight, (long) mWsFpsRight , (long) encA, (long) encB);
+  
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
   
   if (targetMFpsRight > 0L) {
-    if (wsMFpsRight < targetMFpsRight) {
+    if (wsMFpsRight < targetMFpsRight) {              // < target speed
       action = FWD;
       pw = getAccelPw(wsMFpsRight, targetMFpsRight);
     }
-    else if (wsMFpsRight < targetBrakeMFpsRight) {
-//      action = COAST;
-      action = BRAKE;
+    else if (wsMFpsRight < targetBrakeMFpsRight) {    // < brake speed
+      action = COAST;
+//      action = BRAKE;
     }
-    else if (wsMFpsRight < targetRevMFpsRight) {
+    else if (wsMFpsRight < targetRevMFpsRight) {      // < reverse speed
       action = BRAKE;
     }
     else {
@@ -97,8 +97,8 @@ void encoderIsrRight() {
       pw = getAccelPw(wsMFpsRight, targetMFpsRight);
     }
     else if (wsMFpsRight > targetBrakeMFpsRight) {
-//      action = COAST;
-      action = BRAKE;
+      action = COAST;
+//      action = BRAKE;
     }
     else if (wsMFpsRight > targetRevMFpsRight) {
       action = BRAKE;
@@ -112,7 +112,15 @@ void encoderIsrRight() {
     action = BRAKE;
   }
   setMotor(MOTOR_RIGHT, action, pw);
-//tp7Log(targetMFpsRight, mWsFpsRight, action, pw);
+  
+//addLog((long) (tickPositionRight),
+//       (short) targetMFpsRight,
+//       (short) wsMFpsRight,
+//       (short) action,
+//       (short) pw, 
+//       (short) (0),
+//       (short) (0));
+
 } // encoderIsrRight()
 
 
@@ -155,8 +163,8 @@ void encoderIsrLeft() {
       pw = getAccelPw(wsMFpsLeft, targetMFpsLeft);
     }
     else if (wsMFpsLeft < targetBrakeMFpsLeft) {
-      action = BRAKE;
-//      action = COAST;
+//      action = BRAKE;
+      action = COAST;
     }
     else if (wsMFpsLeft < targetRevMFpsLeft) {
       action = BRAKE;
@@ -172,8 +180,8 @@ void encoderIsrLeft() {
       pw = getAccelPw(wsMFpsLeft, targetMFpsLeft);
     }
     else if (wsMFpsLeft > targetBrakeMFpsLeft) {
-      action = BRAKE;
-//      action = COAST;
+//      action = BRAKE;
+      action = COAST;
     }
     else if (wsMFpsLeft > targetRevMFpsLeft) {
       action = BRAKE;
@@ -195,8 +203,8 @@ void encoderIsrLeft() {
  *  getAccelPw() 
  ************************************************************************/
 int getAccelPw(int wFps, int tFps) {
-  int sum = abs(tFps) / 8;  // 0-1.0fps = 0-255
-  sum = sum + (abs(tFps - wFps) / 8); // 0-1.0fps difference = 0-255
+  int sum = abs(tFps) / 16;  // 0-1.0fps = 0-255
+  sum = sum + (abs(tFps - wFps) / 16); // 0-1.0fps difference = 0-255
   if (sum > 255) sum = 255;
   return sum;
 }
@@ -223,10 +231,10 @@ void checkMotorRight() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsRight / 2)) { // less than 1/2 target speed?
       if (targetMFpsRight > 0) {
-        setMotor(MOTOR_RIGHT, FWD, 199);
+        setMotor(MOTOR_RIGHT, FWD, 99);
       }
       else {
-        setMotor(MOTOR_RIGHT, BKWD, 199);
+        setMotor(MOTOR_RIGHT, BKWD, 99);
       }
     }
   }
@@ -241,10 +249,10 @@ void checkMotorLeft() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsLeft / 2)) { // less than 1/2 target speed?
       if (targetMFpsLeft > 0) {
-        setMotor(MOTOR_LEFT, FWD, 199);
+        setMotor(MOTOR_LEFT, FWD, 99);
       }
       else {
-        setMotor(MOTOR_LEFT, BKWD, 199);
+        setMotor(MOTOR_LEFT, BKWD, 99);
       }
     }
   }
@@ -361,8 +369,8 @@ void setMotor(int motor, int action, int pw) {
     pinPwmL = MOT_RIGHT_PWML;
     pinDir = MOT_RIGHT_DIR;
     pinPwmH = MOT_RIGHT_PWMH;
-    if (action == FWD) action = BKWD;
-    else if (action == BKWD) action = FWD;
+//    if (action == FWD) action = BKWD;
+//    else if (action == BKWD) action = FWD;
     actionRight = action;
   }
   else {
@@ -372,19 +380,19 @@ void setMotor(int motor, int action, int pw) {
     actionLeft = action;
   }
   if ((mode == MODE_TP5) || (mode == MODE_TP6)) {
-    if ((tpState & TP_STATE_RUNNING) == 0) action = COAST;
+    if ((tpState & TP_STATE_RUNNING) == 0) action = BRAKE;
   }
   
   switch(action) {
   case FWD:
     g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGHT
-    g_APinDescription[pinDir].pPort -> PIO_CODR = g_APinDescription[pinDir].ulPin;   // LOW
+    g_APinDescription[pinDir].pPort -> PIO_SODR = g_APinDescription[pinDir].ulPin; // HIGH
 //    analogWrite(pinPwmH, pw);
     pwm_write_duty(pinPwmH, pw);  // 50% duty cycle on Pin 6
     break;
   case BKWD:
     g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGH
-    g_APinDescription[pinDir].pPort -> PIO_SODR = g_APinDescription[pinDir].ulPin; // HIGH
+    g_APinDescription[pinDir].pPort -> PIO_CODR = g_APinDescription[pinDir].ulPin;   // LOW
 //    analogWrite(pinPwmH, pw);
      pwm_write_duty(pinPwmH, pw);  // 50% duty cycle on Pin 6
      break;

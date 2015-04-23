@@ -11,14 +11,16 @@ float tp6LpfCosOld = 0.0;
 float fpsLpfCorrectionOld = 0.0;
 float fpsLpfCorrection = 0.0;
 float tp6AngleError = 0.0;
-unsigned int accelCycle = 0;
 float tp6TargetAngle = 0.0;
 float tp6Cos = 0.0; 
+float tp6Rotation = 0.0;
 
 /***********************************************************************.
  *  aTp6Run() 
  ***********************************************************************/
 void aTp6Run() {
+  unsigned int accelCycle = 0;
+  
   timeMicroseconds = timeTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
@@ -36,7 +38,6 @@ void aTp6Run() {
     if (timeMicroseconds > timeTrigger) {
       readGyro();
       if ((++accelCycle % 4)  == 1) readAccel();  // Read every 4th time.
-//      readAccel();  // 
       aTp6(); 
       sendTp6Status();
       magTickCorrection();
@@ -47,7 +48,7 @@ void aTp6Run() {
       checkMotorRight();
       checkMotorLeft();
 //    checkDrift();
-      log6();
+//      log6();
       timeTrigger +=  2500; // 400/sec
     } // end timed loop
   }
@@ -62,7 +63,7 @@ void aTp6() {
 //  getAngle();
   readSpeed();
   // compute the Center of Oscillation Speed (COS)
-  float tp6Rotation = (*currentValSet).t * gyroPitchDelta; // 3.6
+  tp6Rotation = (*currentValSet).t * gyroPitchDelta; // 3.6
   tp6Cos = wheelSpeedFps + tp6Rotation; // subtract rotation 
   tp5LpfCos = tp6LpfCos = (tp6LpfCosOld * (1.0 - (*currentValSet).u))  + (tp6Cos  * (*currentValSet).u); // smooth it out a little (0.2)
 //  tp6LpfCos = (tp6LpfCosOld * (1.0 - 0.05)) + (tp6Cos * 0.05); // smooth it out a little (0.2)
@@ -110,45 +111,56 @@ void sendTp6Status() {
 	sendStatusFrame(XBEE_PC);
   }
   else if (loopc == 20) { // debugging print statements
-//    Serial.print(gaPitch);
+//    Serial.print(gyroPitch);
 //    Serial.print("\t");
-//    Serial.print((*currentValSet).t);
+//    Serial.print(accelPitchAngle);
 //    Serial.print("\t");
 //    Serial.println();
   }
-}
-
-
-/***********************************************************************.
- *  log6() - Put data in circular log buffer.
- ***********************************************************************/
-void log6() {
-  noInterrupts();
-  if (motorStateRight) {
-    timeMicroseconds = micros();
-    unsigned int t = timeMicroseconds - startTimeRight;
-    if (signPwRight > 0) pwPlusSumRight += t;
-    else pwMinusSumRight += t;
-    startTimeRight = timeMicroseconds;
+  else if (loopc == 30) {
+    readSonar();
   }
-  unsigned int pP = pwPlusSumRight;
-  unsigned int pM = pwMinusSumRight;
-  int p = pP - pM;
-  pwPlusSumRight = 0;
-  pwMinusSumRight = 0;
-  interrupts();
-  
   addLog(
-          (long) (gaPitch * 100.0),
-          (short) pP,
-          (short) pM,
-          (short) (wheelSpeedFps * 100.0),
-          (short) (tp6LpfCos * 100.0),
+          (long) (timeMicroseconds),
+          (short) (tp6Rotation * 100.0),
+          (short) (gaPitch * 100.0),
+          (short) (accelPitch * 100.0),
+          (short) (gyroPitch * 100.0),
           (short) (tp6TargetAngle * 100.0),
           (short) (fpsLpfCorrection * 100.0));
 }
 
 
+///***********************************************************************.
+// *  log6() - Put data in circular log buffer.
+// ***********************************************************************/
+//void log6() {
+//  noInterrupts();
+//  if (motorStateRight) {
+//    timeMicroseconds = micros();
+//    unsigned int t = timeMicroseconds - startTimeRight;
+//    if (signPwRight > 0) pwPlusSumRight += t;
+//    else pwMinusSumRight += t;
+//    startTimeRight = timeMicroseconds;
+//  }
+//  unsigned int pP = pwPlusSumRight;
+//  unsigned int pM = pwMinusSumRight;
+//  int p = pP - pM;
+//  pwPlusSumRight = 0;
+//  pwMinusSumRight = 0;
+//  interrupts();
+//  
+////  addLog(
+////          (long) (gaPitch * 100.0),
+////          (short) pP,
+////          (short) pM,
+////          (short) (wheelSpeedFps * 100.0),
+////          (short) (tp6LpfCos * 100.0),
+////          (short) (tp6TargetAngle * 100.0),
+////          (short) (fpsLpfCorrection * 100.0));
+//}
+//
+//
 
 /***********************************************************************.
  *  tp6Steer() 

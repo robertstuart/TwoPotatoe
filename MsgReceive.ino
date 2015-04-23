@@ -228,7 +228,7 @@ void doMessage(int type, int val) {
     break;
   case TP_RCV_MSG_T_VAL:
     tVal = val;
- Serial.println(tVal);
+// Serial.println(tVal);
     (*currentValSet).t = ((float) val) / 1000.0;
     break;
   case TP_RCV_MSG_U_VAL:
