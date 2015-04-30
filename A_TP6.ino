@@ -19,9 +19,9 @@ float tp6Rotation = 0.0;
  *  aTp6Run() 
  ***********************************************************************/
 void aTp6Run() {
-  unsigned int accelCycle = 0;
+  unsigned int subCycle = 0;
   
-  timeMicroseconds = timeTrigger = micros();
+  timeMicroseconds = gyroTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
   angleInit6();
@@ -31,25 +31,25 @@ void aTp6Run() {
   setBlink(RED_LED_PIN, BLINK_SB);
   while(mode == MODE_TP6) { // main loop
     commonTasks();
-//    route();
-//    readAccel();
+    route();
     // Do the timed loop
     timeMicroseconds = micros();
-    if (timeMicroseconds > timeTrigger) {
+    timeMilliseconds = timeMicroseconds / 1000;
+    if (timeMicroseconds > gyroTrigger) {
+      gyroTrigger +=  2500; // 400/sec
+      subCycle++;
       readGyro();
-      if ((++accelCycle % 4)  == 1) readAccel();  // Read every 4th time.
+      if ((subCycle % 4)  == 1) readAccel();  // 100/sec
+      if ((subCycle % 16) == 3) readCompass();   // 25/sec
       aTp6(); 
       sendTp6Status();
-      magTickCorrection();
+      setHeading();
       safeAngle();
       switches();
-//      checkMotor6Right();
-//      checkMotor6Left();
       checkMotorRight();
       checkMotorLeft();
 //    checkDrift();
 //      log6();
-      timeTrigger +=  2500; // 400/sec
     } // end timed loop
   }
 }
@@ -63,7 +63,7 @@ void aTp6() {
 //  getAngle();
   readSpeed();
   // compute the Center of Oscillation Speed (COS)
-  tp6Rotation = (*currentValSet).t * gyroPitchDelta; // 3.6
+  tp6Rotation = (*currentValSet).t * (-gyroPitchDelta); // 3.6
   tp6Cos = wheelSpeedFps + tp6Rotation; // subtract rotation 
   tp5LpfCos = tp6LpfCos = (tp6LpfCosOld * (1.0 - (*currentValSet).u))  + (tp6Cos  * (*currentValSet).u); // smooth it out a little (0.2)
 //  tp6LpfCos = (tp6LpfCosOld * (1.0 - 0.05)) + (tp6Cos * 0.05); // smooth it out a little (0.2)
@@ -76,11 +76,11 @@ void aTp6() {
   float tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
 
   // compute a weighted angle to eventually correct the speed error
-  tp6TargetAngle = tp6SpeedError * (*currentValSet).v; //************ Speed error to angle *******************
+  tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
 //  float tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
   
   // Compute angle error and weight factor
-  tp6AngleError = gaPitch - tp6TargetAngle;  //** 2
+  tp6AngleError = tp6TargetAngle - gaPitch;  //** 2
   fpsCorrection = tp6AngleError * (*currentValSet).w; //******************* Angle error to speed *******************
 //  speedCorrection = tp6AngleError * 0.18; //******************* Angle error to speed *******************
 //  fpsLpfCorrection = (fpsLpfCorrectionOld * (1.0f - 0.1))  + (speedCorrection * 0.1);
@@ -98,11 +98,11 @@ void aTp6() {
 
 
 /***********************************************************************.
- *  sendTp6Status() 
+ *  sendTp6Status() Called 400 time/sec.
  ***********************************************************************/
 void sendTp6Status() {
   static unsigned int loopc = 0;
-  loopc = ++loopc % 40;
+  loopc = ++loopc % 40; // 10/sec loop.
   if (isDumpingData) {
     if ((loopc == 0) || (loopc == 4))  dumpData();
   }
@@ -110,24 +110,32 @@ void sendTp6Status() {
   else if (loopc == 10) {
 	sendStatusFrame(XBEE_PC);
   }
-  else if (loopc == 20) { // debugging print statements
-//    Serial.print(gyroPitch);
+  else if (loopc == 20) { // debugging print statements 10/sec
+//    Serial.print(magHeading * 10); Serial.print("\t");
+//    Serial.print(magCumHeading * 10); Serial.print("\t");
+//    Serial.print(gyroHeading * RAD_TO_DEG); Serial.print("\t");
+//    Serial.print(tickHeading * RAD_TO_DEG); Serial.print("\t");
 //    Serial.print("\t");
-//    Serial.print(accelPitchAngle);
+//    Serial.print(accelPitch);
 //    Serial.print("\t");
-//    Serial.println();
-  }
-  else if (loopc == 30) {
-    readSonar();
-  }
+    Serial.println();
   addLog(
           (long) (timeMicroseconds),
-          (short) (tp6Rotation * 100.0),
-          (short) (gaPitch * 100.0),
-          (short) (accelPitch * 100.0),
-          (short) (gyroPitch * 100.0),
-          (short) (tp6TargetAngle * 100.0),
-          (short) (fpsLpfCorrection * 100.0));
+          (short) (magHeading * 10.0),
+          (short) (magCumHeading * 10.0),
+          (short) (tickHeading * 10.0 * RAD_TO_DEG),
+          (short) 0,
+          (short) 0,
+          (short) 0);
+  }
+//  addLog(
+//          (long) (timeMicroseconds),
+//          (short) (tickPositionRight),
+//          (short) (tickPositionLeft),
+//          (short) (gaPitch * 100.0),
+//          (short) (aPitch * 100.0),
+//          (short) (gPitch * 100.0),
+//          (short) (fpsLpfCorrection * 100.0));
 }
 
 

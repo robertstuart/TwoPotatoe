@@ -27,7 +27,6 @@ void readXBee() {
   
   while (XBEE_SER.available() > 0) {
     byte b = XBEE_SER.read();
-xBeeCount++;    
     // Fix escape sequences
     if (packetInProgress != PACKET_DELIM) {
       if (escState) {
@@ -189,6 +188,9 @@ void doMessage(int type, int val) {
   switch (type) {
   case TP_RCV_MSG_MODE:
     mode = val;
+    break;
+  case TP_RCV_MSG_M_MODE:
+    motorMode = val;
     break;
   case TP_RCV_MSG_VALSET:
     // not implemented

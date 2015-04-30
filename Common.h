@@ -15,6 +15,10 @@ const int MODE_TP6            = 9;
 const int MODE_TP7            = 10;
 const int BLOCK_DATA          = 100; 
 
+// Motor Modes
+const int MM_DRIVE_BRAKE = 0;
+const int MM_DRIVE_COAST = 1;
+
 // Status bits in the tpState byte
 const int TP_STATE_RUNNING         = 0B00000001;  // Motor running: is READY, UPRIGHT & ONGROUND
 const int TP_STATE_RUN_READY       = 0B00000010;  // Ready.  Reflects the RUN command.
@@ -43,11 +47,11 @@ const int XBEE_BROADCAST =   0xFFFF;
 const int TP_SEND_FLAG =             0;  // 1-byte, Flag and packet type
 const int TP_SEND_VALUE =            1;  // 2-byte, value
 const int TP_SEND_SONAR =            3;  // Sonar distance
-const int TP_SEND_YAW =              5;  // Yaw/Bearing
+const int TP_SEND_HEADING =          5;  // Yaw/Bearing
 const int TP_SEND_END =              7;  // offset after last value	
 	
 	// Flag byte in TP_SEND_XXX
-const int TP_SEND_FLAG_ANGLE =      0;  // 1-byte, Flag and packet type
+const int TP_SEND_FLAG_PITCH =      0;  // 1-byte, Flag and packet type
 const int TP_SEND_FLAG_SPEED =      1;  
 const int TP_SEND_FLAG_MODE =       2; 
 const int TP_SEND_FLAG_STATE =      3;
@@ -75,6 +79,7 @@ const int TP_RCV_MSG_Z_VAL =       7;  //
 const int TP_RCV_MSG_BLUE =        8;  // 
 const int TP_RCV_MSG_HOME =        9;  // 
 const int TP_RCV_MSG_LIGHTS =     10;  // 1st 3 bits of val
+const int TP_RCV_MSG_M_MODE =     11;    
 const int TP_RCV_MSG_ROTATE =     14;    
 const int TP_RCV_MSG_START_PW =   15;  // Run loaded pulse sequence.
 const int TP_RCV_MSG_RESET =      16;  // 

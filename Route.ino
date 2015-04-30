@@ -30,7 +30,19 @@
 //    break; 
 //  }  
 //}
-//
+
+
+
+/************************************************************************
+ *  getOrientation() Return the integer orientation to target given current 
+ *                   location and destination location. 
+ ************************************************************************/
+float getOrientation(float x, float y, float targetX, float targetY)  {
+  return(atan2(targetY - y, targetX - x));
+}
+
+
+
 //
 ///************************************************************************
 // *  routeReset() do it here rather than in switch just to break it out.
@@ -72,11 +84,11 @@
 //  rotationRate = constrain(rotationRate, -2.0f, 2.0f);
 //  return rotationRate;
 //}
-//
-///************************************************************************
-// *  Route() Check if target is reached and need to move to next action.
-// ************************************************************************/
-//void route() {
+
+/************************************************************************
+ *  Route() Check if target is reached and need to move to next action.
+ ************************************************************************/
+void route() {
 //  float tbd;
 //  if (!isRouteInProgress) return;
 //  boolean isNewAction = false;
@@ -117,10 +129,10 @@
 //  if (isNewAction) { // Move to next action in list.  
 //    setNewRouteAction();
 //  }
-//}
-//
-//
-//
+}
+
+
+
 ///************************************************************************
 // *  setNewRouteAction() Start the next action in the route
 // ************************************************************************/
@@ -178,7 +190,7 @@
 //  }
 //  routeActionPtr++;
 //}
-//
-//
-//
+
+
+
 

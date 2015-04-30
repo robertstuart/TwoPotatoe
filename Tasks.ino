@@ -50,16 +50,17 @@ int blinkPtrRed = 0;
  *
  **************************************************************************/
 void commonTasks() {
+  timeMicroseconds = micros();
+  timeMilliseconds = timeMicroseconds / 1000;
   readXBee();  // Read commands from PC or Hand Controller
 //  readBluetooth();
 //  motorIdle();
   led();
   battery();
   controllerConnected();
-  gravity();
+  onGround();
   setRunningState();
-  timeMicroseconds = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
+  sonar();
 }
 
 
@@ -86,7 +87,10 @@ void setRunningState() {
     if (     isStateBit(TP_STATE_RUN_READY)
              && isStateBit(TP_STATE_UPRIGHT)
              && (isStateBit(TP_STATE_ON_GROUND) || isJump)) {
-      setStateBit(TP_STATE_RUNNING, true);
+      if (!isStateBit(TP_STATE_RUNNING)) {
+        setStateBit(TP_STATE_RUNNING, true);
+        zeroTickHeading();
+      }
     }
     else {
       setStateBit(TP_STATE_RUNNING, false);
@@ -171,7 +175,7 @@ void safeAngle() {
 
 
 /**************************************************************************.
- * gravity() set  TP_STATE_ON_GROUND & isAirRunning states
+ * onGround() set  TP_STATE_ON_GROUND & isAirRunning states
  *
  *      The TP_STATE_ON_GROUND bit is set whenever both wheels show a force
  *      greater than the threshold.  Whenever the force on either wheels 
@@ -179,15 +183,18 @@ void safeAngle() {
  *      isJump is set to true.  After 0.3 seconds in the "off-ground"
  *      isJump is set to false.
  **************************************************************************/
-void gravity() {
+void onGround() {
   int groundTime = 0;
   forceLeft = analogRead(L_FORCE_PIN);
   forceRight = analogRead(R_FORCE_PIN);
-  boolean isOnGround = (forceLeft < 700) && (forceRight < 900);
+  isOnGround = (forceLeft < 700) && (forceRight < 700);
   if (isOnGround) {
-    setStateBit(TP_STATE_ON_GROUND, true);
-    isJump = false;
-    groundTime = timeMilliseconds;
+    if (!isStateBit(TP_STATE_ON_GROUND))  {
+      setStateBit(TP_STATE_ON_GROUND, true);
+      isJump = false;
+      groundTime = timeMilliseconds;
+      zeroTickHeading();
+    }
   }
   else { // in air
     setStateBit(TP_STATE_ON_GROUND, false);
@@ -339,11 +346,16 @@ void switches() {
 }
 
 /**************************************************************************.
- * readSonar()
+ * sonar()
  **************************************************************************/
-void readSonar() {
-  sonarDist = analogRead(SONAR_PIN);
+void sonar() {
+  static unsigned long sonarTrigger = 0;
+  if (timeMilliseconds > sonarTrigger) {
+    sonarTrigger = timeMilliseconds + 60UL;
+    sonarRight = analogRead(SONAR_RIGHT_AN);
+  }
 }
+
 
 /**************************************************************************.
  *  addLog() Put values in the dump arrays.

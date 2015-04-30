@@ -175,7 +175,7 @@ void fixHeading(float hheading, float target, float fps) {
   speedAdjustment = constrain(aDiff * 0.02, -1.0, 1.0);
   tp5FpsLeft = tp6FpsLeft = fps + speedAdjustment;
   tp5FpsRight = tp6FpsRight = fps - speedAdjustment;
-  magTickCorrection();
+//  magTickCorrection();
   
 //  addLog((long) (tpState),
 //       (short) (tickHeading * 10.0),
@@ -187,14 +187,4 @@ void fixHeading(float hheading, float target, float fps) {
 
 }
 
-
-/************************************************************************
- *  magTickCorrection() Uses wheel ticks.  Called every timed loop (10 millisec.)
- ************************************************************************/
-void magTickCorrection() {
-  float diff = magHeading - tickHeading;
-  if (abs(diff < 360)) {
-    //    magCorrection += diff * 0.1;
-  }
-}
 

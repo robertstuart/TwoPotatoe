@@ -2,8 +2,12 @@
 
 #include <stdlib.h>
 #include "Common.h"
+#include "pwm01.h"
 #include <DueTimer.h>
-#include "C:\Program Files (x86)\Arduino\hardware\arduino\sam\libraries\Pwm01\pwm01.h"
+#include <Wire.h>
+#include <L3G.h>
+#include <LSM303.h>
+//#include "C:\Program Files (x86)\Arduino\hardware\arduino\sam\libraries\Pwm01\pwm01.h"
 
 #define XBEE_SER Serial3
 //#define BLUE_SER Serial1
@@ -17,10 +21,10 @@ const int MOT_LEFT_ENCB =   25;
 const int MOT_RIGHT_ENCZ =  26; 
 const int MOT_LEFT_ENCZ =   27; 
 
-const int MOT_RIGHT_PWML =  50;   
-const int MOT_LEFT_PWML =   51; 
-const int MOT_RIGHT_DIR =   48;   
-const int MOT_LEFT_DIR =    49; 
+const int MOT_RIGHT_MODE =  50;   
+const int MOT_LEFT_MODE =   51; 
+const int MOT_RIGHT_DIR =    4;   
+const int MOT_LEFT_DIR =     5 ; 
 const int MOT_RIGHT_PWMH =   6; 
 const int MOT_LEFT_PWMH =    7;  
 
@@ -43,7 +47,7 @@ const unsigned int TP_PWM_FREQUENCY = 10000;
 #define RIGHT_HL_PIN 10 // headlamp
 #define LEFT_HL_PIN 9 // headlamp
 #define REAR_BL_PIN 8 // rear lamp
-//#define GREEN_LED_PIN 28 // LED in switch
+#define GREEN_LED_PIN 38 // LED in switch
 
 #define BU_SW_PIN 29 // Blue switch
 #define YE_SW_PIN 34 // Yellow switch
@@ -56,7 +60,13 @@ const unsigned int TP_PWM_FREQUENCY = 10000;
 #define L_FORCE_PIN A2             // Force sensor
 #define R_CURRENT_PIN A3             // Right motor current
 #define L_CURRENT_PIN A4             // Left motor current
-#define SONAR_PIN A8
+
+#define SONAR_RIGHT_AN A3
+#define SONAR_FRONT_AN A4
+#define SONAR_LEFT_AN A5
+#define SONAR_RIGHT_RX 41
+#define SONAR_FRONT_RX 43
+#define SONAR_LEFT_RX 45
 
 //Encoder factor
 //const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
@@ -71,8 +81,8 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
 
-#define TICKS_PER_360_YAW 3030
-#define TICKS_PER_180_YAW 1515
+#define TICKS_PER_CIRCLE_YAW  10350.0
+#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
 #define TICKS_PER_YAW_DEGREE 8.4166
 #define TICKS_PER_PITCH_DEGREE 20.0
 //#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
@@ -96,6 +106,7 @@ boolean isDumpingData = false;
 boolean isSerialEmpty = true;
 
 unsigned int mode = MODE_TP6;
+boolean motorMode = MM_DRIVE_BRAKE;  // Can also be MM_DRIVE_COAST
 //unsigned int mode = MODE_TP_SPEED;
 unsigned int oldMode = MODE_TP5;  // Used by PULSE_SEQUENCE
 
@@ -159,13 +170,13 @@ valSet tp6 = {
   0.18,    // w
   0.05,    // x
   45.0,   // y
-  3.3}; // z accelerometer offset
+  -4.25}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
 
 int bbb = 42;
-
+boolean isOnGround = false;
 // Route
 // TODO do this with an array of structures
 byte actionArray[100];
@@ -179,12 +190,31 @@ float routeTargetHeading = 0.0;
 long routeTargettickPosition = 0L;
 long routeTargetTime = 0L;
 
+float xVec, yVec, zVec;
 
-int16_t aPitch, aRoll, aPitchRoll;
-int16_t gPitch, gRoll, gYaw;
-int16_t mPitch, mRoll, mYaw;
+float gaPitch = 0.0;
+float gaRoll = 0.0;
+
+float aPitch = 0.0;
+float aRoll = 0.0;
+
+float gPitch = 0.0;
+float gRoll = 0.0;
+float gYaw = 0.0;
+
 float headX, headY;
-float magHeading;
+
+int16_t mX, mY, mZ;
+
+float magHeading = 0.0; // In degrees.
+float magCumHeading = 0.0;
+float magRotations = 0.0;
+float gyroHeading = 0.0; // In radians.
+float tickHeading = 0.0; // In radians.
+int tickHeadingOffset = 0;
+float currentHeading = 0.0;
+float currentX = 0.0;
+float currentY = 0.0;
 
 // Speed and position variables
 long tickPositionRight = 0L;
@@ -210,11 +240,8 @@ float fpsRight = 0.0f; // right feet per second
 float fpsLeft = 0.0f;  // left feet per second
 float wheelSpeedFps = 0.0f;
 int mWheelSpeedFps = 0;
-float tickHeading = 0.0;
-long tickMagCorrection = 0L;
 
-
-unsigned long timeTrigger = 0L;
+unsigned long gyroTrigger = 0L;
 unsigned long statusTrigger = 0L;
 unsigned long oldTimeTrigger = 0L;
 unsigned long timeMicroseconds = 0L; // Set in main loop.  Used by several routines.
@@ -226,7 +253,9 @@ int cmdState = 0;  // READY, PWR, & HOME command bits
 
 unsigned int forceRight = 0; // force sensor value
 unsigned int forceLeft = 0; // force sensor value
-unsigned int sonarDist = 0;
+unsigned int sonarRight = 0;
+unsigned int sonarFront = 0;
+unsigned int sonarLeft = 0;
 
 unsigned int actualLoopTime; // Time since the last
 float controllerX = 0.0; // +1.0 to -1.0 from controller
@@ -240,9 +269,6 @@ int driftCount;
 int driftPitch = 0;
 int driftRoll = 0;
 int driftYaw = 0;
-float accelPitch = 0.0;  // Vertical plane parallel to wheels
-float accelPitchComp = 0.0;  // Vertical plane parallel to wheels, acceleration compensated
-float gaPitch = 0.0f;
 float oldGaPitch = 0.0;
 float gyroPitchDelta = 0.0;
 float gyroPitch = 0.0; // not needed
@@ -251,7 +277,6 @@ int gyroRollRaw = 0;
 float gyroRollRate;
 float gyroRoll = 0.0f;
 float accelRoll = 0.0f;
-float gaRoll = 0.0f;
 
 float gyroYawRaw = 0.0f;
 float gyroYawRate = 0.0f;
@@ -396,7 +421,16 @@ void setup() {
   pinMode(SPEAKER_PIN, OUTPUT);
   
   pinMode(BATT_PIN, INPUT);
-  pinMode(SONAR_PIN, INPUT);
+  
+  pinMode(SONAR_RIGHT_AN, INPUT);
+  pinMode(SONAR_FRONT_AN, INPUT);
+  pinMode(SONAR_LEFT_AN, INPUT);
+  pinMode(SONAR_RIGHT_RX, OUTPUT);
+  pinMode(SONAR_FRONT_RX, OUTPUT);
+  pinMode(SONAR_LEFT_RX, OUTPUT);
+  digitalWrite(SONAR_RIGHT_RX,HIGH);
+  digitalWrite(SONAR_FRONT_RX,HIGH);
+  digitalWrite(SONAR_LEFT_RX,HIGH);
   
   pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
@@ -413,7 +447,7 @@ void setup() {
 
 //  if (digitalRead(RE_SW_PIN)) mode = MODE_TP5;
 //  else mode = MODE_TP6;
-  timeTrigger = micros();
+  gyroTrigger = micros();
   beep(BEEP_UP);
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
@@ -480,6 +514,7 @@ void aPwmSpeed() {
     if (timeMicroseconds > pwmTrigger) {
       int action = FWD;
       pwmTrigger = timeMicroseconds + 100000; // 10/sec
+      motorMode = vVal;
       if (tVal > 0) action = FWD;
       else action = BKWD;
       setMotor(MOTOR_RIGHT, action, abs(tVal));
@@ -525,12 +560,13 @@ void aTpSpeed() {
       tpTrigger = timeMicroseconds + 2500; // 400/sec
       targetMFpsRight = tVal; // 
       targetMFpsLeft = uVal; // 
+      motorMode = vVal;
       readSpeedRight();      
       readSpeedLeft();      
 //      checkMotorRight();
 //      checkMotorLeft();
       loopCount = ++loopCount % 40; // 1/sec
-      if (!loopCount) {
+      if (loopCount == 0) {
         mWheelSpeedFps = mFpsRight;
 //        mWheelSpeedFps = mFpsLeft;
         sendStatusFrame(XBEE_PC);  // Send status message to controller.

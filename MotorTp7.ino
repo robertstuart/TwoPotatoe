@@ -3,9 +3,9 @@
 //#define H_POLL_P 50 // Half the poll period. e.g. 50 = 100 poll period
 //
 ///**************************************************************************.
-// *  motorInitTp6() 
+// *  motorInitTp7() 
 // **************************************************************************/
-//void motorInitTp6() {
+//void motorInitTp7() {
 //    // Initialize the pwm frequency
 //  pwm_set_resolution(16);  
 //  pwm_setup(MOT_RIGHT_PWMH, TP_PWM_FREQUENCY, 1);  // on clock A
@@ -32,14 +32,14 @@
 //  targetMFpsRight = 0;
 //  targetMFpsLeft = 0;
 //  
-//  attachInterrupt(MOT_RIGHT_ENCA, encoderIsr6Right, CHANGE);
-//  attachInterrupt(MOT_LEFT_ENCA, encoderIsr6Left, CHANGE);
-////  Timer0.attachInterrupt(pollIsr6);
+//  attachInterrupt(MOT_RIGHT_ENCA, encoderIsr7Right, CHANGE);
+//  attachInterrupt(MOT_LEFT_ENCA, encoderIsr7Left, CHANGE);
+////  Timer0.attachInterrupt(pollIsr7);
 ////  Timer0.start(H_POLL_P * 2);
 ////  Timer1.attachInterrupt(timerIsrLeft);
 //}
 //
-////void pollIsr6() {
+////void pollIsr7() {
 ////  int t = micros();
 ////  if ((stopTimeRight < t) && motorStateRight) {
 ////    g_APinDescription[MOT_RIGHT_PWMH].pPort -> PIO_CODR = g_APinDescription[MOT_RIGHT_PWMH].ulPin; // LOW
@@ -61,13 +61,13 @@
 //
 ///**************************************************************************.
 // *
-// * encoderIsr6Right()
+// * encoderIsr7Right()
 // *
 // *    Responds to interrupts from the encoder.
 // *    Controls the motor directly from this isr.
 // *
 // ***************************************************************************/
-//void encoderIsr6Right() {
+//void encoderIsr7Right() {
 //  boolean encAStat;
 //  int pw = 0;
 //  int signPw = 0;
@@ -141,13 +141,13 @@
 ////       (short) (signPw), 
 ////       (short) (0),
 ////       (short) (0));
-//} // encoderIsr6Right()
+//} // encoderIsr7Right()
 //
 //
 ///**************************************************************************.
 // *  encoderIsrLeft() 
 // **************************************************************************/
-//void encoderIsr6Left() {
+//void encoderIsr7Left() {
 //  boolean encAStat;
 //  int pw = 0;
 //  boolean encA = (!!(g_APinDescription[MOT_LEFT_ENCA].pPort -> PIO_PDSR & g_APinDescription[MOT_LEFT_ENCA].ulPin)) ? true : false;
@@ -204,7 +204,7 @@
 //      startTimeLeft = tickTimeLeft;
 //      stopTimeLeft = tickTimeLeft + pw - H_POLL_P;
 //  }
-//} // end encoderIsr6Left();
+//} // end encoderIsr7Left();
 //
 ///**************************************************************************.
 // *  timerIsrXXXX() 
@@ -236,7 +236,7 @@
 // *    Starts the motor if idle
 // *
 // **************************************************************************/
-//void checkMotor6Right() {
+//void checkMotor7Right() {
 //  unsigned int t = micros();
 //  unsigned int cTickPeriod = t - tickTimeRight;
 //  if (cTickPeriod < 5000) return;
@@ -266,7 +266,7 @@
 ///**************************************************************************.
 // *  checkMotorLeft() 
 // **************************************************************************/
-//void checkMotor6Left() {
+//void checkMotor7Left() {
 //  unsigned int t = micros();
 //  int cTickPeriod = t - tickTimeLeft;
 //  if (cTickPeriod < 5000) return;

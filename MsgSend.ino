@@ -18,7 +18,7 @@ void sendStatusFrame(int destId) {
     mainCycle = ++mainCycle % 3;
     switch (mainCycle) {
       case 0: 
-        flag = TP_SEND_FLAG_ANGLE;
+        flag = TP_SEND_FLAG_PITCH;
         val = (float) (gaPitch * 100.0);
         break;
       case 1:
@@ -53,7 +53,8 @@ void sendStatusFrame(int destId) {
     }
     sendArray[TP_SEND_FLAG] = flag;
     set2Byte(sendArray, TP_SEND_VALUE, val);
-    set2Byte(sendArray, TP_SEND_SONAR, analogRead(SONAR_PIN));
+    set2Byte(sendArray, TP_SEND_SONAR, sonarRight);
+    set2Byte(sendArray, TP_SEND_HEADING, (int) (currentHeading * RAD_TO_DEG));
 //    if (destId == BLUETOOTH) sendBlueFrame();
     sendFrame(destId, TP_SEND_END);
   }

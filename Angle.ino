@@ -1,18 +1,13 @@
 //________ Pololu MinIMU-9 v3 --------
-#include <Wire.h>
-#include <L3G.h>
-#include <LSM303.h>
 
-L3G gyro;
-LSM303 compass;
 
 // These are min/max for complete sphere
-const int rollMin = -692;
-const int rollMax = 430;
-const int pitchMin = -782;
-const int pitchMax = 439;
-const int yawMin = -628;
-const int yawMax = 403;
+//const int rollMin = -692;
+//const int rollMax = 430;
+//const int pitchMin = -782;
+//const int pitchMax = 439;
+//const int yawMin = -628;
+//const int yawMax = 403;
 
 
 float mPitchVec, mRollVec, mYawVec;
@@ -76,24 +71,24 @@ void angleInit() {
  * getCompass()  Heading with tilt compensation.
  *********************************************************/
 void getCompass() {
-  // Scale for hard-iron effects
-  mPitchVec = ((((float) (mPitch - pitchMin)) / ((float) (pitchMax - pitchMin))) * 2.0) - 1.0;
-  mRollVec = ((((float) (mRoll - rollMin)) / ((float) (rollMax - rollMin))) * 2.0) - 1.0;
-  mYawVec = ((((float) (mYaw - yawMin)) / ((float) (yawMax - yawMin))) * 2.0) - 1.0;
-
-  // TODO redo this to increase efficiency.
-  // TODO add roll calculations for uneven terrain
-  //  float cosRoll = cos(DEG_TO_RAD * gaRollAngle);
-  //  float sinRoll = 1.0 - (cosRoll * cosRoll);
-  //  float cosPitch = cos(DEG_TO_RAD * gaPitchAngle);
-  //  float sinPitch = 1.0 - (cosPitch * cosPitch);
-
-  headX = (mRollVec * 1.0) + (mPitchVec * sin(DEG_TO_RAD * gaPitch) * 0.0) + (mYawVec * cos(DEG_TO_RAD * gaPitch) * 0.0);
-  headY = (mPitchVec * cos(DEG_TO_RAD * gaPitch)) - (mYawVec * sin(DEG_TO_RAD * gaPitch));
-
-  // magnetic heading
-  magHeading = atan2(headX, -headY) * RAD_TO_DEG;
-  if (magHeading < 0) magHeading += 360.0;
+//  // Scale for hard-iron effects
+//  mPitchVec = ((((float) (mPitch - pitchMin)) / ((float) (pitchMax - pitchMin))) * 2.0) - 1.0;
+//  mRollVec = ((((float) (mRoll - rollMin)) / ((float) (rollMax - rollMin))) * 2.0) - 1.0;
+//  mYawVec = ((((float) (mYaw - yawMin)) / ((float) (yawMax - yawMin))) * 2.0) - 1.0;
+//
+//  // TODO redo this to increase efficiency.
+//  // TODO add roll calculations for uneven terrain
+//  //  float cosRoll = cos(DEG_TO_RAD * gaRollAngle);
+//  //  float sinRoll = 1.0 - (cosRoll * cosRoll);
+//  //  float cosPitch = cos(DEG_TO_RAD * gaPitchAngle);
+//  //  float sinPitch = 1.0 - (cosPitch * cosPitch);
+//
+//  headX = (mRollVec * 1.0) + (mPitchVec * sin(DEG_TO_RAD * gaPitch) * 0.0) + (mYawVec * cos(DEG_TO_RAD * gaPitch) * 0.0);
+//  headY = (mPitchVec * cos(DEG_TO_RAD * gaPitch)) - (mYawVec * sin(DEG_TO_RAD * gaPitch));
+//
+//  // magnetic heading
+//  magHeading = atan2(headX, -headY) * RAD_TO_DEG;
+//  if (magHeading < 0) magHeading += 360.0;
 }
 
 /* tilt-compensated e-Compass code */
@@ -180,43 +175,43 @@ void razorCompass() {
  *     from http://diydrones.com/forum/topics/heading-from-3d-magnetometer
  *
  *********************************************************/
-float mag_x, mag_y, mag_z;
-float _declination = 0.0;
-float heading_x, heading_y;
-void apCompass(float roll, float pitch) {
-  float headX;
-  float headY;
-  float cos_roll;
-  float sin_roll;
-  float cos_pitch;
-  float sin_pitch;
-
-  cos_roll = cos(roll);  // Optimizacion, se puede sacar esto de la matriz DCM?
-  sin_roll = 1  - (cos_roll * cos_roll);
-  cos_pitch = cos(pitch);
-  sin_pitch = 1  - (cos_pitch * cos_pitch);
-
-  // Tilt compensated magnetic field X component:
-  headX = (mag_x * cos_pitch) + (mag_y * sin_roll * sin_pitch) + (mag_z * cos_roll * sin_pitch);
-  // Tilt compensated magnetic field Y component:
-  headY = mag_y * cos_roll - mag_z * sin_roll;
-  // magnetic heading
-  magHeading = atan2(-headY, headX);
-
-  // Declination correction (if supplied)
-  if ( abs(_declination) > 0.0 )
-  {
-    magHeading = magHeading + _declination;
-    if (magHeading > M_PI)    // Angle normalization (-180 deg, 180 deg)
-      magHeading -= (2.0 * M_PI);
-    else if (magHeading < -M_PI)
-      magHeading += (2.0 * M_PI);
-  }
-
-  // Optimization for external DCM use. Calculate normalized components
-  heading_x = cos(magHeading);
-  heading_y = sin(magHeading);
-}
+//float mag_x, mag_y, mag_z;
+//float _declination = 0.0;
+//float heading_x, heading_y;
+//void apCompass(float roll, float pitch) {
+//  float headX;
+//  float headY;
+//  float cos_roll;
+//  float sin_roll;
+//  float cos_pitch;
+//  float sin_pitch;
+//
+//  cos_roll = cos(roll);  // Optimizacion, se puede sacar esto de la matriz DCM?
+//  sin_roll = 1  - (cos_roll * cos_roll);
+//  cos_pitch = cos(pitch);
+//  sin_pitch = 1  - (cos_pitch * cos_pitch);
+//
+//  // Tilt compensated magnetic field X component:
+//  headX = (mag_x * cos_pitch) + (mag_y * sin_roll * sin_pitch) + (mag_z * cos_roll * sin_pitch);
+//  // Tilt compensated magnetic field Y component:
+//  headY = mag_y * cos_roll - mag_z * sin_roll;
+//  // magnetic heading
+//  magHeading = atan2(-headY, headX);
+//
+//  // Declination correction (if supplied)
+//  if ( abs(_declination) > 0.0 )
+//  {
+//    magHeading = magHeading + _declination;
+//    if (magHeading > M_PI)    // Angle normalization (-180 deg, 180 deg)
+//      magHeading -= (2.0 * M_PI);
+//    else if (magHeading < -M_PI)
+//      magHeading += (2.0 * M_PI);
+//  }
+//
+//  // Optimization for external DCM use. Calculate normalized components
+//  heading_x = cos(magHeading);
+//  heading_y = sin(magHeading);
+//}
 
 ///*********************************************************
 // * readImu()
@@ -294,31 +289,31 @@ void apCompass(float roll, float pitch) {
 //  return false;
 //}
 
-
-/*********************************************************
- * readImu()
- * Read I2C from the MinMImu
- *********************************************************/
-boolean readImu() {  
-  unsigned long t = micros();
-  byte gyroStatus = gyro.readReg(0x27);
-  if ((gyroStatus & 0x08) != 0) {
-    gyro.read();
-    gPitch = -gyro.g.x;
-    gRoll = gyro.g.y;
-    gYaw = -gyro.g.z;
-    compass.readAcc();
-    aRoll = -((int) (compass.a.x));
-    aPitch = -((int) (compass.a.y));
-    aPitchRoll = (int) (compass.a.z);
-//    // check accelerometer after gyro read
-//    byte accelStatus = compass.readReg(LSM303::STATUS_A);
-//    if((accelStatus & 0x08) != 0) {
-//    }
-    return true;
-  }
-  return false;
-}
-
+//
+///*********************************************************
+// * readImu()
+// * Read I2C from the MinMImu
+// *********************************************************/
+//boolean readImu() {  
+//  unsigned long t = micros();
+//  byte gyroStatus = gyro.readReg(0x27);
+//  if ((gyroStatus & 0x08) != 0) {
+//    gyro.read();
+//    gPitch = -gyro.g.x;
+//    gRoll = gyro.g.y;
+//    gYaw = -gyro.g.z;
+//    compass.readAcc();
+//    aRoll = -((int) (compass.a.x));
+//    aPitch = -((int) (compass.a.y));
+//    aPitchRoll = (int) (compass.a.z);
+////    // check accelerometer after gyro read
+////    byte accelStatus = compass.readReg(LSM303::STATUS_A);
+////    if((accelStatus & 0x08) != 0) {
+////    }
+//    return true;
+//  }
+//  return false;
+//}
+//
 
 

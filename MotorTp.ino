@@ -15,9 +15,9 @@ void motorInitTp() {
   pwm_setup(MOT_LEFT_PWMH, TP_PWM_FREQUENCY, 1);  // on clock A
 
   // Set the pin modes
-  pinMode(MOT_RIGHT_PWML, OUTPUT);
+  pinMode(MOT_RIGHT_MODE, OUTPUT);
+  pinMode(MOT_LEFT_MODE, OUTPUT);
   pinMode(MOT_RIGHT_DIR, OUTPUT);
-  pinMode(MOT_LEFT_PWML, OUTPUT);
   pinMode(MOT_LEFT_DIR, OUTPUT);
 
   setMotor(MOTOR_RIGHT, BRAKE, 0);
@@ -348,14 +348,28 @@ void setTargetSpeedLeft(float targetSpeed) {
 }
 
 /*********************************************************
- *
+ * setMotorMode()
+ *********************************************************/
+ void setMotorMode(int mm) {
+   motorMode = mm;
+   if (mm == MM_DRIVE_BRAKE) {
+     g_APinDescription[MOT_RIGHT_MODE].pPort -> PIO_SODR = g_APinDescription[MOT_RIGHT_MODE].ulPin; // HIGHT
+     g_APinDescription[MOT_LEFT_MODE].pPort -> PIO_SODR = g_APinDescription[MOT_LEFT_MODE].ulPin; // HIGHT
+   }
+   else {
+     g_APinDescription[MOT_RIGHT_MODE].pPort -> PIO_CODR = g_APinDescription[MOT_RIGHT_MODE].ulPin;   // LOW
+     g_APinDescription[MOT_LEFT_MODE].pPort -> PIO_CODR = g_APinDescription[MOT_LEFT_MODE].ulPin;   // LOW
+   }
+
+ }
+ 
+ 
+ 
+/*********************************************************
  * setMotor()
- *
- *    Set the motor to the specified action.
- *
  *********************************************************/
 void setMotor(int motor, int action, int pw) {
-  int pinPwmL;
+  int pinMm;
   int pinDir;
   int pinPwmH;
   
@@ -366,15 +380,13 @@ void setMotor(int motor, int action, int pw) {
   pw = pw * 255; // Convert for new pwm control
   
   if (motor == MOTOR_RIGHT) {
-    pinPwmL = MOT_RIGHT_PWML;
+    pinMm = MOT_RIGHT_MODE;
     pinDir = MOT_RIGHT_DIR;
     pinPwmH = MOT_RIGHT_PWMH;
-//    if (action == FWD) action = BKWD;
-//    else if (action == BKWD) action = FWD;
     actionRight = action;
   }
   else {
-    pinPwmL = MOT_LEFT_PWML; // Reversed
+    pinMm = MOT_LEFT_MODE ;
     pinDir = MOT_LEFT_DIR;
     pinPwmH = MOT_LEFT_PWMH;
     actionLeft = action;
@@ -382,30 +394,30 @@ void setMotor(int motor, int action, int pw) {
   if ((mode == MODE_TP5) || (mode == MODE_TP6)) {
     if ((tpState & TP_STATE_RUNNING) == 0) action = BRAKE;
   }
+  if ((action == COAST) || (action == BRAKE)) {
+    pw = 0;
+  }
   
-  switch(action) {
-  case FWD:
-    g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGHT
-    g_APinDescription[pinDir].pPort -> PIO_SODR = g_APinDescription[pinDir].ulPin; // HIGH
-//    analogWrite(pinPwmH, pw);
-    pwm_write_duty(pinPwmH, pw);  // 50% duty cycle on Pin 6
-    break;
-  case BKWD:
-    g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGH
-    g_APinDescription[pinDir].pPort -> PIO_CODR = g_APinDescription[pinDir].ulPin;   // LOW
-//    analogWrite(pinPwmH, pw);
-     pwm_write_duty(pinPwmH, pw);  // 50% duty cycle on Pin 6
-     break;
-  case COAST:
-    g_APinDescription[pinPwmL].pPort -> PIO_CODR = g_APinDescription[pinPwmL].ulPin; // LOW
-//    analogWrite(pinPwmH, 0);
-     pwm_write_duty(pinPwmH, 0);  // 50% duty cycle on Pin 6
-     break;
-  case BRAKE:
-    g_APinDescription[pinPwmL].pPort -> PIO_SODR = g_APinDescription[pinPwmL].ulPin; // HIGH
-//    analogWrite(pinPwmH, 0);
-    pwm_write_duty(pinPwmH, 0);  // 50% duty cycle on Pin 6
-    break;
+  pwm_write_duty(pinPwmH, pw);  // 50% duty cycle on Pin 6
+  if ((action == FWD) || (action == BKWD)) { // Set the mode pin.
+    if (motorMode == MM_DRIVE_BRAKE) {
+      g_APinDescription[pinMm].pPort -> PIO_SODR = g_APinDescription[pinMm].ulPin; // HIGHT
+    }
+    else { // DRIVE_COAST
+      g_APinDescription[pinMm].pPort -> PIO_CODR = g_APinDescription[pinMm].ulPin;   // LOW
+    }
+    if (action == FWD) {
+      g_APinDescription[pinDir].pPort -> PIO_SODR = g_APinDescription[pinDir].ulPin; // HIGH
+    }
+    else {
+      g_APinDescription[pinDir].pPort -> PIO_CODR = g_APinDescription[pinDir].ulPin;   // LOW
+    }
+  }
+  else if (action == COAST) {
+    g_APinDescription[pinMm].pPort -> PIO_CODR = g_APinDescription[pinMm].ulPin; // LOW
+  }
+  else { // BRAKE
+    g_APinDescription[pinMm].pPort -> PIO_SODR = g_APinDescription[pinMm].ulPin; // HIGH
   }
 }
 //// example: digitalWriteDirect(10, HIGH)
