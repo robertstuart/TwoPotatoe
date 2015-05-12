@@ -184,7 +184,7 @@ void newPacket() {
  *********************************************************/
 void doMessage(int type, int val) {
   int bo;
- 
+Serial.print(type); Serial.print("\t");Serial.println(val);
   switch (type) {
   case TP_RCV_MSG_MODE:
     mode = val;
@@ -201,18 +201,17 @@ void doMessage(int type, int val) {
   case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
-    tickPositionRight = tickPositionLeft = tickPosition = 0L;
+    zeroHeadings();
     break;
   case TP_RCV_MSG_LIGHTS: // 
-    isLights = true; // don't allow access
     if (val != 0) {
-      analogWrite(RIGHT_HL_PIN, 255);
-      analogWrite(LEFT_HL_PIN, 255);
-      analogWrite(REAR_BL_PIN, 255);
+      digitalWrite(RIGHT_HL_PIN, HIGH);
+      digitalWrite(LEFT_HL_PIN, HIGH);
+      digitalWrite(REAR_TL_PIN, HIGH);
     } else {
-      analogWrite(RIGHT_HL_PIN, 0);
-      analogWrite(LEFT_HL_PIN, 0);
-      analogWrite(REAR_BL_PIN, 0);
+      digitalWrite(RIGHT_HL_PIN, 0);
+      digitalWrite(LEFT_HL_PIN, 0);
+      digitalWrite(REAR_TL_PIN, 0);
     }
     break;
   case TP_RCV_MSG_DSTART:
@@ -228,9 +227,20 @@ void doMessage(int type, int val) {
     mode = MODE_PULSE_SEQUENCE;
     if (val != 0) isPwData = true;
     break;
+  case TP_RCV_MSG_ROUTE:
+    if (val == 0) {
+      isRouteInProgress = false;
+    }
+    else {
+      isRouteInProgress = true;
+      setNewRouteAction(true);
+    }
+    break;
+  case TP_RCV_MSG_ROUTE_ES:
+    isEsReceived = true;
+    break;
   case TP_RCV_MSG_T_VAL:
     tVal = val;
-// Serial.println(tVal);
     (*currentValSet).t = ((float) val) / 1000.0;
     break;
   case TP_RCV_MSG_U_VAL:

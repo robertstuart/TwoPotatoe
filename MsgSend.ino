@@ -53,8 +53,8 @@ void sendStatusFrame(int destId) {
     }
     sendArray[TP_SEND_FLAG] = flag;
     set2Byte(sendArray, TP_SEND_VALUE, val);
-    set2Byte(sendArray, TP_SEND_SONAR, sonarRight);
-    set2Byte(sendArray, TP_SEND_HEADING, (int) (currentHeading * RAD_TO_DEG));
+    set2Byte(sendArray, TP_SEND_SONAR, (int) (sonarRight * 10.0));
+    set2Byte(sendArray, TP_SEND_HEADING, (int) magHeading);
 //    if (destId == BLUETOOTH) sendBlueFrame();
     sendFrame(destId, TP_SEND_END);
   }

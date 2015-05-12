@@ -1,16 +1,13 @@
 /* ---------------------- TwoPotatoe ----------------------- */
 
-#include <stdlib.h>
 #include "Common.h"
 #include "pwm01.h"
 #include <DueTimer.h>
 #include <Wire.h>
 #include <L3G.h>
 #include <LSM303.h>
-//#include "C:\Program Files (x86)\Arduino\hardware\arduino\sam\libraries\Pwm01\pwm01.h"
-
 #define XBEE_SER Serial3
-//#define BLUE_SER Serial1
+#define BLUE_SER Serial1
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
@@ -46,7 +43,7 @@ const unsigned int TP_PWM_FREQUENCY = 10000;
 #define RED_LED_PIN 11 // LED in switch
 #define RIGHT_HL_PIN 10 // headlamp
 #define LEFT_HL_PIN 9 // headlamp
-#define REAR_BL_PIN 8 // rear lamp
+#define REAR_TL_PIN 8 // rear lamp
 #define GREEN_LED_PIN 38 // LED in switch
 
 #define BU_SW_PIN 29 // Blue switch
@@ -81,9 +78,11 @@ const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
 
+#define TICKS_PER_FOOT 2500.0D
+//#define TICKS_PER_FOOT 1536.0D
 #define TICKS_PER_CIRCLE_YAW  10350.0
-#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
-#define TICKS_PER_YAW_DEGREE 8.4166
+//#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
+#define TICKS_PER_DEGREE_YAW (TICKS_PER_CIRCLE_YAW / 360.0)
 #define TICKS_PER_PITCH_DEGREE 20.0
 //#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
 #define GYRO_SENS 0.0091     // Multiplier to get degree. -0.075/8?
@@ -125,7 +124,7 @@ byte BLINK_FF[] = {1,0,END_MARKER};              // Fast flash
 byte BLINK_SB[] = {1,1,1,1,0,0,0,0,END_MARKER};  // Slow blink
 byte BLINK_ON[] = {1,END_MARKER};                // On
 
-typedef struct {
+struct valSet {
   float t;
   float u;
   float v;
@@ -133,10 +132,9 @@ typedef struct {
   float x;
   float y;
   float z;
-} 
-valSet;
+};
 
-valSet tp4A = { 
+struct valSet tp4A = { 
   0.5,    // t 
   0.0,    // u 
   0.7,    // v
@@ -145,7 +143,7 @@ valSet tp4A = {
   0.18,   // Y 
   3.3};   // z 
 
-valSet tp4B = { 
+struct valSet tp4B = { 
   0.5,    // t 
   0.0,    // u 
  1.13,    // v 
@@ -154,7 +152,7 @@ valSet tp4B = {
   0.15,   // Y 
   3.3}; // z 
 
-valSet tp4C = { 
+struct valSet tp4C = { 
   0.5,    // t 
   0.0,    // u 
  1.13,    // v 
@@ -163,32 +161,50 @@ valSet tp4C = {
   0.15,   // Y 
   3.3}; // z 
 
-valSet tp6 = { 
+struct valSet tp6 = { 
   4.8,    // t
   0.1,    // u
   2.0,    // v
   0.18,    // w
   0.05,    // x
   45.0,   // y
-  -4.25}; // z accelerometer offset
+  -3.15}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
-
 int bbb = 42;
 boolean isOnGround = false;
-// Route
-// TODO do this with an array of structures
-byte actionArray[100];
-int aValArray[100];
-int bValArray[100];
+ 
+
+struct loc {
+  double x;
+  double y;
+};
+
+struct loc routeCurrentLoc;
+struct loc routeTargetLoc;
+struct routeStep {
+  char cmd;
+  float a;
+  float b;
+  float c;
+  float d;
+};
+
 int routeActionPtr = 0;
-int routeActionSize = 0;
 boolean isRouteInProgress = false;
-int routeCurrentAction = 0;
-float routeTargetHeading = 0.0;
-long routeTargettickPosition = 0L;
-long routeTargetTime = 0L;
+char routeCurrentAction = 0;
+float routeTargetBearing = 0.0;
+long routeTargetTickPosition = 0L;
+float routeFps = 0.0;
+float routeRadius = 0.0;
+int routeWaitTime = 0L;
+boolean isEsReceived = false;
+boolean isRouteTargetIncreasing = false;
+float routeTargetXY = 0.0;
+float mapOrientation = 0.0;
+long routeOldTickPosition = 0L;
+float routeHeading = 0.0;
 
 float xVec, yVec, zVec;
 
@@ -200,7 +216,11 @@ float aRoll = 0.0;
 
 float gPitch = 0.0;
 float gRoll = 0.0;
-float gYaw = 0.0;
+float gyroCumHeading = 0.0;
+float gyroHeading = 0;
+
+float oldGyroCumHeading = 0.0;
+float oldTickCumHeading = 0.0;
 
 float headX, headY;
 
@@ -209,10 +229,13 @@ int16_t mX, mY, mZ;
 float magHeading = 0.0; // In degrees.
 float magCumHeading = 0.0;
 float magRotations = 0.0;
-float gyroHeading = 0.0; // In radians.
-float tickHeading = 0.0; // In radians.
+float tickHeading = 0.0; // In degrees.
+float tickCumHeading = 0.0; // In degrees.
 int tickHeadingOffset = 0;
-float currentHeading = 0.0;
+float tmHeading = 0.0;
+float tmCumHeading = 0.0;
+float gmHeading = 0.0;
+float gmCumHeading = 0.0;
 float currentX = 0.0;
 float currentY = 0.0;
 
@@ -253,7 +276,7 @@ int cmdState = 0;  // READY, PWR, & HOME command bits
 
 unsigned int forceRight = 0; // force sensor value
 unsigned int forceLeft = 0; // force sensor value
-unsigned int sonarRight = 0;
+float sonarRight = 0.0;
 unsigned int sonarFront = 0;
 unsigned int sonarLeft = 0;
 
@@ -379,8 +402,8 @@ int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;
 
 boolean noResendDumpData = false;
-boolean isLights = false;
-float aDiff;
+float aDiff = 0;
+float speedAdjustment;
 
 unsigned int xBeeCount = 0;
 int rightK = 0;
@@ -398,9 +421,8 @@ unsigned int stopTimeLeft = UNSIGNED_LONG_MAX;
  *********************************************************/
 void setup() {
 
-  // XBee, See bottom of this page for settings.
-  XBEE_SER.begin(57600);  // XBee
-//  BLUE_SER.begin(115200);  // Bluetooth
+  XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
+  BLUE_SER.begin(115200);  // Bluetooth
 //  delay(200);
 //  BLUE_SER.print("$$$");  // Enter command mode
 //  delay(200);
@@ -417,7 +439,7 @@ void setup() {
   pinMode(RED_LED_PIN,OUTPUT);
   pinMode(RIGHT_HL_PIN, OUTPUT);
   pinMode(LEFT_HL_PIN, OUTPUT);
-  pinMode(REAR_BL_PIN, OUTPUT);
+  pinMode(REAR_TL_PIN, OUTPUT);
   pinMode(SPEAKER_PIN, OUTPUT);
   
   pinMode(BATT_PIN, INPUT);
@@ -441,7 +463,7 @@ void setup() {
   digitalWrite(RED_LED_PIN, LOW);
   digitalWrite(RIGHT_HL_PIN, LOW);
   digitalWrite(LEFT_HL_PIN, LOW);
-  digitalWrite(REAR_BL_PIN, LOW);
+  digitalWrite(REAR_TL_PIN, LOW);
   digitalWrite(SPEAKER_PIN, LOW);
   digitalWrite(YELLOW_LED_PIN, LOW);
 

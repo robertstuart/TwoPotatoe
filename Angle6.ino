@@ -4,12 +4,12 @@
 L3G gyro;
 LSM303 compass;
 
-int xMin = -1107; // -1060;
-int xMax =  5315; //  5507;
-int yMin = -3284; // -3582;
-int yMax =  2997; //  2764;
-int zMin = -2325; // -2070;
-int zMax =  3702; //  4216;
+int xMin = -953;   // -1107; // -1060;
+int xMax = 6187;   // 5315; //  5507;
+int yMin = -2924;  // -3284; // -3582;
+int yMax = 4130;   // 2997; //  2764;
+int zMin = -3893;  // -2325; // -2070;
+int zMax = 2819;   // 3702; //  4216;
 
 void angleInit6() {
   Wire.begin();
@@ -41,7 +41,10 @@ void readGyro() {
     float gyroYawRaw = (float) (gyro.g.z - 165);  // add in constant error
     float gyroYawRate = gyroYawRaw * GYRO_SENS;  // Rate in degreesChange/sec
     float gyroYawDelta = (gyroYawRate * 2500.0) / 1000000.0; // degrees changed during period
-    gYaw = gYaw + gyroYawDelta;   //
+    gyroCumHeading = gyroCumHeading + gyroYawDelta;   //
+    float tc = (gyroCumHeading > 0.0) ? 180.0 : -180.0;
+    int rotations = (int) ((gyroCumHeading + tc) / 360.0);
+    gyroHeading = gyroCumHeading - (((float) rotations) * 360.0);
 }
 
 boolean readAccel() {
@@ -59,7 +62,7 @@ boolean readAccel() {
 }
 
 
-boolean readCompass() {
+void readCompass() {
   compass.readMag();
   if ((compass.m.x != mX) || (compass.m.y != mY) || (compass.m.z != mZ)) {
     mX = compass.m.x;
@@ -94,22 +97,37 @@ boolean readCompass() {
     }
     magHeading = mh;
     magCumHeading = magRotations + magHeading;
-    return true;
   }
-  return false;
 }
 
 /***********************************************************************.
- *  setHeading() Set currentHeading, tickHeading, gyroHeading as required.
+ *  setHeading() Set gmHeading, tmHeading, tickHeading.
  ***********************************************************************/
+#define GM_HEADING_TC 0.995
+#define TM_HEADING_TC 0.995
 void setHeading() {
-//tickHeading = tickHeadingOffset / TICKS_PER_RADIAN_YAW;
-//  int tt = tickHeadingOffset + tickPositionLeft - tickPositionRight;
-//  tt += ((int)TICKS_PER_CIRCLE_YAW) / 2;
-//  tt = tt % ((int) TICKS_PER_CIRCLE_YAW);
-//  tt -= ((int)TICKS_PER_CIRCLE_YAW) / 2;
-  tickHeading =  (tickHeadingOffset + tickPositionLeft - tickPositionRight) / TICKS_PER_RADIAN_YAW;
-  currentHeading = tickHeading;
+  
+  // Tick heading.
+  tickCumHeading =  ((float) (tickHeadingOffset + tickPositionLeft - tickPositionRight)) / TICKS_PER_DEGREE_YAW;
+  float c = (tickCumHeading > 0.0) ? 180.0 : -180.0;
+  int rotations = (int) ((tickCumHeading + c) / 360.0);
+  tickHeading = tickCumHeading - (((float) rotations) * 360.0);
+  
+  // gmHeading. Complementary filter gyro and mag headings.
+  float q = gmCumHeading + gyroCumHeading - oldGyroCumHeading;
+  oldGyroCumHeading = gyroCumHeading;
+  gmCumHeading = (q * GM_HEADING_TC) + (magCumHeading * (1.0 - GM_HEADING_TC));
+  c = (gmCumHeading > 0.0) ? 180.0 : -180.0;
+  rotations = (int) ((gmCumHeading + c) / 360.0);
+  gmHeading = gmCumHeading - (((float) rotations) * 360.0);
+  
+  // tmHeading.  Complementary filter tick and mag headings.
+  q = tmCumHeading + tickCumHeading - oldTickCumHeading;
+  oldTickCumHeading = tickCumHeading;
+  tmCumHeading = (q * TM_HEADING_TC) + (magCumHeading * (1.0 - TM_HEADING_TC));
+  c = (tmCumHeading > 0.0) ? 180.0 : -180.0;
+  rotations = (int) ((tmCumHeading + c) / 360.0);
+  tmHeading = tmCumHeading - (((float) rotations) * 360.0);
 }
 
 
@@ -117,10 +135,12 @@ void setHeading() {
  * zeroTickHeading() Set tickHeading and gyroHeading to magHeading 
  *                   when wheels touch ground or at startup.
  **************************************************************************/
-void zeroTickHeading() {
-  gYaw = magHeading * RAD_TO_DEG;
-  tickHeadingOffset = (int) (magHeading * TICKS_PER_RADIAN_YAW);
-  tickPositionRight = tickPositionLeft = 0;
-Serial.println("zero");
+void zeroHeadings() {
+  gmCumHeading = tmCumHeading = gyroCumHeading = tickCumHeading = magCumHeading = magHeading;
+  oldGyroCumHeading = oldTickCumHeading = magHeading;
+  tickHeading = gyroHeading = magHeading;
+  magRotations = 0.0;
+  tickHeadingOffset = (int) (magCumHeading * TICKS_PER_DEGREE_YAW);
+  tickPosition = tickPositionRight = tickPositionLeft = 0;
 }
 

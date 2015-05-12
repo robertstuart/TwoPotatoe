@@ -14,6 +14,7 @@ float tp6AngleError = 0.0;
 float tp6TargetAngle = 0.0;
 float tp6Cos = 0.0; 
 float tp6Rotation = 0.0;
+float rotationCorrection = 0.0;
 
 /***********************************************************************.
  *  aTp6Run() 
@@ -31,7 +32,6 @@ void aTp6Run() {
   setBlink(RED_LED_PIN, BLINK_SB);
   while(mode == MODE_TP6) { // main loop
     commonTasks();
-    route();
     // Do the timed loop
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
@@ -48,7 +48,6 @@ void aTp6Run() {
       switches();
       checkMotorRight();
       checkMotorLeft();
-//    checkDrift();
 //      log6();
     } // end timed loop
   }
@@ -60,7 +59,6 @@ void aTp6Run() {
  *  aTp6() 
  ***********************************************************************/
 void aTp6() {
-//  getAngle();
   readSpeed();
   // compute the Center of Oscillation Speed (COS)
   tp6Rotation = (*currentValSet).t * (-gyroPitchDelta); // 3.6
@@ -70,7 +68,12 @@ void aTp6() {
   tp6LpfCosAccel = tp6LpfCos - tp6LpfCosOld;
   tp6LpfCosOld = tp6LpfCos;
 
-  tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
+  if (isRouteInProgress) {
+    tp6ControllerSpeed = routeFps;
+  }
+  else {
+    tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
+  }
 
   // find the speed error
   float tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
@@ -79,8 +82,15 @@ void aTp6() {
   tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
 //  float tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
   
+  // Correct for angle error during rotation.  Do not know the cause of this.
+  // Is it the actual angle or is it an error from the acceleromenter?
+  // Seems to work correctly if it is lp filtered (at accel rate?).
+  // Should this be done in Angle6?
+  float rc = (fpsRight - fpsLeft) * 1.3;
+  rotationCorrection = ((rc - rotationCorrection) * .005) + rotationCorrection;
+  
   // Compute angle error and weight factor
-  tp6AngleError = tp6TargetAngle - gaPitch;  //** 2
+  tp6AngleError = tp6TargetAngle - gaPitch + rotationCorrection;  //** 2
   fpsCorrection = tp6AngleError * (*currentValSet).w; //******************* Angle error to speed *******************
 //  speedCorrection = tp6AngleError * 0.18; //******************* Angle error to speed *******************
 //  fpsLpfCorrection = (fpsLpfCorrectionOld * (1.0f - 0.1))  + (speedCorrection * 0.1);
@@ -89,10 +99,10 @@ void aTp6() {
 
   // Add the angle error to the base speed to get the target speed.
   tp6Fps = fpsLpfCorrection + tp6LpfCos;
-  tp6Steer(tp6Fps);
-  targetMFpsRight = tp6FpsRight * 1000; // 
-  targetMFpsLeft = tp6FpsLeft * 1000; // 
-
+  if (isRouteInProgress) route();
+  else tp6Steer(tp6Fps);
+  setTargetSpeedRight(tp6FpsRight);
+  setTargetSpeedLeft(tp6FpsLeft);
 } // end aTp6() 
 
 
@@ -110,32 +120,25 @@ void sendTp6Status() {
   else if (loopc == 10) {
 	sendStatusFrame(XBEE_PC);
   }
-  else if (loopc == 20) { // debugging print statements 10/sec
-//    Serial.print(magHeading * 10); Serial.print("\t");
-//    Serial.print(magCumHeading * 10); Serial.print("\t");
-//    Serial.print(gyroHeading * RAD_TO_DEG); Serial.print("\t");
-//    Serial.print(tickHeading * RAD_TO_DEG); Serial.print("\t");
-//    Serial.print("\t");
-//    Serial.print(accelPitch);
-//    Serial.print("\t");
-    Serial.println();
-  addLog(
-          (long) (timeMicroseconds),
-          (short) (magHeading * 10.0),
-          (short) (magCumHeading * 10.0),
-          (short) (tickHeading * 10.0 * RAD_TO_DEG),
-          (short) 0,
-          (short) 0,
-          (short) 0);
+  else if ((loopc == 18) || (loopc == 38)) { // debugging print statements 10/sec
+BLUE_SER.print(routeCurrentLoc.x); BLUE_SER.print("\t"); 
+BLUE_SER.print(routeCurrentLoc.y); BLUE_SER.print("\t"); BLUE_SER.print("\t"); 
+BLUE_SER.print(routeTargetLoc.x); BLUE_SER.print("\t"); 
+BLUE_SER.print(routeTargetLoc.y); BLUE_SER.print("\t"); BLUE_SER.print("\t"); 
+BLUE_SER.print(routeHeading); BLUE_SER.print("\t"); 
+BLUE_SER.print(routeTargetBearing); BLUE_SER.print("\t"); 
+BLUE_SER.println(routeActionPtr); 
+  if (isRouteInProgress) {
+    addLog(
+          (long) ((((float) tickPosition)/TICKS_PER_FOOT) * 100.0),
+          (short) (routeCurrentLoc.x * 100.0),
+          (short) (routeCurrentLoc.y * 100.0),
+          (short) (routeTargetLoc.x * 100.0),
+          (short) (routeTargetLoc.y * 100.0),
+          (short) (routeHeading * 100.0),
+          (short) (routeTargetBearing * 100.0));
+    }
   }
-//  addLog(
-//          (long) (timeMicroseconds),
-//          (short) (tickPositionRight),
-//          (short) (tickPositionLeft),
-//          (short) (gaPitch * 100.0),
-//          (short) (aPitch * 100.0),
-//          (short) (gPitch * 100.0),
-//          (short) (fpsLpfCorrection * 100.0));
 }
 
 
@@ -174,17 +177,8 @@ void sendTp6Status() {
  *  tp6Steer() 
  ***********************************************************************/
 void tp6Steer(float fps) {
-  
-//  if (isRouteInProgress) {
-//    steerRoute();
-//  }
-//  else  {
   float speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
-//      float speedAdjustment = controllerX * 1.0;
   tp6FpsLeft = fps + speedAdjustment;
   tp6FpsRight = fps - speedAdjustment;
-//    targetHeading += (controllerX * 2.0);
-//    fixHeading(tickHeading, targetHeading, fps);
-//  }
 }
 

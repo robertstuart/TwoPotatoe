@@ -89,7 +89,7 @@ void setRunningState() {
              && (isStateBit(TP_STATE_ON_GROUND) || isJump)) {
       if (!isStateBit(TP_STATE_RUNNING)) {
         setStateBit(TP_STATE_RUNNING, true);
-        zeroTickHeading();
+//        zeroHeadings();
       }
     }
     else {
@@ -99,6 +99,9 @@ void setRunningState() {
   else { // For all test modes, just set accoding to ready bit
       setStateBit(TP_STATE_RUNNING, isStateBit(TP_STATE_RUN_READY));    
   }
+  
+  // Set the route bit
+  setStateBit(TP_STATE_ROUTE, isRouteInProgress);
   
  
   // Set the blue connection led
@@ -119,11 +122,17 @@ void setRunningState() {
     }
     break;
   case MODE_TP6:
-    setBlink(RED_LED_PIN, BLINK_SF);    
-    if (isStateBit(TP_STATE_RUNNING)) setBlink(YELLOW_LED_PIN, BLINK_ON);
-    else if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_FF);
-    else setBlink(YELLOW_LED_PIN, BLINK_SF);
-    if (!(isStateBit(TP_STATE_HC_ACTIVE) | isStateBit(TP_STATE_PC_ACTIVE))) {
+    if  (isRouteInProgress) {
+      setBlink(YELLOW_LED_PIN, BLINK_FF);
+      setBlink(RED_LED_PIN, BLINK_FF);  
+    }
+    else {
+      setBlink(RED_LED_PIN, BLINK_SF);  
+      if (isStateBit(TP_STATE_RUNNING))        setBlink(YELLOW_LED_PIN, BLINK_ON);
+      else if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_FF);
+      else setBlink(YELLOW_LED_PIN, BLINK_SF);
+    }
+    if (!(isStateBit(TP_STATE_HC_ACTIVE) || isStateBit(TP_STATE_PC_ACTIVE))) {
       controllerY = 0.0f;
       controllerX = 0.0f;
     }
@@ -190,10 +199,10 @@ void onGround() {
   isOnGround = (forceLeft < 700) && (forceRight < 700);
   if (isOnGround) {
     if (!isStateBit(TP_STATE_ON_GROUND))  {
+      if (magHeading == 0.0) return; // Wait until heading has been read.
       setStateBit(TP_STATE_ON_GROUND, true);
       isJump = false;
       groundTime = timeMilliseconds;
-      zeroTickHeading();
     }
   }
   else { // in air
@@ -352,7 +361,7 @@ void sonar() {
   static unsigned long sonarTrigger = 0;
   if (timeMilliseconds > sonarTrigger) {
     sonarTrigger = timeMilliseconds + 60UL;
-    sonarRight = analogRead(SONAR_RIGHT_AN);
+    sonarRight = ((float) analogRead(SONAR_RIGHT_AN)) * 0.042; // to feet
   }
 }
 
