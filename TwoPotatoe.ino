@@ -25,7 +25,7 @@ const int MOT_LEFT_DIR =     5 ;
 const int MOT_RIGHT_PWMH =   6; 
 const int MOT_LEFT_PWMH =    7;  
 
-const float SPEED_MULTIPLIER = 5.0;
+const double SPEED_MULTIPLIER = 5.0;
 const unsigned int TP_PWM_FREQUENCY = 10000;
 
 
@@ -66,34 +66,40 @@ const unsigned int TP_PWM_FREQUENCY = 10000;
 #define SONAR_LEFT_RX 45
 
 //Encoder factor
-//const float ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
+//const double ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
 //const long ENC_FACTOR_M = 1329000L;  // Change pulse width to milli-fps speed, 1/29 gear
-const float ENC_FACTOR = 650.0f;  // Change pulse width to fps speed, 1/29 gear
+const double ENC_FACTOR = 650.0f;  // Change pulse width to fps speed, 1/29 gear
 const long ENC_FACTOR_M = 650000L;  // Change pulse width to milli-fps speed, 1/29 gear
-const float FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
-const float ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
+const double FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
+const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
 // Max int/long values
 #define UNSIGNED_LONG_MAX 4294967295UL 
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
 
-#define TICKS_PER_FOOT 2500.0D
+#define TICKS_PER_FOOT 3017.0D
 //#define TICKS_PER_FOOT 1536.0D
 #define TICKS_PER_CIRCLE_YAW  10350.0
 //#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
 #define TICKS_PER_DEGREE_YAW (TICKS_PER_CIRCLE_YAW / 360.0)
 #define TICKS_PER_PITCH_DEGREE 20.0
-//#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
-#define GYRO_SENS 0.0091     // Multiplier to get degree. -0.075/8?
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
+#define DEFAULT_MAP_ORIENTATION -45.0
+#define SONAR_SENS 0.042
+
+// Decrease this value to get greater turn for a given angle
+//#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
+//#define GYRO_SENS 0.0085     // Multiplier to get degree. -0.075/8?
+#define GYRO_SENS 0.00834139     // Multiplier to get degree. subtract 1.8662%
+
 
 // Due has 96 kbytes sram
 #define DATA_ARRAY_SIZE 2048
 
 // Arrays to save data to be dumped in blocks.
-long aArray[ DATA_ARRAY_SIZE];
+long  aArray[ DATA_ARRAY_SIZE];
 short bArray[ DATA_ARRAY_SIZE];
 short cArray[ DATA_ARRAY_SIZE];
 short dArray[ DATA_ARRAY_SIZE];
@@ -125,13 +131,13 @@ byte BLINK_SB[] = {1,1,1,1,0,0,0,0,END_MARKER};  // Slow blink
 byte BLINK_ON[] = {1,END_MARKER};                // On
 
 struct valSet {
-  float t;
-  float u;
-  float v;
-  float w;
-  float x;
-  float y;
-  float z;
+  double t;
+  double u;
+  double v;
+  double w;
+  double x;
+  double y;
+  double z;
 };
 
 struct valSet tp4A = { 
@@ -168,7 +174,7 @@ struct valSet tp6 = {
   0.18,    // w
   0.05,    // x
   45.0,   // y
-  -3.15}; // z accelerometer offset
+  -2.60}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -181,63 +187,68 @@ struct loc {
   double y;
 };
 
-struct loc routeCurrentLoc;
+struct loc currentMapLoc;
 struct loc routeTargetLoc;
 struct routeStep {
   char cmd;
-  float a;
-  float b;
-  float c;
-  float d;
+  double a;
+  double b;
+  double c;
+  double d;
 };
 
 int routeActionPtr = 0;
 boolean isRouteInProgress = false;
 char routeCurrentAction = 0;
-float routeTargetBearing = 0.0;
+double routeTargetBearing = 0.0;
 long routeTargetTickPosition = 0L;
-float routeFps = 0.0;
-float routeRadius = 0.0;
+double routeFps = 0.0;
+double routeRadius = 0.0;
 int routeWaitTime = 0L;
 boolean isEsReceived = false;
 boolean isRouteTargetIncreasing = false;
-float routeTargetXY = 0.0;
-float mapOrientation = 0.0;
-long routeOldTickPosition = 0L;
-float routeHeading = 0.0;
+double routeTargetXY = 0.0;
+double mapOrientation = DEFAULT_MAP_ORIENTATION;
+long navOldTickPosition = 0L;
+double currentMapHeading = 0.0;
+double routeTargetXYDistance = 0.0;
+double routeCoDistanceXY = 0.0;
+double routeSonarMin = 0.0;
+double routeSonarMax = 0.0;
+double routeSonarDist = 0.0;
+double routeCoDistance = 0.0;
+int originalAction = 0;
 
-float xVec, yVec, zVec;
+double gaPitch = 0.0;
+double gaRoll = 0.0;
 
-float gaPitch = 0.0;
-float gaRoll = 0.0;
+double aPitch = 0.0;
+double aRoll = 0.0;
 
-float aPitch = 0.0;
-float aRoll = 0.0;
+double gPitch = 0.0;
+double gRoll = 0.0;
+double gyroCumHeading = 0.0;
+double gyroHeading = 0;
 
-float gPitch = 0.0;
-float gRoll = 0.0;
-float gyroCumHeading = 0.0;
-float gyroHeading = 0;
+double oldGyroCumHeading = 0.0;
+double oldTickCumHeading = 0.0;
 
-float oldGyroCumHeading = 0.0;
-float oldTickCumHeading = 0.0;
-
-float headX, headY;
+double headX, headY;
 
 int16_t mX, mY, mZ;
 
-float magHeading = 0.0; // In degrees.
-float magCumHeading = 0.0;
-float magRotations = 0.0;
-float tickHeading = 0.0; // In degrees.
-float tickCumHeading = 0.0; // In degrees.
+double magHeading = 0.0; // In degrees.
+double magCumHeading = 0.0;
+double magRotations = 0.0;
+double tickHeading = 0.0; // In degrees.
+double tickCumHeading = 0.0; // In degrees.
 int tickHeadingOffset = 0;
-float tmHeading = 0.0;
-float tmCumHeading = 0.0;
-float gmHeading = 0.0;
-float gmCumHeading = 0.0;
-float currentX = 0.0;
-float currentY = 0.0;
+double tmHeading = 0.0;
+double tmCumHeading = 0.0;
+double gmHeading = 0.0;
+double gmCumHeading = 0.0;
+double currentX = 0.0;
+double currentY = 0.0;
 
 // Speed and position variables
 long tickPositionRight = 0L;
@@ -249,8 +260,8 @@ unsigned long tickTimeRight = 0UL;  // time for the last interrupt
 unsigned long tickTimeLeft = 0UL;
 long tickPeriodRight = 0L;     // last period. Minus for reverse.
 long tickPeriodLeft = 0L;
-float targetSpeedRight = 0.0;
-float targetSpeedLeft = 0.0;
+double targetSpeedRight = 0.0;
+double targetSpeedLeft = 0.0;
 long targetTickPeriodRight = 0L;
 long targetMFpsRight = 0L;
 long targetBrakeMFpsRight = 0L;
@@ -259,9 +270,9 @@ long targetMFpsLeft = 0L;
 long targetBrakeMFpsLeft = 0L;
 long targetRevMFpsLeft = 0L;
 
-float fpsRight = 0.0f; // right feet per second
-float fpsLeft = 0.0f;  // left feet per second
-float wheelSpeedFps = 0.0f;
+double fpsRight = 0.0f; // right feet per second
+double fpsLeft = 0.0f;  // left feet per second
+double wheelSpeedFps = 0.0f;
 int mWheelSpeedFps = 0;
 
 unsigned long gyroTrigger = 0L;
@@ -276,35 +287,39 @@ int cmdState = 0;  // READY, PWR, & HOME command bits
 
 unsigned int forceRight = 0; // force sensor value
 unsigned int forceLeft = 0; // force sensor value
-float sonarRight = 0.0;
+double sonarRight = 0.0;
 unsigned int sonarFront = 0;
 unsigned int sonarLeft = 0;
 
 unsigned int actualLoopTime; // Time since the last
-float controllerX = 0.0; // +1.0 to -1.0 from controller
-float controllerY = 0.0;  // Y value set by message from controller
+double controllerX = 0.0; // +1.0 to -1.0 from controller
+double controllerY = 0.0;  // Y value set by message from controller
 int signalStrength = 0;
 
 int gyroPitchRaw;  // Vertical plane parallel to wheels
-float gyroPitchRate;
+double gyroPitchRate;
 long gyroPitchRawSum;
 int driftCount;
 int driftPitch = 0;
 int driftRoll = 0;
 int driftYaw = 0;
-float oldGaPitch = 0.0;
-float gyroPitchDelta = 0.0;
-float gyroPitch = 0.0; // not needed
+double oldGaPitch = 0.0;
+double gyroPitchDelta = 0.0;
+double gyroPitch = 0.0; // not needed
 
 int gyroRollRaw = 0;
-float gyroRollRate;
-float gyroRoll = 0.0f;
-float accelRoll = 0.0f;
+double gyroRollRate;
+double gyroRoll = 0.0f;
+double accelRoll = 0.0f;
 
-float gyroYawRaw = 0.0f;
-float gyroYawRate = 0.0f;
-float gyroYawAngle = 0.0f;
-float gyroYawRawSum = 0.0;
+double gyroYawRaw = 0.0f;
+double gyroYawRate = 0.0f;
+double gyroYawAngle = 0.0f;
+double gyroYawRawSum = 0.0;
+int gyroErrorX = 0;
+int gyroErrorY = 0;
+int gyroErrorZ = 0;
+
 
 int battVolt = 0; // battery 
 int tpDebug = 4241;
@@ -336,7 +351,7 @@ int iBfx, iBfy, iBfz;
 /* hard iron estimate */
 int iVx, iVy, iVz;
 
-float magCorrection = 0.0;
+double magCorrection = 0.0;
 
 // Sequence variables
 int sequenceCount = 0;
@@ -344,9 +359,9 @@ boolean sequenceIsRunning = false;
 int runSequenceCount = 0;
 boolean isSequence = false;
 int seqDur = 0;
-float seqWs = 0.0;
+double seqWs = 0.0;
 int seqPw = 0;
-float wsArray[30];
+double wsArray[30];
 int wsDurArray[30];
 int pulseIndex = 0;
 int pulseCount = 0;
@@ -375,7 +390,7 @@ long wsMFpsRightSum = 0;
 long wsMFpsLeftSum = 0;
 int wsMFpsRightCount = 0;;
 int wsMFpsLeftCount = 0;;
-float airFps = 0.0;
+double airFps = 0.0;
 unsigned long airTrigger = 0L;
 //int pwPlusSumRight = 0;
 //int pwMinusSumRight = 0;
@@ -390,20 +405,20 @@ int ackFailure = 0;
 int ccaFailure = 0;;
 int purgeFailure = 0;
 
-float tp5LpfCosAccel = 0.0;
-float tp6LpfCosAccel = 0.0;
+double tp5LpfCosAccel = 0.0;
+double tp6LpfCosAccel = 0.0;
 
-float tp5FpsLeft = 0.0f;
-float tp5FpsRight = 0.0f;
-float tp6FpsLeft = 0.0f;
-float tp6FpsRight = 0.0f;
+double tp5FpsLeft = 0.0f;
+double tp5FpsRight = 0.0f;
+double tp6FpsLeft = 0.0f;
+double tp6FpsRight = 0.0f;
 
 int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;
 
 boolean noResendDumpData = false;
-float aDiff = 0;
-float speedAdjustment;
+double aDiff = 0;
+double speedAdjustment;
 
 unsigned int xBeeCount = 0;
 int rightK = 0;
@@ -437,6 +452,7 @@ void setup() {
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
   pinMode(YELLOW_LED_PIN,OUTPUT);
   pinMode(RED_LED_PIN,OUTPUT);
+  pinMode(GREEN_LED_PIN,OUTPUT);
   pinMode(RIGHT_HL_PIN, OUTPUT);
   pinMode(LEFT_HL_PIN, OUTPUT);
   pinMode(REAR_TL_PIN, OUTPUT);
@@ -466,9 +482,9 @@ void setup() {
   digitalWrite(REAR_TL_PIN, LOW);
   digitalWrite(SPEAKER_PIN, LOW);
   digitalWrite(YELLOW_LED_PIN, LOW);
+  digitalWrite(GREEN_LED_PIN, LOW);
 
-//  if (digitalRead(RE_SW_PIN)) mode = MODE_TP5;
-//  else mode = MODE_TP6;
+  zeroGyro();
   gyroTrigger = micros();
   beep(BEEP_UP);
   delay(100);

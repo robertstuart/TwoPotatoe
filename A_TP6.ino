@@ -1,20 +1,20 @@
 /***********************************************************************.
  * ----- TP6 ------
  ***********************************************************************/
-float tp6Fps = 0.0f;
-float fpsCorrection = 0.0f;
-float tp6ControllerSpeed = 0;
-//float tp6LoopSec = 0.0f;
-float tp6LpfCos = 0.0;
-float tp6LpfCosOld = 0.0;
-//float targetHeading = 0.0;
-float fpsLpfCorrectionOld = 0.0;
-float fpsLpfCorrection = 0.0;
-float tp6AngleError = 0.0;
-float tp6TargetAngle = 0.0;
-float tp6Cos = 0.0; 
-float tp6Rotation = 0.0;
-float rotationCorrection = 0.0;
+double tp6Fps = 0.0f;
+double fpsCorrection = 0.0f;
+double tp6ControllerSpeed = 0;
+//double tp6LoopSec = 0.0f;
+double tp6LpfCos = 0.0;
+double tp6LpfCosOld = 0.0;
+//double targetHeading = 0.0;
+double fpsLpfCorrectionOld = 0.0;
+double fpsLpfCorrection = 0.0;
+double tp6AngleError = 0.0;
+double tp6TargetAngle = 0.0;
+double tp6Cos = 0.0; 
+double tp6Rotation = 0.0;
+double rotationCorrection = 0.0;
 
 /***********************************************************************.
  *  aTp6Run() 
@@ -36,14 +36,14 @@ void aTp6Run() {
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
     if (timeMicroseconds > gyroTrigger) {
-      gyroTrigger +=  2500; // 400/sec
+      gyroTrigger +=  2400; // 400/sec
       subCycle++;
       readGyro();
       if ((subCycle % 4)  == 1) readAccel();  // 100/sec
       if ((subCycle % 16) == 3) readCompass();   // 25/sec
+      setNavigation();
       aTp6(); 
       sendTp6Status();
-      setHeading();
       safeAngle();
       switches();
       checkMotorRight();
@@ -72,25 +72,27 @@ void aTp6() {
     tp6ControllerSpeed = routeFps;
   }
   else {
-    tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; //+-3.0 fps
+    tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; //
+//    tp6ControllerSpeed = 2.0; //
   }
 
   // find the speed error
-  float tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
+  double tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
 
   // compute a weighted angle to eventually correct the speed error
   tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
-//  float tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
+//  double tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
   
-  // Correct for angle error during rotation.  Do not know the cause of this.
+  // Correct for angle error during rotation on vertical axis.  Do not know the cause of this.
   // Is it the actual angle or is it an error from the acceleromenter?
   // Seems to work correctly if it is lp filtered (at accel rate?).
   // Should this be done in Angle6?
-  float rc = (fpsRight - fpsLeft) * 1.3;
+  double rc = (fpsRight - fpsLeft) * 1.9;
   rotationCorrection = ((rc - rotationCorrection) * .005) + rotationCorrection;
   
   // Compute angle error and weight factor
   tp6AngleError = tp6TargetAngle - gaPitch + rotationCorrection;  //** 2
+//  tp6AngleError = tp6TargetAngle - gaPitch;  //** 2
   fpsCorrection = tp6AngleError * (*currentValSet).w; //******************* Angle error to speed *******************
 //  speedCorrection = tp6AngleError * 0.18; //******************* Angle error to speed *******************
 //  fpsLpfCorrection = (fpsLpfCorrectionOld * (1.0f - 0.1))  + (speedCorrection * 0.1);
@@ -103,6 +105,17 @@ void aTp6() {
   else tp6Steer(tp6Fps);
   setTargetSpeedRight(tp6FpsRight);
   setTargetSpeedLeft(tp6FpsLeft);
+//static int pCount = 0;
+//pCount++;
+//if ((pCount % 200) == 0) {
+//  BLUE_SER.print(tp5LpfCos); BLUE_SER.print("\t"); 
+//  BLUE_SER.print(tp6SpeedError); BLUE_SER.print("\t"); 
+//  BLUE_SER.print(tp6TargetAngle); BLUE_SER.print("\t"); 
+//  BLUE_SER.print(gaPitch); BLUE_SER.print("\t"); 
+//  BLUE_SER.print(fpsCorrection); BLUE_SER.print("\t"); 
+//  BLUE_SER.print(fpsLpfCorrection); BLUE_SER.print("\t"); 
+//  BLUE_SER.print(tp6Fps); BLUE_SER.println("\t"); 
+//}
 } // end aTp6() 
 
 
@@ -120,25 +133,50 @@ void sendTp6Status() {
   else if (loopc == 10) {
 	sendStatusFrame(XBEE_PC);
   }
-  else if ((loopc == 18) || (loopc == 38)) { // debugging print statements 10/sec
-BLUE_SER.print(routeCurrentLoc.x); BLUE_SER.print("\t"); 
-BLUE_SER.print(routeCurrentLoc.y); BLUE_SER.print("\t"); BLUE_SER.print("\t"); 
-BLUE_SER.print(routeTargetLoc.x); BLUE_SER.print("\t"); 
-BLUE_SER.print(routeTargetLoc.y); BLUE_SER.print("\t"); BLUE_SER.print("\t"); 
-BLUE_SER.print(routeHeading); BLUE_SER.print("\t"); 
-BLUE_SER.print(routeTargetBearing); BLUE_SER.print("\t"); 
-BLUE_SER.println(routeActionPtr); 
-  if (isRouteInProgress) {
-    addLog(
-          (long) ((((float) tickPosition)/TICKS_PER_FOOT) * 100.0),
-          (short) (routeCurrentLoc.x * 100.0),
-          (short) (routeCurrentLoc.y * 100.0),
-          (short) (routeTargetLoc.x * 100.0),
-          (short) (routeTargetLoc.y * 100.0),
-          (short) (routeHeading * 100.0),
-          (short) (routeTargetBearing * 100.0));
-    }
+  else if (loopc == 18) { // debugging print statements 10/sec
+//    addLog(
+//          (long) ((double) tickPosition) / TICKS_PER_FOOT,
+//          (short) (currentMapLoc.x * 100.0),
+//          (short) (currentMapLoc.y * 100.0),
+//          (short) (magHeading * 100.0),
+//          (short) (tickHeading * 100.0),
+//          (short) (gyroHeading * 100.0),
+//          (short) (gmHeading * 100.0));
+//BLUE_SER.print(currentMapLoc.x); BLUE_SER.print("\t"); 
+//BLUE_SER.print(currentMapLoc.y); BLUE_SER.print("\t"); BLUE_SER.print("\t"); 
+//BLUE_SER.print(currentMapHeading); BLUE_SER.print("\t"); 
+//BLUE_SER.println(routeActionPtr); 
+//  if (isRouteInProgress) {
+//    addLog(
+//          (long) ((double) tickPosition) / TICKS_PER_FOOT,
+//          (short) (currentMapLoc.x * 100.0),
+//          (short) (currentMapLoc.y * 100.0),
+//          (short) (routeTargetLoc.x * 100.0),
+//          (short) (routeTargetLoc.y * 100.0),
+//          (short) (currentMapHeading * 100.0),
+//          (short) (magHeading * 100.0));
+//    }
+    
+//    addLog(
+//          (long) ((double) tickPosition) / TICKS_PER_FOOT,
+//          (short) (currentMapLoc.x * 100.0),
+//          (short) (currentMapLoc.y * 100.0),
+//          (short) (magHeading * 100.0),
+//          (short) (tickHeading * 100.0),
+//          (short) (gyroHeading * 100.0),
+//          (short) (sonarRight * 100.0));
+    
   }
+    
+
+    addLog(
+          (long) tickPosition,
+          (short) (wheelSpeedFps * 1000.0),
+          (short) (tp6Rotation * 1000.0),
+          (short) (tp6Cos * 1000.0),
+          (short) (tp6TargetAngle * 1000.0),
+          (short) (tp6AngleError * 1000.0),
+          (short) (fpsCorrection * 1000.0));
 }
 
 
@@ -176,8 +214,9 @@ BLUE_SER.println(routeActionPtr);
 /***********************************************************************.
  *  tp6Steer() 
  ***********************************************************************/
-void tp6Steer(float fps) {
-  float speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
+void tp6Steer(double fps) {
+  double speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
+//  double speedAdjustment = -0.5;
   tp6FpsLeft = fps + speedAdjustment;
   tp6FpsRight = fps - speedAdjustment;
 }

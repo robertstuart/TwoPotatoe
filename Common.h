@@ -81,6 +81,7 @@ const int TP_RCV_MSG_HOME =        9;  //
 const int TP_RCV_MSG_LIGHTS =     10;  // 1st 3 bits of val
 const int TP_RCV_MSG_M_MODE =     11;  // motor mode 
 const int TP_RCV_MSG_ROUTE_ES =   12;  // Route, end stand
+const int TP_RCV_MSG_RECORD =     13;  // Record values
 const int TP_RCV_MSG_ROTATE =     14;    
 const int TP_RCV_MSG_START_PW =   15;  // Run loaded pulse sequence.
 const int TP_RCV_MSG_RESET =      16;  // 
@@ -90,6 +91,7 @@ const int TP_RCV_MSG_RUN_READY =  19;  // Run/Idle
 const int TP_RCV_MSG_BLOCK  =     20;  // Block data, stop transmitting
 const int TP_RCV_MSG_ROUTE =      21;  // Run/Halt Route
 const int TP_RCV_MSG_DSTART =     22;  //
+const int TP_RCV_MSG_RESET_NAV =  23;  // Reset all navigation values.
 
 // Block types.  Must be non-overlapping with TP_RCV_MSG_xxx
 const int TP_BLOCK_NULL     =    100;  // Must be greater than this

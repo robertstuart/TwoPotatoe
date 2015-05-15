@@ -201,7 +201,7 @@ Serial.print(type); Serial.print("\t");Serial.println(val);
   case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
-    zeroHeadings();
+    resetNavigation();
     break;
   case TP_RCV_MSG_LIGHTS: // 
     if (val != 0) {
@@ -238,6 +238,9 @@ Serial.print(type); Serial.print("\t");Serial.println(val);
     break;
   case TP_RCV_MSG_ROUTE_ES:
     isEsReceived = true;
+    break;
+  case TP_RCV_MSG_RESET_NAV:
+    resetNavigation();
     break;
   case TP_RCV_MSG_T_VAL:
     tVal = val;

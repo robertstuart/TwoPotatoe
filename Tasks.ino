@@ -361,7 +361,7 @@ void sonar() {
   static unsigned long sonarTrigger = 0;
   if (timeMilliseconds > sonarTrigger) {
     sonarTrigger = timeMilliseconds + 60UL;
-    sonarRight = ((float) analogRead(SONAR_RIGHT_AN)) * 0.042; // to feet
+    sonarRight = ((float) analogRead(SONAR_RIGHT_AN)) * SONAR_SENS; // to feet
   }
 }
 

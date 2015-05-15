@@ -268,7 +268,7 @@ void checkMotorLeft() {
  *    and the waitPeriodRight given the targetSpeed.
  *
  *********************************************************/
-void setTargetSpeedRight(float targetSpeed) {
+void setTargetSpeedRight(double targetSpeed) {
   targetSpeedRight = targetSpeed;
   targetMFpsRight = (int) (targetSpeed * 1000.0);//////////////////////////////
   
@@ -307,7 +307,7 @@ void setTargetSpeedRight(float targetSpeed) {
 
 
 /********************* setTargetSpeedLeft() ********************/
-void setTargetSpeedLeft(float targetSpeed) {
+void setTargetSpeedLeft(double targetSpeed) {
   targetSpeedLeft = targetSpeed;
   targetMFpsLeft = (int) (targetSpeed * 1000.0);//////////////////////////////
   
@@ -435,7 +435,6 @@ void setMotor(int motor, int action, int pw) {
  *
  *********************************************************/
 void readSpeedRight() {
-  static unsigned int lastSpeedRight = 0;
   noInterrupts();
   long sum = wsMFpsRightSum;
   int count =  wsMFpsRightCount;
@@ -449,7 +448,7 @@ void readSpeedRight() {
   else {
     mFpsRight = sum / count;
   }
-  fpsRight =((float) mFpsRight) / 1000.0;
+  fpsRight =((double) mFpsRight) / 1000.0;
 }
 
 void readSpeedLeft() {
@@ -466,7 +465,7 @@ void readSpeedLeft() {
   else {
     mFpsLeft = sum / count;
   }
-  fpsLeft =((float) mFpsLeft) / 1000.0;
+  fpsLeft =((double) mFpsLeft) / 1000.0;
 }
 
 
@@ -483,8 +482,8 @@ void readSpeed() {
   readSpeedRight();
   readSpeedLeft();
   tickPosition = tickPositionRight + tickPositionLeft;
-  wheelSpeedFps = (fpsLeft + fpsRight)/2.0f;
-  mWheelSpeedFps = (mFpsRight + mFpsLeft) /2;
+  wheelSpeedFps = (fpsLeft + fpsRight)/ 2.0D;
+  mWheelSpeedFps = (mFpsRight + mFpsLeft) / 2.0D;
 }
 
 
