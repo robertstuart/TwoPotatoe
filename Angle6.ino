@@ -20,6 +20,8 @@ void angleInit6() {
   gyro.writeReg(L3G::CTRL1, 0xBF); // power, all axes, DR=400 Hz, BW=110
 }
 
+#define TG_PITCH_TC 0.90D
+
 boolean readGyro() {
   static int oldX, oldY, oldZ;
     gyro.read();  // 860 microseconds
@@ -32,7 +34,7 @@ boolean readGyro() {
     double gyroPitchRaw = (double) (gyro.g.y - gyroErrorX); // add in constant error
     double gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
     gyroPitchDelta = (gyroPitchRate * 2500.0) / 1000000.0; // degrees changed during period
-    gPitch = gPitch + gyroPitchDelta;   // Not used.  Only for debugging purposes
+    gPitch = gPitch + gyroPitchDelta;   // Used by tgPitch & debugging
     gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
     
     // Roll
@@ -50,6 +52,15 @@ boolean readGyro() {
     double tc = (gyroCumHeading > 0.0) ? 180.0 : -180.0;
     int rotations = (int) ((gyroCumHeading + tc) / 360.0);
     gyroHeading = gyroCumHeading - (((double) rotations) * 360.0);
+    
+    // Do the tick angle and the comp filtered gtPitch to add the tick angle
+    tPitch = (double) tickPosition / TICKS_PER_PITCH_DEGREE;
+    double q = tgPitch + (tPitch - oldTPitch);
+    oldTPitch = tPitch;
+    tgPitch = (q * TG_PITCH_TC) + (gPitch * (1.0D - TG_PITCH_TC));
+    tgPitchDelta = tgPitch - oldTgPitch;
+    oldTgPitch = tgPitch;
+    
     return true;
 }
 
@@ -164,6 +175,7 @@ void resetNavigation() {
   magRotations = 0.0;
   tickHeadingOffset = (int) (magCumHeading * TICKS_PER_DEGREE_YAW);
   tickPosition = tickPositionRight = tickPositionLeft = navOldTickPosition = 0;
+  oldTPitch = 0.0D;
   currentMapLoc.x = 0;
   currentMapLoc.y = 0;
   mapOrientation = DEFAULT_MAP_ORIENTATION;

@@ -68,6 +68,12 @@ void aTp6() {
   tp6LpfCosAccel = tp6LpfCos - tp6LpfCosOld;
   tp6LpfCosOld = tp6LpfCos;
 
+  // Do new calculation
+  rotation2 = -tgPitchDelta * 7.4;
+  cos2 = wheelSpeedFps + rotation2;
+  lpfCos2 = (lpfCosOld2 * .9) + (cos2 * (1.0D - .9));
+  lpfCosOld2 = lpfCos2;
+
   if (isRouteInProgress) {
     tp6ControllerSpeed = routeFps;
   }
@@ -77,7 +83,8 @@ void aTp6() {
   }
 
   // find the speed error
-  double tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
+//  double tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
+  double tp6SpeedError = tp6ControllerSpeed - lpfCos2;
 
   // compute a weighted angle to eventually correct the speed error
   tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
@@ -100,7 +107,8 @@ void aTp6() {
   fpsLpfCorrectionOld = fpsLpfCorrection;
 
   // Add the angle error to the base speed to get the target speed.
-  tp6Fps = fpsLpfCorrection + tp6LpfCos;
+//  tp6Fps = fpsLpfCorrection + tp6LpfCos;
+  tp6Fps = fpsLpfCorrection + lpfCos2;
   if (isRouteInProgress) route();
   else tp6Steer(tp6Fps);
   setTargetSpeedRight(tp6FpsRight);
@@ -173,10 +181,10 @@ void sendTp6Status() {
           (long) tickPosition,
           (short) (wheelSpeedFps * 1000.0),
           (short) (tp6Rotation * 1000.0),
-          (short) (tp6Cos * 1000.0),
-          (short) (tp6TargetAngle * 1000.0),
-          (short) (tp6AngleError * 1000.0),
-          (short) (fpsCorrection * 1000.0));
+          (short) (rotation2 * 1000.0),
+          (short) (tp6LpfCos * 1000.0),
+          (short) (lpfCos2 * 1000.0),
+          (short) (cos2 * 1000.0));
 }
 
 
@@ -215,9 +223,17 @@ void sendTp6Status() {
  *  tp6Steer() 
  ***********************************************************************/
 void tp6Steer(double fps) {
-  double speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
-//  double speedAdjustment = -0.5;
-  tp6FpsLeft = fps + speedAdjustment;
-  tp6FpsRight = fps - speedAdjustment;
+  double speedAdjustment;
+  if (!isGyroSteer) {
+      speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
+    }
+    else {
+      targetGHeading += 0.1 * controllerX;
+      double aDiff =  targetGHeading - gyroCumHeading;
+      speedAdjustment = aDiff * (S_LIM / A_LIM);
+      speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
+    }
+    tp6FpsLeft = tp6Fps + speedAdjustment;
+    tp6FpsRight = tp6Fps - speedAdjustment;
 }
 

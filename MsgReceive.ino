@@ -204,15 +204,21 @@ Serial.print(type); Serial.print("\t");Serial.println(val);
     resetNavigation();
     break;
   case TP_RCV_MSG_LIGHTS: // 
-    if (val != 0) {
-      digitalWrite(RIGHT_HL_PIN, HIGH);
-      digitalWrite(LEFT_HL_PIN, HIGH);
-      digitalWrite(REAR_TL_PIN, HIGH);
+    if (val == 0) {
+      isGyroSteer = false;
     } else {
-      digitalWrite(RIGHT_HL_PIN, 0);
-      digitalWrite(LEFT_HL_PIN, 0);
-      digitalWrite(REAR_TL_PIN, 0);
+      isGyroSteer = true;
+      targetGHeading = gyroCumHeading;
     }
+//    if (val != 0) {
+//      digitalWrite(RIGHT_HL_PIN, HIGH);
+//      digitalWrite(LEFT_HL_PIN, HIGH);
+//      digitalWrite(REAR_TL_PIN, HIGH);
+//    } else {
+//      digitalWrite(RIGHT_HL_PIN, 0);
+//      digitalWrite(LEFT_HL_PIN, 0);
+//      digitalWrite(REAR_TL_PIN, 0);
+//    }
     break;
   case TP_RCV_MSG_DSTART:
     sendDumpData();

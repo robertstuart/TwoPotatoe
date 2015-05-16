@@ -65,6 +65,9 @@ const unsigned int TP_PWM_FREQUENCY = 10000;
 #define SONAR_FRONT_RX 43
 #define SONAR_LEFT_RX 45
 
+#define A_LIM 10.0 // degrees at which the speedAdjustment starts reducing.
+#define S_LIM 1.0  // maximum speedAdjustment;
+
 //Encoder factor
 //const double ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
 //const long ENC_FACTOR_M = 1329000L;  // Change pulse width to milli-fps speed, 1/29 gear
@@ -83,7 +86,8 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define TICKS_PER_CIRCLE_YAW  10350.0
 //#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
 #define TICKS_PER_DEGREE_YAW (TICKS_PER_CIRCLE_YAW / 360.0)
-#define TICKS_PER_PITCH_DEGREE 20.0
+//#define TICKS_PER_PITCH_DEGREE 20.0
+#define TICKS_PER_PITCH_DEGREE 54.0D
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
 #define DEFAULT_MAP_ORIENTATION -45.0
@@ -230,8 +234,18 @@ double gRoll = 0.0;
 double gyroCumHeading = 0.0;
 double gyroHeading = 0;
 
-double oldGyroCumHeading = 0.0;
-double oldTickCumHeading = 0.0;
+double tPitch = 0.0D;
+double oldTPitch = 0.0D;
+double tgPitch = 0.0D;
+double tgPitchDelta = 0.0D;
+double oldTgPitch = 0.0D;
+
+double rotation2 = 0.0D;
+double cos2 = 0.0D;
+double lpfCos2 = 0.0D;
+double lpfCosOld2 = 0.0D;
+double oldGyroCumHeading = 0.0D;
+double oldTickCumHeading = 0.0D;
 
 double headX, headY;
 
@@ -320,6 +334,8 @@ int gyroErrorX = 0;
 int gyroErrorY = 0;
 int gyroErrorZ = 0;
 
+boolean isGyroSteer = false;
+double targetGHeading = 0.0D;
 
 int battVolt = 0; // battery 
 int tpDebug = 4241;
@@ -486,6 +502,7 @@ void setup() {
 
   zeroGyro();
   gyroTrigger = micros();
+  resetNavigation();
   beep(BEEP_UP);
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
