@@ -184,7 +184,6 @@ void newPacket() {
  *********************************************************/
 void doMessage(int type, int val) {
   int bo;
-Serial.print(type); Serial.print("\t");Serial.println(val);
   switch (type) {
   case TP_RCV_MSG_MODE:
     mode = val;
@@ -201,7 +200,7 @@ Serial.print(type); Serial.print("\t");Serial.println(val);
   case TP_RCV_MSG_RUN_READY:
     if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
     else setStateBit(TP_STATE_RUN_READY, false);
-    resetNavigation();
+    resetNavigation(magHeading);
     break;
   case TP_RCV_MSG_LIGHTS: // 
     if (val == 0) {
@@ -238,15 +237,15 @@ Serial.print(type); Serial.print("\t");Serial.println(val);
       isRouteInProgress = false;
     }
     else {
-      isRouteInProgress = true;
-      setNewRouteAction(true);
+      resetRoute();
+      interpretRouteLine();
     }
     break;
   case TP_RCV_MSG_ROUTE_ES:
     isEsReceived = true;
     break;
   case TP_RCV_MSG_RESET_NAV:
-    resetNavigation();
+    resetNavigation(magHeading);
     break;
   case TP_RCV_MSG_T_VAL:
     tVal = val;

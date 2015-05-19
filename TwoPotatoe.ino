@@ -9,6 +9,21 @@
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
 
+String rtA[] = {"N  Office-hallway",
+                "M    -51.62", 
+                "Z    -51.62", 
+                "S         0  30",
+                "GY      0,5   2",
+                "T      15,7   2    2",
+                "GX     15,7   2",
+                "S        90   2",
+                "S       -90   3",
+                "GX      2,7   2",
+                "T       0,0   2    2",
+                "GY      0,0   2",
+                "F"
+}; 
+
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
 const int MOT_RIGHT_ENCA =  22;  
@@ -193,18 +208,23 @@ struct loc {
 
 struct loc currentMapLoc;
 struct loc routeTargetLoc;
-struct routeStep {
-  char cmd;
-  double a;
-  double b;
-  double c;
-  double d;
-};
+//struct routeStep {
+//  char cmd;
+//  char cmd2;
+//  double a;
+//  double b;
+//  double c;
+//  double d;
+//};
 
-int routeActionPtr = 0;
+int routeStepPtr = 0;
+String routeTitle = "No route";
+
 boolean isRouteInProgress = false;
 char routeCurrentAction = 0;
 double routeTargetBearing = 0.0;
+double routeMagTargetBearing = 0.0;
+boolean isReachedMagHeading = false;
 long routeTargetTickPosition = 0L;
 double routeFps = 0.0;
 double routeRadius = 0.0;
@@ -500,9 +520,11 @@ void setup() {
   digitalWrite(YELLOW_LED_PIN, LOW);
   digitalWrite(GREEN_LED_PIN, LOW);
 
+
   zeroGyro();
   gyroTrigger = micros();
-  resetNavigation();
+  readCompass();
+  resetNavigation(magHeading);
   beep(BEEP_UP);
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {

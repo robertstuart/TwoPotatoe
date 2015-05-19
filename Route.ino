@@ -1,133 +1,50 @@
+ 
+#define STEP_ERROR -42.42
+int originalStepStringPtr = 0;
+String stepString = "";
+int numLen = 0;
+
 /************************************************************************
  *  Route() called every loop
  *          1. Check if target reached.
  *          2. Set currentLoc.
  *          3. Adjust steering.
  ************************************************************************/
-
-// square in office
-//struct routeStep routeA[] = {
-//  {'M', -45,   0,  0,   0}, 
-//  {'S',   0,   4,  0,   0}, 
-//  {'Y',   0,   5,  2,   4},
-//  {'T',  -6,   5,  2,   1},
-//  {'X',  -6,   5,  2,  -5},
-//  {'T',  -6,  -1,  2,   1},
-//  {'Y',  -6,  -1,  2,   0},
-//  {'T',   0,  -1,  2,   1},
-//  {'X',   0,  -1,  2,  -1},
-//  {'T',   0,   5,  2,   1},
-//  {'F', 0, 0, 0, 0}
-//};
-
-
-// toward kitchen
-struct routeStep routeA[] = {
-  {'M',  -51,   0,  0,   0},  // 0
-  {'S',    0,   6, 30,   0}, // 1 
-  {'Y',    0,   5,  2,   0},  // 2
-  {'T',   15,   7,  2,   2},  // 3
-  {'X',   15,   7,  2,   0},  // 4
-  {'x',  5.2,   4,  7, 0.6},
-  {'x', 11.8,   2,  5, 3.3},
-  {'S',   20,   7,  1,   0},  // 5
-  {'S',    2,   7,  2,   0},  // 6
-  {'X',    2,   7,  2,   0},  // 7
-  {'x', 13.5,   2,  4, 2.3},
-  {'x',  4.8,   2,  4, 2.3},
-  {'T',    0,   0,  2,   2},  // 8
-  {'Y',    0,   0,  2,   0},  // 9
-  {'F',    0,   0,  0,   0}
-};
-
-
-
-// turns
-//struct routeStep routeA[] = {
-//  {'M',  -51,   0,  0,   0},  // 0
-//  {'S',    0,   10,  2,   0}, // 1 
-//  
-//  {'T',    10,   0,  2,   1},  // 8 CW
-//  {'T',     0, -10,  4,   1},  // 8
-//  {'T',   -10,   0,  4,   1},  // 8
-//  {'T',    0,   10,  4,   1},  // 3
-//  
-//  {'T',    10,   0,  4,   1},  // 8
-//  {'T',     0, -10,  4,   1},  // 8
-//  {'T',   -10,   0,  4,   1},  // 8
-//  {'T',    0,   10,  2,   1},  // 3
-//  {'T',    -10,   0,  2,   1},  // 8 CCW
-//  {'T',     0, -10,  4,   1},  // 8
-//  {'T',    10,   0,  4,   1},  // 8
-//  {'T',    0,   10,  4,   1},  // 3
-//  {'T',    -10,   0,  4,   1},  // 8
-//  {'T',     0, -10,  4,   1},  // 8
-//  {'T',    10,   0,  4,   1},  // 8
-//  {'T',    0,   10,  2,   1},  // 3
-//  {'F',    0,   0,  0,   0}
-//};
-
-
-
-//// back and forth to calibrate
-//// gyroscope turns CCW
-//struct routeStep routeA[] = {
-//  {'M',   -70,      0,    0,   0}, 
-//  {'S',   15,   -10,  0.5,   0}, 
-//  {'S',   15,     0,    2,   0}, 
-//  {'X',   15,     0,    3,   0},
-//  {'S',    0,    10,  0.5,   0},
-//  {'S',    0,     0,    2,   0},
-//  {'X',    0,     0,    3,   0},
-//  {'R',    1,     0,    0,   0}
-//};
-
-
-// back and forth to calibrate
-// gyroscope turns CW
-//struct routeStep routeA[] = {
-//  {'M',   -70,      0,    0,   0}, 
-//  {'S',   15,    10,  0.5,   0}, 
-//  {'S',   15,     0,    2,   0}, 
-//  {'X',   15,     0,    3,   0},
-//  {'S',    0,   -10,  0.5,   0},
-//  {'S',    0,     0,    2,   0},
-//  {'X',    0,     0,    3,   0},
-//  {'R',    1,     0,    0,   0}
-//};
-
-
-
 void route() {
-  boolean isNewAction = false;
+  boolean isNewRouteStep = false;
   setTargetPosition();
   
   // See of we need to move to the next route step.
   switch (routeCurrentAction) {
+    case 'N':
+    case 'M':
+        isNewRouteStep = true;
+        break;
+    case 'Z': // Zero the map to the magnetic orientation.
+      if (zeroMapHeading()) isNewRouteStep = true;
+      break;
     case 'S': // Stand
-      if (digitalRead(GN_SW_PIN) == LOW) isNewAction = true;
-      if (digitalRead(YE_SW_PIN) == LOW) isNewAction = true;
+      if (digitalRead(GN_SW_PIN) == LOW) isNewRouteStep = true;
+      if (digitalRead(YE_SW_PIN) == LOW) isNewRouteStep = true;
       if (isEsReceived) {
-        isNewAction = true;
+        isNewRouteStep = true;
         isEsReceived = false;
       }
-      if (routeA[routeActionPtr].c > 0.01) {
-        if (routeWaitTime < timeMilliseconds) isNewAction = true;
-      }
-      steerHeading();
+      if (routeWaitTime < timeMilliseconds) isNewRouteStep = true;
+      orient();
       break;
     case 'x': // Moving toward X axis & waiting to take a sonar reading
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x; 
       routeCoDistance = routeCoDistanceXY - currentMapLoc.x;
       if (isRouteTargetIncreasing) {
         if (routeCoDistance <= 0.0) {
-          isNewAction = true;
+          isNewRouteStep = true;
           readSonar();
         }
       }
       else {
         if (routeCoDistance >= 0.0) {
-          isNewAction = true;
+          isNewRouteStep = true;
           readSonar();
         }
       }
@@ -136,10 +53,10 @@ void route() {
     case 'X': // Move toward X axis
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x; 
       if (isRouteTargetIncreasing) {
-        if (routeTargetXYDistance <= 0.0) isNewAction = true;
+        if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
       }
       else {
-        if (routeTargetXYDistance >= 0.0) isNewAction = true;
+        if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
       }
       steerHeading();
       break;
@@ -148,13 +65,13 @@ void route() {
       routeCoDistance = routeCoDistanceXY - currentMapLoc.y;
       if (isRouteTargetIncreasing) {
         if (routeCoDistance <= 0.0) { 
-          isNewAction = true;
+          isNewRouteStep = true;
           readSonar();
         }
       }
       else {
         if (routeCoDistance >= 0.0) {
-          isNewAction = true;
+          isNewRouteStep = true;
           readSonar();
         }
       }
@@ -163,24 +80,24 @@ void route() {
     case 'Y': // Move toward Y axis
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y; 
       if (isRouteTargetIncreasing) {
-        if (routeTargetXYDistance <= 0.0) isNewAction = true;
+        if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
       }
       else {
-        if (routeTargetXYDistance >= 0.0) isNewAction = true;
+        if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
       }
       steerHeading();
       break;
     case 'T': // Turn
-      if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewAction = true;
-      turn();
+      if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewRouteStep = true;
+      turnRadius();
       break;
     default:
       break; 
   } // end switch()
 
   // Move to new action if current action is done.
-  if (isNewAction) { // Move to next action in list.  
-    setNewRouteAction(false);
+  if (isNewRouteStep) { // Move to next action in list.  
+    interpretRouteLine();
   }
 }
 
@@ -188,95 +105,85 @@ void route() {
 
 /************************************************************************
  *  setNewRouteAction() Start the next action in the route
- ************************************************************************/
-void setNewRouteAction(boolean start) {
-
-  if (start) {
-    resetRoute();
-  }
-  else {
-    // Revert to X or Y if current is x or y and next is something else.
-    if ((routeCurrentAction == 'x') || (routeCurrentAction == 'y')) {
-      int nextAction = routeA[routeActionPtr + 1].cmd;
-      if ((nextAction != 'x') && (nextAction != 'y')) {
-        // We are here if we have reached the last in a series of "x or y" steps
-        // Revert to acting as if the next command is the original X or Y command.
-        routeCurrentAction = originalAction;
-        return;
-      }
-    }
-    routeActionPtr++;
-  }
-  
-  routeCurrentAction = routeA[routeActionPtr].cmd;
-  double aRouteVal = routeA[routeActionPtr].a;
-  double bRouteVal = routeA[routeActionPtr].b;
-  double cRouteVal = routeA[routeActionPtr].c;
-  double dRouteVal = routeA[routeActionPtr].d;
-  switch (routeCurrentAction) {
-    case 'M': // Map Orientation
-      mapOrientation = aRouteVal;
-      setNewRouteAction(false); // Recursion?
-      break;
-    case 'F': // Fini
-      isRouteInProgress = false;
-      break;
-    case 'S': // Stand
-      routeTargetLoc.x = (double) aRouteVal;
-      routeTargetLoc.y = (double) bRouteVal;
-      if (cRouteVal < 0.01) { // Zero: Wait for button press
-        routeWaitTime = UNSIGNED_LONG_MAX;
-      }
-      else { // > 0.0: get the time.
-        routeWaitTime = ((unsigned int) (cRouteVal * 1000.0)) + timeMilliseconds;
-      }
-      routeFps = 0;
-      routeTargetXYDistance = 9999.9; // always turn.
-      isEsReceived = false;
-      break;
-    case 'X':   // Move
-      routeTargetXY = routeTargetLoc.x = (double) aRouteVal;
-      routeTargetLoc.y = (double) bRouteVal;
-      if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
-      else isRouteTargetIncreasing = false;
-      routeFps = cRouteVal;
-      if (routeA[routeActionPtr + 1].cmd == 'x') {
-        originalAction = 'X';
-        setNewRouteAction(false); // Recursion?
-      }
-      break;
-    case 'x':
-    case 'y':
-      routeCoDistanceXY = aRouteVal;
-      routeSonarMin = bRouteVal;
-      routeSonarMax = cRouteVal;
-      routeSonarDist = dRouteVal;
-      break;
-    case 'Y':   // Move
-      routeTargetLoc.x = (double) aRouteVal;
-      routeTargetXY = routeTargetLoc.y = (double) bRouteVal;
-      if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
-      else isRouteTargetIncreasing = false;
-      routeFps = cRouteVal;
-      if (routeA[routeActionPtr + 1].cmd == 'y') {
-        originalAction = 'Y';
-        setNewRouteAction(false); // Recursion?
-      }
-      break;
-    case 'T':   // Turn
-      routeTargetLoc.x = aRouteVal;
-      routeTargetLoc.y = bRouteVal;
-      routeRadius = dRouteVal;
-      routeFps = cRouteVal;
-      break;
-    case 'R': // Repeat.
-      routeActionPtr = (int) aRouteVal;
-      setNewRouteAction(false); // Recursion?
-      break;
-    default:
-      break;
-  }
-}
+// ************************************************************************/
+//void setNewRouteAction(boolean start) {
+//
+//  if (start) {
+//   if (!resetRoute()) {
+//     isRouteInProgress = false;
+//     return;
+//  }
+//  
+//  interpretRouteLine(routeStepPtr++);
+//  switch (routeCurrentAction) {
+//    case 'N': // RouteName
+//      setNewRouteAction(false); // Recursion?
+//      break;    
+//    case 'M': // Map Orientation
+//      setNewRouteAction(false); // Recursion?
+//      break;
+//    case 'Z': // Map Orientation
+//      setNewRouteAction(false); // Recursion?
+//      break;
+//    case 'F': // Fini
+//      isRouteInProgress = false;
+//      break;
+//    case 'S': // Stand
+//      routeTargetLoc.x = (double) aRouteVal;
+//      routeTargetLoc.y = (double) bRouteVal;
+//      if (cRouteVal < 0.01) { // Zero: Wait for button press
+//        routeWaitTime = UNSIGNED_LONG_MAX;
+//      }
+//      else { // > 0.0: get the time.
+//        routeWaitTime = ((unsigned int) (cRouteVal * 1000.0)) + timeMilliseconds;
+//      }
+//      routeFps = 0;
+//      routeTargetXYDistance = 9999.9; // always turn.
+//      isEsReceived = false;
+//      break;
+//    case 'X':   // Move
+//      routeTargetXY = routeTargetLoc.x = (double) aRouteVal;
+//      routeTargetLoc.y = (double) bRouteVal;
+//      if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+//      else isRouteTargetIncreasing = false;
+//      routeFps = cRouteVal;
+//      if (routeA[routeActionPtr + 1].cmd == 'x') {
+//        originalAction = 'X';
+//        setNewRouteAction(false); // Recursion?
+//      }
+//      break;
+//    case 'x':
+//    case 'y':
+//      routeCoDistanceXY = aRouteVal;
+//      routeSonarMin = bRouteVal;
+//      routeSonarMax = cRouteVal;
+//      routeSonarDist = dRouteVal;
+//      break;
+//    case 'Y':   // Move
+//      routeTargetLoc.x = (double) aRouteVal;
+//      routeTargetXY = routeTargetLoc.y = (double) bRouteVal;
+//      if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+//      else isRouteTargetIncreasing = false;
+//      routeFps = cRouteVal;
+//      if (routeA[routeActionPtr + 1].cmd == 'y') {
+//        originalAction = 'Y';
+//        setNewRouteAction(false); // Recursion?
+//      }
+//      break;
+//    case 'T':   // Turn
+//      routeTargetLoc.x = aRouteVal;
+//      routeTargetLoc.y = bRouteVal;
+//      routeRadius = dRouteVal;
+//      routeFps = cRouteVal;
+//      break;
+//    case 'R': // Repeat.
+//      routeActionPtr = (int) aRouteVal;
+//      setNewRouteAction(false); // Recursion?
+//      break;
+//    default:
+//      break;
+//  }
+//}
 
 
 /************************************************************************
@@ -333,16 +240,70 @@ void steerHeading() {
 
 
 /************************************************************************
- *  turn()
+ *  zeroMapHeading() 
+ ************************************************************************/
+boolean zeroMapHeading() {
+  static unsigned int magTimeout = 0U;
+  static double magSum = 0.0D;
+  static int magCount = 0;
+  
+  aDiff = routeMagTargetBearing - magHeading;
+  if (aDiff > 180.0) aDiff -= 360.0;
+  else if (aDiff < -180.0) aDiff += 360.0;
+  speedAdjustment = aDiff * (S_LIM / A_LIM);
+  speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
+    
+  tp6FpsLeft = tp6Fps + speedAdjustment;
+  tp6FpsRight = tp6Fps - speedAdjustment;
+  
+  if (!isReachedMagHeading) {
+    if (abs(aDiff) < 1.0) {
+      isReachedMagHeading = true;
+      magTimeout = timeMilliseconds + 2000;
+      magSum = 0.0D;
+BLUE_SER.println(timeMilliseconds);
+      magCount = 0;
+    }
+  }
+  else {
+    magSum += magHeading;
+    magCount++;
+    if (timeMilliseconds > magTimeout) {
+      double mh = magSum / ((double) magCount);
+      resetNavigation(mh);
+BLUE_SER.print(timeMilliseconds); BLUE_SER.print("  "); BLUE_SER.println(magCount);
+      return true;
+    }
+  }
+  return false;
+}
+
+/************************************************************************
+ *  turnRadius()
  *  Why does this turn at a different depending on direction???????????????????????????????
  ************************************************************************/
-void turn() {
+void turnRadius() {
   aDiff = routeTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
   double d = (aDiff > 0.0) ? 1.0 : -1.0;
   
   speedAdjustment = (routeFps / routeRadius) * 0.37 * d; 
+  
+  tp6FpsRight = tp6Fps - speedAdjustment;
+  tp6FpsLeft = tp6Fps + speedAdjustment;
+}
+
+/************************************************************************
+ *  orient()
+ ************************************************************************/
+void orient() {
+  aDiff = routeTargetBearing - currentMapHeading;
+  if (aDiff > 180.0) aDiff -= 360.0;
+  else if (aDiff < -180.0) aDiff += 360.0;
+  
+  speedAdjustment = aDiff * (S_LIM / A_LIM);
+  speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
   
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
@@ -361,7 +322,205 @@ void setTargetPosition() {
   routeTargetBearing = atan2(x,y) * RAD_TO_DEG;
 }
 
+/************************************************************************
+ *  resetRoute() 
+ ************************************************************************/
 void resetRoute() {
-  resetNavigation();
-  routeActionPtr = 0;
+  routeStepPtr = 0;
+  isRouteInProgress = true;
+  while (true) {
+    if (!interpretRouteLine()) return;
+    if (!isRouteInProgress) break;
+  }
+  routeStepPtr = 0;
+  isRouteInProgress = true;
+}
+
+
+
+
+
+/************************************************************************
+ *  interpretRouteLine()  
+ ************************************************************************/
+boolean interpretRouteLine() {
+  double retDbl;
+  int retInt;
+  char charX;
+
+  stepString = rtA[routeStepPtr++];
+  originalStepStringPtr = 0;
+  Serial.print(stepString);  Serial.print(":   "); 
+  routeCurrentAction = stepString.charAt(0);
+  stepString = stepString.substring(1);
+  originalStepStringPtr++;
+  
+  switch (routeCurrentAction) {
+    case 'N':
+      stripWhite();
+      routeTitle = stepString;
+      break;
+      
+    case 'M':
+      mapOrientation = readNum();
+      Serial.print(mapOrientation);
+      if (mapOrientation == STEP_ERROR) return false;
+      break;
+      
+    case 'Z':
+      routeMagTargetBearing = readNum();
+      Serial.print(routeMagTargetBearing);
+      if (routeMagTargetBearing == STEP_ERROR) return false;
+      isReachedMagHeading = false;
+      routeFps = 0.0;
+      break;
+      
+    case 'S':
+      routeTargetBearing = readNum();
+      Serial.print(routeTargetBearing); Serial.print("  ");
+      if (routeTargetBearing == STEP_ERROR) return false;
+      routeTargetLoc.x = sin(routeTargetBearing * DEG_TO_RAD) * 100.0;
+      routeTargetLoc.y = cos(routeTargetBearing * DEG_TO_RAD) * 100.0;
+      
+      retDbl = readNum();
+      if (retDbl == STEP_ERROR) return false;
+      Serial.print(retDbl);
+      routeWaitTime = timeMilliseconds + ((int) retDbl) * 1000;
+      routeFps = 0.0;
+      break;
+      
+    case 'G':
+      charX = stepString.charAt(0);
+      if (charX == 'X') routeCurrentAction = 'X';
+      else if (charX == 'Y') routeCurrentAction = 'Y';
+      else return false;
+      stepString = stepString.substring(1);
+      
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");      
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      if (routeCurrentAction == 'X') {
+        routeTargetXY = routeTargetLoc.x;
+        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      else {
+        routeTargetXY = routeTargetLoc.y;
+        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      
+      routeRadius = readNum();
+      Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
+      break;
+      
+    case 'C':
+      charX = stepString.charAt(0);
+      if (charX != 'X') routeCurrentAction = 'x';
+      else if (charX != 'Y') routeCurrentAction = 'y';
+      else return false;
+      stepString = stepString.substring(1);
+
+      routeCoDistanceXY = readNum();
+      Serial.print(routeCoDistanceXY);
+      if (routeCoDistanceXY == STEP_ERROR) return false;
+      
+      routeSonarMin = readNum();
+      Serial.print(routeSonarMin);
+      if (routeSonarMin == STEP_ERROR) return false;
+      
+      routeSonarMax = readNum();
+      Serial.print(routeSonarMax);
+      if (routeSonarMax == STEP_ERROR) return false;
+      
+      routeSonarDist = readNum();
+      Serial.print(routeSonarDist);
+      if (routeSonarDist == STEP_ERROR) return false;
+      break;
+      
+    case 'T':
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      
+      routeRadius = readNum();
+      Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0D ;        
+      break;
+      
+    case 'R':
+      routeStepPtr = (int) readNum();
+      Serial.print(retInt);
+      if ((routeStepPtr == STEP_ERROR) || (routeStepPtr >= (routeStepPtr - 2))) return false;
+      break;
+      
+    case 'F':
+      isRouteInProgress = false;
+      break;
+    default:
+      Serial.println("Step Error.");
+      return false;
+  }
+  Serial.println();
+  return true;  
+}
+
+double readNum() {
+  stripWhite();
+  double num = stepString.toFloat();
+  stripNum();
+  if (numLen == 0) return STEP_ERROR;
+  return num;
+}
+
+struct loc readLoc() {
+  struct loc locLoc = {STEP_ERROR, STEP_ERROR};
+  stripWhite();
+  locLoc.x = stepString.toFloat();
+  stripNum();
+  if (numLen == 0) return locLoc;  
+  if (stepString.charAt(0) != ',') return locLoc;
+  stepString = stepString.substring(1);
+  double y = stepString.toFloat();
+  stripNum();
+  if (numLen == 0) return locLoc;  
+  locLoc.y = y;
+  return locLoc;
+}
+
+void stripWhite() {
+  int ptr = 0;
+  int len = stepString.length();
+  while (true) {
+    if (ptr >= len) break;
+    char c = stepString.charAt(ptr);
+    if ((c != ' ') && (c != '\t')) break;
+    ptr++;
+  }
+  originalStepStringPtr += ptr;
+  stepString = stepString.substring(ptr);
+}
+
+
+void stripNum() {
+  int ptr = 0;
+  int len = stepString.length();
+  while (true) {
+    if (ptr >= len) break;
+    char c = stepString.charAt(ptr);
+    if ((c == '.') || (c == '-') || ((c >= '0') && (c <= '9'))) ptr++;
+    else break;
+  }
+  originalStepStringPtr += ptr;
+  stepString = stepString.substring(ptr);
+  numLen = ptr;
 }

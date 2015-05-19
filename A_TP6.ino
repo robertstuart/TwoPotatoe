@@ -154,16 +154,16 @@ void sendTp6Status() {
 //BLUE_SER.print(currentMapLoc.y); BLUE_SER.print("\t"); BLUE_SER.print("\t"); 
 //BLUE_SER.print(currentMapHeading); BLUE_SER.print("\t"); 
 //BLUE_SER.println(routeActionPtr); 
-//  if (isRouteInProgress) {
-//    addLog(
-//          (long) ((double) tickPosition) / TICKS_PER_FOOT,
-//          (short) (currentMapLoc.x * 100.0),
-//          (short) (currentMapLoc.y * 100.0),
-//          (short) (routeTargetLoc.x * 100.0),
-//          (short) (routeTargetLoc.y * 100.0),
-//          (short) (currentMapHeading * 100.0),
-//          (short) (magHeading * 100.0));
-//    }
+  if (isRouteInProgress) {
+    addLog(
+          (long) (((double) tickPosition) * 100.0) / TICKS_PER_FOOT,
+          (short) (currentMapLoc.x * 100.0),
+          (short) (currentMapLoc.y * 100.0),
+          (short) (routeTargetLoc.x * 100.0),
+          (short) (routeTargetLoc.y * 100.0),
+          (short) (currentMapHeading * 100.0),
+          (short) routeStepPtr);
+    }
     
 //    addLog(
 //          (long) ((double) tickPosition) / TICKS_PER_FOOT,
@@ -177,14 +177,14 @@ void sendTp6Status() {
   }
     
 
-    addLog(
-          (long) tickPosition,
-          (short) (wheelSpeedFps * 1000.0),
-          (short) (tp6Rotation * 1000.0),
-          (short) (rotation2 * 1000.0),
-          (short) (tp6LpfCos * 1000.0),
-          (short) (lpfCos2 * 1000.0),
-          (short) (cos2 * 1000.0));
+//    addLog(
+//          (long) tickPosition,
+//          (short) (wheelSpeedFps * 1000.0),
+//          (short) (tp6Rotation * 1000.0),
+//          (short) (rotation2 * 1000.0),
+//          (short) (tp6LpfCos * 1000.0),
+//          (short) (lpfCos2 * 1000.0),
+//          (short) (cos2 * 1000.0));
 }
 
 

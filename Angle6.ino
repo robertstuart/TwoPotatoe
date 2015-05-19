@@ -168,12 +168,12 @@ void setNavigation() {
  * resetNavigation() Set tickHeading and gyroHeading to magHeading 
  *                   when wheels touch ground or at startup.
  **************************************************************************/
-void resetNavigation() {
-  gmCumHeading = tmCumHeading = gyroCumHeading = tickCumHeading = magCumHeading = magHeading;
-  oldGyroCumHeading = oldTickCumHeading = magHeading;
-  tickHeading = gyroHeading = magHeading;
+void resetNavigation(double mh) {
+  gmCumHeading = tmCumHeading = gyroCumHeading = tickCumHeading = magCumHeading = mh;
+  oldGyroCumHeading = oldTickCumHeading = mh;
+  tickHeading = gyroHeading = mh;
   magRotations = 0.0;
-  tickHeadingOffset = (int) (magCumHeading * TICKS_PER_DEGREE_YAW);
+  tickHeadingOffset = (int) (mh * TICKS_PER_DEGREE_YAW);
   tickPosition = tickPositionRight = tickPositionLeft = navOldTickPosition = 0;
   oldTPitch = 0.0D;
   currentMapLoc.x = 0;
