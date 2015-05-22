@@ -12,6 +12,37 @@ int packetLength = 0;
 int rcvLength = 0;
 int blockCount = 0;
 
+const int B_BUFFER_SIZE = 100;
+char msgStr[B_BUFFER_SIZE];
+int msgStrPtr = 0;
+int msgCmd = 0;
+boolean isMessageInProgress = false;
+
+void   readBluetooth() {
+  while (BLUE_SER.available()) {
+    byte b = BLUE_SER.read();
+    if (b >= 128) {
+      msgStrPtr = 0;
+      msgCmd = b;
+      isMessageInProgress = true;
+    }
+    else {
+      if (isMessageInProgress) {
+        if (msgStrPtr >= B_BUFFER_SIZE) {
+          isMessageInProgress = false;
+        } else if (b == 0) {
+          doMsg(msgCmd, msgStr, msgStrPtr);
+        } 
+        else {
+          msgStr[msgStrPtr++] = b;
+        }
+      }
+    }
+  }
+}
+
+
+
 /*********************************************************
  *
  * readXBee()
@@ -179,10 +210,61 @@ void newPacket() {
   }
 }
 
+void doMsg(int cmd, char msgStr[], int count) {
+  int x;
+  float y;
+  boolean z;
+  
+  tHc = timeMilliseconds;
+  msgStr[count] = 0; // Just to be sure.
+  
+  switch(cmd) {
+    case RCV_JOYX:
+      x = sscanf(msgStr, "%f", &y);
+      if (x >0) controllerX = y; 
+      break;
+    case RCV_JOYY:
+      if (sscanf(msgStr, "%f", &y) > 0) controllerY = y;
+      break;
+    case RCV_RUN:
+      if (sscanf(msgStr, "%d", &x) > 0) {
+        isRunReady = (x == 0) ? false : true;
+      }
+      break;
+    case RCV_LIGHTS:
+      if (sscanf(msgStr, "%d", &x) > 0) {
+        x = (x == 0) ? LOW : HIGH;
+        digitalWrite(RIGHT_HL_PIN, x);
+        digitalWrite(LEFT_HL_PIN, x);
+        digitalWrite(REAR_TL_PIN, x);
+      }
+      break;
+    case RCV_ROUTE:
+      if (sscanf(msgStr, "%d", &x) > 0) {
+        z = (x == 0) ? false : true;
+        isRouteInProgress = z;
+      }
+      break;
+    case RCV_ROUTE_ES:
+      if (sscanf(msgStr, "%d", &x) > 0) {
+        z = (x == 0) ? false : true;
+        isRouteInProgress = z;
+      }
+      break;
+    case RCV_DUMP_START:
+      sendDumpData();
+      break;
+    default:
+      Serial.print("Illegal message received: "); Serial.println(cmd);
+      break;
+  }
+}
+
 /*********************************************************
  * doMessage()
  *********************************************************/
 void doMessage(int type, int val) {
+  boolean b;
   int bo;
   switch (type) {
   case TP_RCV_MSG_MODE:
@@ -198,8 +280,7 @@ void doMessage(int type, int val) {
     isBluePassthrough = (val == 0) ? false : true;
     break;
   case TP_RCV_MSG_RUN_READY:
-    if (val != 0) setStateBit(TP_STATE_RUN_READY, true);
-    else setStateBit(TP_STATE_RUN_READY, false);
+    isRunReady = (val == 0) ? false : true;
     resetNavigation(magHeading);
     break;
   case TP_RCV_MSG_LIGHTS: // 
@@ -298,15 +379,15 @@ void doPulseBlock() {
   }
 }
 
-/*********************************************************
- *
- * readBluetooth()
- *
- *     Read bytes from the Bluetooth radio, make a data
- *     array of the packet and give it to newPacket().  
- *
- *********************************************************/
-void readBluetooth() {
+///*********************************************************
+// *
+// * readBluetooth()
+// *
+// *     Read bytes from the Bluetooth radio, make a data
+// *     array of the packet and give it to newPacket().  
+// *
+// *********************************************************/
+//void readBluetooth() {
 //  static boolean escState = false;
 //  static boolean isReceivingBlue = false;
 //  static int blueByteCount = 0;
@@ -344,7 +425,7 @@ void readBluetooth() {
 //      BLUE_SER.write(b);
 //    }
 //  }
-}
+//}
 
 
 /*********************************************************

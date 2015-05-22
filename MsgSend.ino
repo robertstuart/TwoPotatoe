@@ -5,6 +5,28 @@ int transmitBufferLength = 0;
 int transmitBufferPtr = 0;
 unsigned long transmitNextWriteTime = 0UL;
 int dumpPtr, dumpEnd;
+
+void sendStatusBluePc() {
+  sendMsg(SEND_FPS, 2, wheelSpeedFps);
+  sendMsg(SEND_PITCH, 1, gaPitch);
+  sendMsg(SEND_HEADING, 1, currentMapHeading);
+  sendMsg(SEND_SONAR, 2, sonarRight);
+  sendMsg(SEND_ROUTE_STEP, routeStepPtr); // integer
+  sendStateMessage();
+}
+
+void sendStateMessage() {
+  int statusInt = 0;
+  if (isRunning)    statusInt += 1;
+  if (isRunReady)   statusInt += 10;
+  if (isUpright)    statusInt += 100;
+  if (isOnGround)   statusInt += 1000;
+  if (isHcActive)   statusInt += 10000;
+  if (isPcActive)   statusInt += 100000;
+  if (isRoute)      statusInt += 1000000;
+  if (isDumping)    statusInt += 10000000;
+  sendMsg(SEND_STATE, statusInt); // integer
+}
  
 /*********************************************************
  * sendStatusFrame() Send out status data.
@@ -59,7 +81,6 @@ void sendStatusFrame(int destId) {
     sendFrame(destId, TP_SEND_END);
   }
 }
- 
 
 /*********************************************************
  *
@@ -109,30 +130,14 @@ void sendFrame(int destId, int dataLength) {
  * sendBlueFrame
  *********************************************************/
 void sendBlueFrame() {
-//  byte blueBuffer[4];
-//  int oPtr = 1;
-//  blueBuffer[0] = 0x7E;
-//  for (int i = 1; i < 3; i++) {
-//    int b = transmitBuffer[i];
-//    if ((b == 0x7E) || (b == 0x7D)) {
-//      blueBuffer[oPtr++] = 0x7D;
-//      blueBuffer[oPtr++] = b ^ 0x20;
-//    }
-//    else {
-//      blueBuffer[oPtr++] = b;
-//    }
-//  }
-//  if (!isBluePassthrough) BLUE_SER.write(blueBuffer, oPtr);
 }
 
 /*********************************************************
  * dumpData() Set up to start a data dump.
  *********************************************************/
 void sendDumpData() {
-  if (!noResendDumpData) {
-    dumpEnd = dumpPtr =  dataArrayPtr;
-    isDumpingData = true;
-  }
+  dumpEnd = dumpPtr =  dataArrayPtr;
+  isDumpingData = true;
 }
 
 
@@ -141,26 +146,43 @@ void sendDumpData() {
  * dumpData()
  *********************************************************/
 void dumpData() {
-  sendArray[TP_SEND_FLAG] = TP_SEND_FLAG_DUMP;
-  for (int k = 0; k < 6; k++) {
-    dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
-    if (dumpPtr != dumpEnd) {
-      set4Byte(sendArray, 1 + (16 * k), aArray[dumpPtr]);
-      set2Byte(sendArray, 5 + (16 * k), bArray[dumpPtr]);
-      set2Byte(sendArray, 7 + (16 * k), cArray[dumpPtr]);
-      set2Byte(sendArray, 9 + (16 * k), dArray[dumpPtr]);
-      set2Byte(sendArray, 11 + (16 * k), eArray[dumpPtr]);
-      set2Byte(sendArray, 13 + (16 * k), fArray[dumpPtr]);
-      set2Byte(sendArray, 15 + (16 * k), gArray[dumpPtr]);
-    } 
-    else { // end of data dump
-      set4Byte(sendArray, 1, 0L);
-      sendFrame(XBEE_PC, 17);
-      isDumpingData = false;
-      return;
-    }
+  BLUE_SER.write(SEND_DUMP_DATA);
+  dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
+  if (dumpPtr != dumpEnd) {
+    BLUE_SER.print(aArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(bArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(cArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(dArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(eArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(fArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(gArray[dumpPtr]);
   }
-  sendFrame(XBEE_PC, 1 + (16 * 6));
+  else {
+    BLUE_SER.print("12345678");
+    isDumpingData = false;
+  }
+  BLUE_SER.write((byte) 0);
+//  
+//  
+//  for (int k = 0; k < 6; k++) {
+//    dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
+//    if (dumpPtr != dumpEnd) {
+//      set4Byte(sendArray, 1 + (16 * k), aArray[dumpPtr]);
+//      set2Byte(sendArray, 5 + (16 * k), bArray[dumpPtr]);
+//      set2Byte(sendArray, 7 + (16 * k), cArray[dumpPtr]);
+//      set2Byte(sendArray, 9 + (16 * k), dArray[dumpPtr]);
+//      set2Byte(sendArray, 11 + (16 * k), eArray[dumpPtr]);
+//      set2Byte(sendArray, 13 + (16 * k), fArray[dumpPtr]);
+//      set2Byte(sendArray, 15 + (16 * k), gArray[dumpPtr]);
+//    } 
+//    else { // end of data dump
+//      set4Byte(sendArray, 1, 0L);
+//      sendFrame(XBEE_PC, 17);
+//      isDumpingData = false;
+//      return;
+//    }
+//  }
+//  sendFrame(XBEE_PC, 1 + (16 * 6));
 }
 
 
@@ -210,8 +232,22 @@ void set4Byte(byte array[], int index, int value) {
   array[index] = (byte) value;
 }
 
+void sendMsg(int cmd, int precision, double val) {
+  BLUE_SER.write(cmd);
+  BLUE_SER.print(val, precision);
+  BLUE_SER.write((byte) 0);
+}
 
+void sendMsg(int cmd, int val) {
+  BLUE_SER.write(cmd);
+  BLUE_SER.print(val);
+  BLUE_SER.write((byte) 0);
+}
 
-
+void sendMsg(int cmd, String val) {
+  BLUE_SER.write(cmd);
+  BLUE_SER.print(val);
+  BLUE_SER.write((byte) 0);
+}
 
 

@@ -53,6 +53,7 @@ void commonTasks() {
   timeMicroseconds = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   readXBee();  // Read commands from PC or Hand Controller
+  readBluetooth();
 //  readBluetooth();
 //  motorIdle();
   led();
@@ -82,45 +83,26 @@ void commonTasks() {
  **************************************************************************/
 void setRunningState() {
 
-  if ((mode == MODE_TP5) || (mode == MODE_TP6)) {
+  if (mode == MODE_TP6) {
     // Set the runnng bit to control motors
-    if (     isStateBit(TP_STATE_RUN_READY)
-             && isStateBit(TP_STATE_UPRIGHT)
-             && (isStateBit(TP_STATE_ON_GROUND) || isJump)) {
-      if (!isStateBit(TP_STATE_RUNNING)) {
-        setStateBit(TP_STATE_RUNNING, true);
-//        zeroHeadings();
-      }
+    if ((isRunReady && isUpright && isOnGround) || isJump) {
+      isRunning = true;
     }
     else {
-      setStateBit(TP_STATE_RUNNING, false);
+      isRunning = false;
     }
   }
   else { // For all test modes, just set accoding to ready bit
-      setStateBit(TP_STATE_RUNNING, isStateBit(TP_STATE_RUN_READY));    
+      isRunning = isRunReady;   
   }
   
-  // Set the route bit
-  setStateBit(TP_STATE_ROUTE, isRouteInProgress);
-  
- 
   // Set the blue connection led
-  if (isStateBit(TP_STATE_HC_ACTIVE)) setBlink(BLUE_LED_PIN, BLINK_ON);
-  else if (isStateBit(TP_STATE_PC_ACTIVE)) setBlink(BLUE_LED_PIN, BLINK_SB);
+  if (isHcActive) setBlink(BLUE_LED_PIN, BLINK_ON);
+  else if (isPcActive) setBlink(BLUE_LED_PIN, BLINK_SB);
   else setBlink(BLUE_LED_PIN, BLINK_FF);
 
   // set red (mode) and yellow (state)
   switch (mode) {
-  case MODE_TP5:
-    setBlink(RED_LED_PIN, BLINK_SB);    
-    if (isStateBit(TP_STATE_RUNNING)) setBlink(YELLOW_LED_PIN, BLINK_ON);
-    else if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_FF);
-    else setBlink(YELLOW_LED_PIN, BLINK_SF);
-    if (!(isStateBit(TP_STATE_HC_ACTIVE) | isStateBit(TP_STATE_PC_ACTIVE))) {
-      controllerY = 0.0f;
-      controllerX = 0.0f;
-    }
-    break;
   case MODE_TP6:
     if  (isRouteInProgress) {
       setBlink(YELLOW_LED_PIN, BLINK_FF);
@@ -128,18 +110,18 @@ void setRunningState() {
     }
     else {
       setBlink(RED_LED_PIN, BLINK_SF);  
-      if (isStateBit(TP_STATE_RUNNING))        setBlink(YELLOW_LED_PIN, BLINK_ON);
-      else if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_FF);
-      else setBlink(YELLOW_LED_PIN, BLINK_SF);
+      if (isRunning)         setBlink(YELLOW_LED_PIN, BLINK_ON);
+      else if (isRunReady)   setBlink(YELLOW_LED_PIN, BLINK_FF);
+      else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
     }
-    if (!(isStateBit(TP_STATE_HC_ACTIVE) || isStateBit(TP_STATE_PC_ACTIVE))) {
+    if ((!isHcActive) && (!isPcActive)) {
       controllerY = 0.0f;
       controllerX = 0.0f;
     }
     break;
   default:
     setBlink(RED_LED_PIN, BLINK_SF);    
-    if (isStateBit(TP_STATE_RUN_READY)) setBlink(YELLOW_LED_PIN, BLINK_SF);
+    if (isRunReady) setBlink(YELLOW_LED_PIN, BLINK_SF);
     else setBlink(YELLOW_LED_PIN, BLINK_ON);
     break;
   }
@@ -156,35 +138,24 @@ void setRunningState() {
  *
  *********************************************************/
 void safeAngle() {
-        setStateBit(TP_STATE_UPRIGHT, true);
   static unsigned long tTime = 0UL; // time of last state change
   static boolean tState = false;  // Timed state. true = upright
   
-  boolean sState = isStateBit(TP_STATE_UPRIGHT);
-  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 35)));
-//sState = isStateBitSet(TP_STATE_UPRIGHT);
-//cState = ((abs(gaPitchAngle) < 45.0) && ((abs(gaRollAngle) < 35)));
+  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 35))); // Current real state
   if (cState != tState) {
     tTime = timeMilliseconds; // Start the timer for a state change.
     tState = cState;
   }
   else {
     if ((timeMilliseconds - tTime) > 50) {
-      // We have a persistent state change
-      if (sState != cState) {
-        // This is a state change.
-        setStateBit(TP_STATE_UPRIGHT, cState);
-        if (!cState) { // fallen?
-//          sendDumpData();
-        }
-      }
+      isUpright = cState;
     } 
   }
 }  // End safeAngle().
 
 
 /**************************************************************************.
- * onGround() set  TP_STATE_ON_GROUND & isAirRunning states
+ * onGround() set  T
  *
  *      The TP_STATE_ON_GROUND bit is set whenever both wheels show a force
  *      greater than the threshold.  Whenever the force on either wheels 
@@ -198,15 +169,15 @@ void onGround() {
   forceRight = analogRead(R_FORCE_PIN);
   isOnGround = (forceLeft < 700) && (forceRight < 700);
   if (isOnGround) {
-    if (!isStateBit(TP_STATE_ON_GROUND))  {
+    if (!isOnGround)  {
       if (magHeading == 0.0) return; // Wait until heading has been read.
-      setStateBit(TP_STATE_ON_GROUND, true);
+      isOnGround = true;
       isJump = false;
       groundTime = timeMilliseconds;
     }
   }
   else { // in air
-    setStateBit(TP_STATE_ON_GROUND, false);
+    isOnGround = false;
     if (timeMilliseconds < (groundTime + 300)) isJump = true;
     else isJump = false; 
   }
@@ -219,10 +190,8 @@ void onGround() {
  *
  *********************************************************/
 void controllerConnected() {
-  byte hcBit =  ((tHc + 1000) > timeMilliseconds) ? TP_STATE_HC_ACTIVE : 0;
-  byte pcBit =  ((tPc + 1000) > timeMilliseconds) ? TP_STATE_PC_ACTIVE : 0;
-  byte tmp = tpState & (~(TP_STATE_HC_ACTIVE | TP_STATE_PC_ACTIVE)); // Clear bits
-  tpState = tmp | hcBit | pcBit;
+  isHcActive =  ((tHc + 1000) > timeMilliseconds) ? true : false;
+  isPcActive =  ((tPc + 1000) > timeMilliseconds) ? true : false;
 }
 
 
@@ -349,7 +318,7 @@ void switches() {
   if (digitalRead(YE_SW_PIN) == LOW) {
     if (timeMilliseconds > yeTrigger) {
       yeTrigger = timeMilliseconds + 1000;
-      setStateBit(TP_STATE_RUN_READY, !isStateBit(TP_STATE_RUN_READY));
+      isRunReady = isRunReady ? false : true;
     }
   }
 }
@@ -383,19 +352,11 @@ void addLog(long aVal, short bVal, short cVal, short dVal, short eVal, short fVa
     dataArrayPtr = dataArrayPtr %  DATA_ARRAY_SIZE;
   }
 }
-
-void setStateBit(byte by, boolean bo) {
-  if (bo) tpState = tpState | by;
-  else tpState = tpState & (~by);
-}
-
-boolean isBitClear(int test, byte b) {
-  return ((test & b) == 0);
-}
-
-boolean isBitSet(int test, byte b) {
-  return ((test & b) != 0);
-}
-boolean isStateBit(byte b) {
-  return ((tpState & b) != 0);
-}
+//
+//boolean isBitClear(int test, byte b) {
+//  return ((test & b) == 0);
+//}
+//
+//boolean isBitSet(int test, byte b) {
+//  return ((test & b) != 0);
+//}

@@ -391,8 +391,8 @@ void setMotor(int motor, int action, int pw) {
     pinPwmH = MOT_LEFT_PWMH;
     actionLeft = action;
   }
-  if ((mode == MODE_TP5) || (mode == MODE_TP6)) {
-    if ((tpState & TP_STATE_RUNNING) == 0) action = BRAKE;
+  if (mode == MODE_TP6) {
+    if (!isRunning) action = BRAKE;
   }
   if ((action == COAST) || (action == BRAKE)) {
     pw = 0;

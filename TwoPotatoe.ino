@@ -9,19 +9,53 @@
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
 
-String rtA[] = {"N  Office-hallway",
-                "M    -51.62", 
-                "Z    -51.62", 
-                "S         0  30",
-                "GY      0,5   2",
-                "T      15,7   2    2",
-                "GX     15,7   2",
+//String rtA[] = {"N  Office-hallway",
+//                "M    -51.62", 
+//                "Z    -51.62", 
+//                "S         0  30",
+//                "GY      0,5   3",
+//                "T      15,7   3    2",
+//                "GX     15,7   3",
+////                "CX        3   3    1   3",
+////                "CX        12  3    1   3",
+////                "GX     15,7   3",
+//                "S        90   2",
+//                "S       -90   3",
+//                "GX      2,7   3",
+////                "CX        9   3    1   3",
+////                "CX        3   3    1   3",
+////                "GX      2,7   3",
+//                "T       0,0   3    2",
+//                "GY      0,0   2",
+//                "F"
+//}; 
+
+
+String rtA[] = {"N  Brewing Market",
+                "M       0.0", 
+                "Z         0", 
                 "S        90   2",
-                "S       -90   3",
-                "GX      2,7   2",
-                "T       0,0   2    2",
-                "GY      0,0   2",
-                "F"
+                "GX     15,0   3",            // go E to sidewalk
+                "T     17,46   3    2",       // turn toward N
+                "GY    17,46   3",            // to N end of sidewalk
+                "T     48,48   3    2",       // turn E toward lot
+                "GX    48,48   3",            // E into lot
+                "T     56,50   3    2",       // turn North in lot
+                "GY    56,60   3",            // go N a little
+                "T     88,58   3    2",       // turn East at top of lot
+                "GX    88,58   3",            // to East side of lot
+                "T    90,-46   3    2",       // turn toward S
+                "GY   90,-46   3",            // go to SE end of lot
+                "T    52,-48   3    2",       // turn W toward BrewingMarket
+                "GX   52,-48   3",            // Go toward Brewing Market
+                "T     50,46   3    2",       // turn to NW corner of lot
+                "GY    50,46   3",            // go to NW corner of lot
+                "T     19,48   3,   2",       // turn toward Brewing Market
+                "GX    19,48   3",            // go to sidewalk
+                "T      17,2   3    2",       // turn S
+                "GY     17,2   3",            // go S
+                "T       0,0   3    2",
+                "F"    
 }; 
 
 // defines for motor pins
@@ -198,7 +232,6 @@ struct valSet tp6 = {
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
 int bbb = 42;
-boolean isOnGround = false;
  
 
 struct loc {
@@ -208,23 +241,21 @@ struct loc {
 
 struct loc currentMapLoc;
 struct loc routeTargetLoc;
-//struct routeStep {
-//  char cmd;
-//  char cmd2;
-//  double a;
-//  double b;
-//  double c;
-//  double d;
-//};
 
 int routeStepPtr = 0;
 String routeTitle = "No route";
+
+  int routeStartTickTurn = 0;
+  int turnTickProgress = 0;
+  double turnTargetBearing = 0.0;
+  double turnTrim = 0.0;
 
 boolean isRouteInProgress = false;
 char routeCurrentAction = 0;
 double routeTargetBearing = 0.0;
 double routeMagTargetBearing = 0.0;
 boolean isReachedMagHeading = false;
+boolean routeIsRightTurn = true;
 long routeTargetTickPosition = 0L;
 double routeFps = 0.0;
 double routeRadius = 0.0;
@@ -289,6 +320,16 @@ long tickPositionRight = 0L;
 long tickPositionLeft = 0L;
 long tpDistanceDiff = 0L;
 long tickPosition;
+
+// System status (use to be status bits
+boolean isRunReady = false;   // Reflects the Run command
+boolean isRunning = false;
+boolean isUpright = false;
+boolean isOnGround = false;
+boolean isHcActive = false; // Hand controller connected.
+boolean isPcActive = false; // PC connected
+boolean isRoute  = false; // Route in progress
+boolean isDumping = false; // Dumping data
 
 unsigned long tickTimeRight = 0UL;  // time for the last interrupt
 unsigned long tickTimeLeft = 0UL;
@@ -452,7 +493,7 @@ double tp6FpsRight = 0.0f;
 int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;
 
-boolean noResendDumpData = false;
+//boolean noResendDumpData = false;
 double aDiff = 0;
 double speedAdjustment;
 
@@ -474,10 +515,6 @@ void setup() {
 
   XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
   BLUE_SER.begin(115200);  // Bluetooth
-//  delay(200);
-//  BLUE_SER.print("$$$");  // Enter command mode
-//  delay(200);
-//  BLUE_SER.println("E");  // 
   
   Serial.begin(115200); // for debugging output
   //  resetXBee();
@@ -577,7 +614,7 @@ void loop() { //Main Loop
 void aPwmSpeed() {
   unsigned long pwmTrigger = 0;
   unsigned long tt;
-  tpState = tpState | TP_STATE_RUNNING;
+  isRunning = true;
   motorInitTp();
 //  angleInitTp7();
   setBlink(RED_LED_PIN, BLINK_SF);
@@ -622,7 +659,7 @@ void aTpSpeed() {
   unsigned long tpTrigger = 0;
   tVal = 0;
   uVal = 0;
-  tpState = tpState | TP_STATE_RUNNING;
+  isRunning = true;
   motorInitTp();
   setBlink(RED_LED_PIN, BLINK_SF);
   

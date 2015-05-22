@@ -1,5 +1,30 @@
 const unsigned int NO_DEBUG = 0x4242;  // If received, not displayed.
 
+const int SEND_TEXT        = 129;
+const int SEND_FPS         = 130;
+const int SEND_PITCH       = 131;
+const int SEND_HEADING     = 132;
+const int SEND_SONAR       = 133;
+const int SEND_ROUTE_STEP  = 134;
+const int SEND_DUMP_DATA   = 135;
+const int SEND_STATE       = 136;
+
+const int RCV_JOYX         = 129;
+const int RCV_JOYY         = 130;
+const int RCV_RUN          = 131;
+const int RCV_LIGHTS       = 132;
+const int RCV_ROUTE        = 133;
+const int RCV_ROUTE_ES     = 134;
+const int RCV_DUMP_START   = 135;
+const int RCV_T            = 136;
+const int RCV_U            = 137;
+const int RCV_V            = 138;
+const int RCV_W            = 139;
+const int RCV_X            = 140;
+const int RCV_Y            = 141;
+const int RCV_Z            = 142;
+
+const int SEND_RCV_TERM    =   0;
 
 // Modes of operation
 const int MODE_XXXXXXXX       = 0;  // 
@@ -18,16 +43,16 @@ const int BLOCK_DATA          = 100;
 // Motor Modes
 const int MM_DRIVE_BRAKE = 0;
 const int MM_DRIVE_COAST = 1;
-
-// Status bits in the tpState byte
-const int TP_STATE_RUNNING         = 0B00000001;  // Motor running: is READY, UPRIGHT & ONGROUND
-const int TP_STATE_RUN_READY       = 0B00000010;  // Ready.  Reflects the RUN command.
-const int TP_STATE_UPRIGHT         = 0B00000100;  // Status: tp is upright (not tipped over).
-const int TP_STATE_ON_GROUND       = 0B00001000;  // Status: pressure sensor indicates standing.
-const int TP_STATE_HC_ACTIVE       = 0B00010000;  // Status: Hand Controller connected
-const int TP_STATE_PC_ACTIVE       = 0B00100000;  // Status: PC connected
-const int TP_STATE_ROUTE           = 0B01000000;  // Status: Route in progress
-const int TP_STATE_DUMPING         = 0B10000000;  // Dumping in either direction
+//
+//// Status bits in the tpState byte
+//const int TP_STATE_RUN_READY       = 0B00000001;  // Ready.  Reflects the RUN command.
+//const int TP_STATE_RUNNING         = 0B00000010;  // Motor running: is READY, UPRIGHT & ONGROUND
+//const int TP_STATE_UPRIGHT         = 0B00000100;  // Status: tp is upright (not tipped over).
+//const int TP_STATE_ON_GROUND       = 0B00001000;  // Status: pressure sensor indicates standing.
+//const int TP_STATE_HC_ACTIVE       = 0B00010000;  // Status: Hand Controller connected
+//const int TP_STATE_PC_ACTIVE       = 0B00100000;  // Status: PC connected
+//const int TP_STATE_ROUTE           = 0B01000000;  // Status: Route in progress
+//const int TP_STATE_DUMPING         = 0B10000000;  // Dumping in either direction
 
 // value sets
 const int VAL_SET_A           = 0;
@@ -38,7 +63,6 @@ const int VAL_SET_C           = 2;
 const int XBEE_TWOPOTATOE =  0x7770;
 const int XBEE_PC =          0x7771;
 const int XBEE_HC =          0x7772;
-//const int BLUETOOTH =        0x9999;
 const int XBEE_BROADCAST =   0xFFFF;
 
 // XBee data packet bytes. Constant indicates positon i byte array.

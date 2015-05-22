@@ -104,92 +104,7 @@ void route() {
 
 
 /************************************************************************
- *  setNewRouteAction() Start the next action in the route
-// ************************************************************************/
-//void setNewRouteAction(boolean start) {
-//
-//  if (start) {
-//   if (!resetRoute()) {
-//     isRouteInProgress = false;
-//     return;
-//  }
-//  
-//  interpretRouteLine(routeStepPtr++);
-//  switch (routeCurrentAction) {
-//    case 'N': // RouteName
-//      setNewRouteAction(false); // Recursion?
-//      break;    
-//    case 'M': // Map Orientation
-//      setNewRouteAction(false); // Recursion?
-//      break;
-//    case 'Z': // Map Orientation
-//      setNewRouteAction(false); // Recursion?
-//      break;
-//    case 'F': // Fini
-//      isRouteInProgress = false;
-//      break;
-//    case 'S': // Stand
-//      routeTargetLoc.x = (double) aRouteVal;
-//      routeTargetLoc.y = (double) bRouteVal;
-//      if (cRouteVal < 0.01) { // Zero: Wait for button press
-//        routeWaitTime = UNSIGNED_LONG_MAX;
-//      }
-//      else { // > 0.0: get the time.
-//        routeWaitTime = ((unsigned int) (cRouteVal * 1000.0)) + timeMilliseconds;
-//      }
-//      routeFps = 0;
-//      routeTargetXYDistance = 9999.9; // always turn.
-//      isEsReceived = false;
-//      break;
-//    case 'X':   // Move
-//      routeTargetXY = routeTargetLoc.x = (double) aRouteVal;
-//      routeTargetLoc.y = (double) bRouteVal;
-//      if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
-//      else isRouteTargetIncreasing = false;
-//      routeFps = cRouteVal;
-//      if (routeA[routeActionPtr + 1].cmd == 'x') {
-//        originalAction = 'X';
-//        setNewRouteAction(false); // Recursion?
-//      }
-//      break;
-//    case 'x':
-//    case 'y':
-//      routeCoDistanceXY = aRouteVal;
-//      routeSonarMin = bRouteVal;
-//      routeSonarMax = cRouteVal;
-//      routeSonarDist = dRouteVal;
-//      break;
-//    case 'Y':   // Move
-//      routeTargetLoc.x = (double) aRouteVal;
-//      routeTargetXY = routeTargetLoc.y = (double) bRouteVal;
-//      if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
-//      else isRouteTargetIncreasing = false;
-//      routeFps = cRouteVal;
-//      if (routeA[routeActionPtr + 1].cmd == 'y') {
-//        originalAction = 'Y';
-//        setNewRouteAction(false); // Recursion?
-//      }
-//      break;
-//    case 'T':   // Turn
-//      routeTargetLoc.x = aRouteVal;
-//      routeTargetLoc.y = bRouteVal;
-//      routeRadius = dRouteVal;
-//      routeFps = cRouteVal;
-//      break;
-//    case 'R': // Repeat.
-//      routeActionPtr = (int) aRouteVal;
-//      setNewRouteAction(false); // Recursion?
-//      break;
-//    default:
-//      break;
-//  }
-//}
-
-
-/************************************************************************
  *  readSonar() 
- *           
- *           
  ************************************************************************/
  void readSonar() {
   double diff = 0.0;
@@ -199,16 +114,6 @@ void route() {
 //    if (routeCurrentAction == 'x') currentMapLoc.y += diff;
 //    else currentMapLoc.x += diff;
   }
-  BLUE_SER.print(sonarRight);
-  BLUE_SER.print("\t");
-  BLUE_SER.print(routeSonarDist);
-  BLUE_SER.print("\t");
-  BLUE_SER.print(currentMapLoc.x);
-  BLUE_SER.print("\t");
-  BLUE_SER.print(currentMapLoc.y);
-  BLUE_SER.print("\t");
-  BLUE_SER.println();
-  
 }
 
 
@@ -243,52 +148,63 @@ void steerHeading() {
  *  zeroMapHeading() 
  ************************************************************************/
 boolean zeroMapHeading() {
-  static unsigned int magTimeout = 0U;
-  static double magSum = 0.0D;
-  static int magCount = 0;
+  boolean st = isRunReady;
+  isRunReady = false;
+  delay(200);
+  readCompass();
+  resetNavigation(magHeading);
+  isRunReady = st;
   
-  aDiff = routeMagTargetBearing - magHeading;
-  if (aDiff > 180.0) aDiff -= 360.0;
-  else if (aDiff < -180.0) aDiff += 360.0;
-  speedAdjustment = aDiff * (S_LIM / A_LIM);
-  speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
-    
-  tp6FpsLeft = tp6Fps + speedAdjustment;
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  
-  if (!isReachedMagHeading) {
-    if (abs(aDiff) < 1.0) {
-      isReachedMagHeading = true;
-      magTimeout = timeMilliseconds + 2000;
-      magSum = 0.0D;
-BLUE_SER.println(timeMilliseconds);
-      magCount = 0;
-    }
-  }
-  else {
-    magSum += magHeading;
-    magCount++;
-    if (timeMilliseconds > magTimeout) {
-      double mh = magSum / ((double) magCount);
-      resetNavigation(mh);
-BLUE_SER.print(timeMilliseconds); BLUE_SER.print("  "); BLUE_SER.println(magCount);
-      return true;
-    }
-  }
-  return false;
+//  static unsigned int magTimeout = 0U;
+//  static double magSum = 0.0D;
+//  static int magCount = 0;
+//  
+//  aDiff = routeMagTargetBearing - magHeading;
+//  if (aDiff > 180.0) aDiff -= 360.0;
+//  else if (aDiff < -180.0) aDiff += 360.0;
+//  speedAdjustment = aDiff * (S_LIM / A_LIM);
+//  speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
+//    
+//  tp6FpsLeft = tp6Fps + speedAdjustment;
+//  tp6FpsRight = tp6Fps - speedAdjustment;
+//  
+//  if (!isReachedMagHeading) {
+//    if (abs(aDiff) < 1.0) {
+//      isReachedMagHeading = true;
+//      magTimeout = timeMilliseconds + 2000;
+//      magSum = 0.0D;
+//      magCount = 0;
+//    }
+//  }
+//  else {
+//    magSum += magHeading;
+//    magCount++;
+//    if (timeMilliseconds > magTimeout) {
+//      double mh = magSum / ((double) magCount);
+//      resetNavigation(mh);
+//      return true;
+//    }
+//  }
+//  return false;
 }
 
 /************************************************************************
  *  turnRadius()
- *  Why does this turn at a different depending on direction???????????????????????????????
  ************************************************************************/
 void turnRadius() {
+//  turnTickProgress = tickPosition - routeStartTickTurn;
+//  turnTargetBearing = (((double) turnTickProgress) * 0.01) / routeRadius;
+//  aDiff = turnTargetBearing - currentMapHeading;
+//  if (aDiff > 180.0) aDiff -= 360.0;
+//  else if (aDiff < -180.0) aDiff += 360.0;
+//  turnTrim = aDiff * 1.0;
+  
   aDiff = routeTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
   double d = (aDiff > 0.0) ? 1.0 : -1.0;
   
-  speedAdjustment = (routeFps / routeRadius) * 0.37 * d; 
+  speedAdjustment = (wheelSpeedFps / routeRadius) * 0.55 * d; 
   
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
@@ -322,21 +238,26 @@ void setTargetPosition() {
   routeTargetBearing = atan2(x,y) * RAD_TO_DEG;
 }
 
+
+
 /************************************************************************
  *  resetRoute() 
  ************************************************************************/
 void resetRoute() {
   routeStepPtr = 0;
   isRouteInProgress = true;
+  // Run through it to see if it compiles
   while (true) {
-    if (!interpretRouteLine()) return;
+    if (!interpretRouteLine()) {
+      isRouteInProgress = false;
+      return;
+    }
     if (!isRouteInProgress) break;
   }
+  // It made it here.  Therefore run it.
   routeStepPtr = 0;
   isRouteInProgress = true;
 }
-
-
 
 
 
@@ -416,6 +337,7 @@ boolean interpretRouteLine() {
       
       routeRadius = readNum();
       Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius < .5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0;
       break;
       
@@ -454,7 +376,15 @@ boolean interpretRouteLine() {
       
       routeRadius = readNum();
       Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius == STEP_ERROR) routeRadius = 2.0D ;        
+      if (routeRadius < .5) routeRadius = 0.5;
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0D ; 
+      
+      setTargetPosition();
+      aDiff = routeTargetBearing - currentMapHeading;
+      if (aDiff > 180.0) aDiff -= 360.0;
+      else if (aDiff < -180.0) aDiff += 360.0;
+      routeIsRightTurn = aDiff > 0.0;
+      routeStartTickTurn = tickPosition;      
       break;
       
     case 'R':

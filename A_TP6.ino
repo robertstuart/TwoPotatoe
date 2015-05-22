@@ -63,7 +63,7 @@ void aTp6() {
   // compute the Center of Oscillation Speed (COS)
   tp6Rotation = (*currentValSet).t * (-gyroPitchDelta); // 3.6
   tp6Cos = wheelSpeedFps + tp6Rotation; // subtract rotation 
-  tp5LpfCos = tp6LpfCos = (tp6LpfCosOld * (1.0 - (*currentValSet).u))  + (tp6Cos  * (*currentValSet).u); // smooth it out a little (0.2)
+  tp6LpfCos = (tp6LpfCosOld * (1.0 - (*currentValSet).u))  + (tp6Cos  * (*currentValSet).u); // smooth it out a little (0.2)
 //  tp6LpfCos = (tp6LpfCosOld * (1.0 - 0.05)) + (tp6Cos * 0.05); // smooth it out a little (0.2)
   tp6LpfCosAccel = tp6LpfCos - tp6LpfCosOld;
   tp6LpfCosOld = tp6LpfCos;
@@ -113,17 +113,6 @@ void aTp6() {
   else tp6Steer(tp6Fps);
   setTargetSpeedRight(tp6FpsRight);
   setTargetSpeedLeft(tp6FpsLeft);
-//static int pCount = 0;
-//pCount++;
-//if ((pCount % 200) == 0) {
-//  BLUE_SER.print(tp5LpfCos); BLUE_SER.print("\t"); 
-//  BLUE_SER.print(tp6SpeedError); BLUE_SER.print("\t"); 
-//  BLUE_SER.print(tp6TargetAngle); BLUE_SER.print("\t"); 
-//  BLUE_SER.print(gaPitch); BLUE_SER.print("\t"); 
-//  BLUE_SER.print(fpsCorrection); BLUE_SER.print("\t"); 
-//  BLUE_SER.print(fpsLpfCorrection); BLUE_SER.print("\t"); 
-//  BLUE_SER.print(tp6Fps); BLUE_SER.println("\t"); 
-//}
 } // end aTp6() 
 
 
@@ -135,11 +124,12 @@ void sendTp6Status() {
   static unsigned int loopc = 0;
   loopc = ++loopc % 40; // 10/sec loop.
   if (isDumpingData) {
-    if ((loopc == 0) || (loopc == 4))  dumpData();
+    if ((loopc % 4) == 0)  dumpData();
   }
-  else if (loopc == 0) sendStatusFrame(XBEE_HC); 
+  if (loopc == 0) sendStatusFrame(XBEE_HC); 
   else if (loopc == 10) {
-	sendStatusFrame(XBEE_PC);
+//	sendStatusFrame(XBEE_PC);
+    sendStatusBluePc();
   }
   else if (loopc == 18) { // debugging print statements 10/sec
 //    addLog(
@@ -150,20 +140,22 @@ void sendTp6Status() {
 //          (short) (tickHeading * 100.0),
 //          (short) (gyroHeading * 100.0),
 //          (short) (gmHeading * 100.0));
-//BLUE_SER.print(currentMapLoc.x); BLUE_SER.print("\t"); 
-//BLUE_SER.print(currentMapLoc.y); BLUE_SER.print("\t"); BLUE_SER.print("\t"); 
-//BLUE_SER.print(currentMapHeading); BLUE_SER.print("\t"); 
-//BLUE_SER.println(routeActionPtr); 
-  if (isRouteInProgress) {
+  if (true) {
     addLog(
-          (long) (((double) tickPosition) * 100.0) / TICKS_PER_FOOT,
+          (long) tickPosition,
           (short) (currentMapLoc.x * 100.0),
           (short) (currentMapLoc.y * 100.0),
-          (short) (routeTargetLoc.x * 100.0),
-          (short) (routeTargetLoc.y * 100.0),
+          (short) (sonarRight * 100.0),
+          (short) 0,
           (short) (currentMapHeading * 100.0),
           (short) routeStepPtr);
     }
+  turnTickProgress = tickPosition - routeStartTickTurn;
+  turnTargetBearing = (((double) turnTickProgress) * 88.0) / routeRadius;
+  aDiff = turnTargetBearing - currentMapHeading;
+  if (aDiff > 180.0) aDiff -= 360.0;
+  else if (aDiff < -180.0) aDiff += 360.0;
+  turnTrim = aDiff * 1.0;
     
 //    addLog(
 //          (long) ((double) tickPosition) / TICKS_PER_FOOT,
