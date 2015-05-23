@@ -74,13 +74,8 @@ void aTp6() {
   lpfCos2 = (lpfCosOld2 * .9) + (cos2 * (1.0D - .9));
   lpfCosOld2 = lpfCos2;
 
-  if (isRouteInProgress) {
-    tp6ControllerSpeed = routeFps;
-  }
-  else {
-    tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; //
-//    tp6ControllerSpeed = 2.0; //
-  }
+//  controllerY = getControllerY();
+  tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
 
   // find the speed error
 //  double tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
@@ -122,13 +117,15 @@ void aTp6() {
  ***********************************************************************/
 void sendTp6Status() {
   static unsigned int loopc = 0;
+  static float marker = 1.1;
   loopc = ++loopc % 40; // 10/sec loop.
   if (isDumpingData) {
     if ((loopc % 4) == 0)  dumpData();
   }
-  if (loopc == 0) sendStatusFrame(XBEE_HC); 
+  if (loopc == 0)  {
+    sendStatusXBeeHc(); 
+  }
   else if (loopc == 10) {
-//	sendStatusFrame(XBEE_PC);
     sendStatusBluePc();
   }
   else if (loopc == 18) { // debugging print statements 10/sec
@@ -216,6 +213,7 @@ void sendTp6Status() {
  ***********************************************************************/
 void tp6Steer(double fps) {
   double speedAdjustment;
+//  controllerX = getControllerX();
   if (!isGyroSteer) {
       speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
     }

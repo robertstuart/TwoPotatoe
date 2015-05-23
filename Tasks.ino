@@ -54,7 +54,6 @@ void commonTasks() {
   timeMilliseconds = timeMicroseconds / 1000;
   readXBee();  // Read commands from PC or Hand Controller
   readBluetooth();
-//  readBluetooth();
 //  motorIdle();
   led();
   battery();
@@ -115,8 +114,7 @@ void setRunningState() {
       else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
     }
     if ((!isHcActive) && (!isPcActive)) {
-      controllerY = 0.0f;
-      controllerX = 0.0f;
+      pcX = pcY = hcX = hcY = 0.0f;
     }
     break;
   default:
@@ -315,13 +313,63 @@ void beepIsr() {
  **************************************************************************/
 void switches() {
   static int yeTrigger = 0;
+  static int buTrigger = 0;
+  static boolean buState = false;
+  String s = "";
   if (digitalRead(YE_SW_PIN) == LOW) {
     if (timeMilliseconds > yeTrigger) {
       yeTrigger = timeMilliseconds + 1000;
       isRunReady = isRunReady ? false : true;
     }
   }
+  if (digitalRead(BU_SW_PIN) == LOW) {
+    if (timeMilliseconds > buTrigger) {
+      buTrigger = timeMilliseconds + 1000;
+      buState = !buState;
+      if (buState)  s = String("State true");
+      else          s = String("State false");
+      sendXMsg(SEND_MESSAGE, s);
+Serial.println(s);
+    }
+  }
 }
+
+
+
+/**************************************************************************.
+ * getControllerY() return fps from two controllers & hold state
+ **************************************************************************/
+double getControllerY() {
+  return hcY * SPEED_MULTIPLIER;
+//  static double y = 0.0D;
+//  if (isRouteInProgress) {
+//    return routeFps;
+//  }
+//  else {
+//    if (!isHoldFps) {
+//      if (abs(hcY) > abs(pcY)) y = hcY * SPEED_MULTIPLIER;
+//      else y = pcY * SPEED_MULTIPLIER;
+//    }
+//    return y;
+//  }
+}
+
+
+
+/**************************************************************************.
+ * getControllerX() return turn from two controllers & hold state
+ **************************************************************************/
+double getControllerX() {
+  return hcX;
+//  static double x = 0.0D;
+//  if (!isHoldHeading) {
+//    if (abs(hcX) > abs(pcX)) x = hcX;
+//    else x = pcX;
+//  }
+//  return x;
+}
+
+
 
 /**************************************************************************.
  * sonar()

@@ -1,6 +1,6 @@
 const unsigned int NO_DEBUG = 0x4242;  // If received, not displayed.
 
-const int SEND_TEXT        = 129;
+const int SEND_MESSAGE     = 129;
 const int SEND_FPS         = 130;
 const int SEND_PITCH       = 131;
 const int SEND_HEADING     = 132;
@@ -8,6 +8,9 @@ const int SEND_SONAR       = 133;
 const int SEND_ROUTE_STEP  = 134;
 const int SEND_DUMP_DATA   = 135;
 const int SEND_STATE       = 136;
+const int SEND_BATT        = 137;
+const int SEND_MODE        = 138;
+const int SEND_VALSET      = 139;
 
 const int RCV_JOYX         = 129;
 const int RCV_JOYY         = 130;
@@ -23,6 +26,10 @@ const int RCV_W            = 139;
 const int RCV_X            = 140;
 const int RCV_Y            = 141;
 const int RCV_Z            = 142;
+const int RCV_RESET_NAV    = 143;
+const int RCV_ROTATE       = 144;
+const int RCV_HOLD_HEADING = 145;
+const int RCV_HOLD_FPS     = 146;
 
 const int SEND_RCV_TERM    =   0;
 

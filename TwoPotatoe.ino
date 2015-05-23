@@ -6,6 +6,7 @@
 #include <Wire.h>
 #include <L3G.h>
 #include <LSM303.h>
+
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
 
@@ -95,7 +96,7 @@ const unsigned int TP_PWM_FREQUENCY = 10000;
 #define REAR_TL_PIN 8 // rear lamp
 #define GREEN_LED_PIN 38 // LED in switch
 
-#define BU_SW_PIN 29 // Blue switch
+#define BU_SW_PIN 39 // Blue switch
 #define YE_SW_PIN 34 // Yellow switch
 #define RE_SW_PIN 37 // Red switch
 #define GN_SW_PIN 35 // Green switch
@@ -160,7 +161,6 @@ short eArray[ DATA_ARRAY_SIZE];
 short fArray[ DATA_ARRAY_SIZE];
 short gArray[ DATA_ARRAY_SIZE];
 int dataArrayPtr = 0;
-boolean isDumpingData = false;
 boolean isSerialEmpty = true;
 
 unsigned int mode = MODE_TP6;
@@ -250,7 +250,6 @@ String routeTitle = "No route";
   double turnTargetBearing = 0.0;
   double turnTrim = 0.0;
 
-boolean isRouteInProgress = false;
 char routeCurrentAction = 0;
 double routeTargetBearing = 0.0;
 double routeMagTargetBearing = 0.0;
@@ -321,15 +320,17 @@ long tickPositionLeft = 0L;
 long tpDistanceDiff = 0L;
 long tickPosition;
 
-// System status (use to be status bits
+// System status (used to be status bits
 boolean isRunReady = false;   // Reflects the Run command
 boolean isRunning = false;
 boolean isUpright = false;
 boolean isOnGround = false;
 boolean isHcActive = false; // Hand controller connected.
 boolean isPcActive = false; // PC connected
-boolean isRoute  = false; // Route in progress
-boolean isDumping = false; // Dumping data
+boolean isRouteInProgress  = false; // Route in progress
+boolean isDumpingData = false; // Dumping data
+boolean isHoldHeading = false; // 
+boolean isHoldFps = false; // 
 
 unsigned long tickTimeRight = 0UL;  // time for the last interrupt
 unsigned long tickTimeLeft = 0UL;
@@ -367,9 +368,12 @@ unsigned int sonarFront = 0;
 unsigned int sonarLeft = 0;
 
 unsigned int actualLoopTime; // Time since the last
+double hcX = 0.0;
+double hcY = 0.0;
+double pcX = 0.0;
+double pcY = 0.0;
 double controllerX = 0.0; // +1.0 to -1.0 from controller
 double controllerY = 0.0;  // Y value set by message from controller
-int signalStrength = 0;
 
 int gyroPitchRaw;  // Vertical plane parallel to wheels
 double gyroPitchRate;
@@ -636,7 +640,7 @@ void aPwmSpeed() {
       else action = BKWD;
       setMotor(MOTOR_LEFT, action, abs(uVal));
       readSpeed();      
-      sendStatusFrame(XBEE_PC);
+//      sendStatusFrame(XBEE_PC);
 //      Serial.print(interruptErrorsRight);
 //      Serial.print("\t"); 
 //      Serial.print(fpsRight); 
@@ -683,7 +687,7 @@ void aTpSpeed() {
       if (loopCount == 0) {
         mWheelSpeedFps = mFpsRight;
 //        mWheelSpeedFps = mFpsLeft;
-        sendStatusFrame(XBEE_PC);  // Send status message to controller.
+//        sendStatusFrame(XBEE_PC);  // Send status message to controller.
 //        Serial.print("tVal: ");
 //        Serial.print(tVal);
 //        Serial.print("\ttargetMFpsRight: "); 
