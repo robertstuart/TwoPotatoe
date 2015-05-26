@@ -5,7 +5,7 @@ String stepString = "";
 int numLen = 0;
 
 /************************************************************************
- *  Route() called every loop
+ *  Route() called every loop (400/sec)
  *          1. Check if target reached.
  *          2. Set currentLoc.
  *          3. Adjust steering.
@@ -18,11 +18,9 @@ void route() {
   switch (routeCurrentAction) {
     case 'N':
     case 'M':
+    case 'Z':
         isNewRouteStep = true;
         break;
-    case 'Z': // Zero the map to the magnetic orientation.
-      if (zeroMapHeading()) isNewRouteStep = true;
-      break;
     case 'S': // Stand
       if (digitalRead(GN_SW_PIN) == LOW) isNewRouteStep = true;
       if (digitalRead(YE_SW_PIN) == LOW) isNewRouteStep = true;
@@ -92,6 +90,8 @@ void route() {
       turnRadius();
       break;
     default:
+      isRouteInProgress = false;
+      sprintf(message, "Illegal step in route()"); isNewMessage = true;
       break; 
   } // end switch()
 
@@ -250,12 +250,14 @@ void resetRoute() {
   while (true) {
     if (!interpretRouteLine()) {
       isRouteInProgress = false;
+      sprintf(message, "Route error!"); isNewMessage = true;
       return;
     }
     if (!isRouteInProgress) break;
   }
   // It made it here.  Therefore run it.
   routeStepPtr = 0;
+  interpretRouteLine();
   isRouteInProgress = true;
 }
 
@@ -289,11 +291,10 @@ boolean interpretRouteLine() {
       break;
       
     case 'Z':
-      routeMagTargetBearing = readNum();
-      Serial.print(routeMagTargetBearing);
-      if (routeMagTargetBearing == STEP_ERROR) return false;
-      isReachedMagHeading = false;
-      routeFps = 0.0;
+      mapOrientation = readNum();
+      Serial.print(mapOrientation);
+      if (mapOrientation == STEP_ERROR) return false;
+      resetNavigation(0.0);
       break;
       
     case 'S':
@@ -401,6 +402,7 @@ boolean interpretRouteLine() {
       return false;
   }
   Serial.println();
+  sprintf(message, "Step %d: %c", routeStepPtr, routeCurrentAction); isNewMessage = true;
   return true;  
 }
 

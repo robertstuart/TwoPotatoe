@@ -30,6 +30,7 @@ const int RCV_RESET_NAV    = 143;
 const int RCV_ROTATE       = 144;
 const int RCV_HOLD_HEADING = 145;
 const int RCV_HOLD_FPS     = 146;
+const int RCV_GYRO_STEER   = 147;
 
 const int SEND_RCV_TERM    =   0;
 

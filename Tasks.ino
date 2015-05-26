@@ -326,10 +326,6 @@ void switches() {
     if (timeMilliseconds > buTrigger) {
       buTrigger = timeMilliseconds + 1000;
       buState = !buState;
-      if (buState)  s = String("State true");
-      else          s = String("State false");
-      sendXMsg(SEND_MESSAGE, s);
-Serial.println(s);
     }
   }
 }
@@ -337,21 +333,24 @@ Serial.println(s);
 
 
 /**************************************************************************.
- * getControllerY() return fps from two controllers & hold state
+ * getControllerXY() return fps from two controllers & hold state
  **************************************************************************/
-double getControllerY() {
-  return hcY * SPEED_MULTIPLIER;
-//  static double y = 0.0D;
-//  if (isRouteInProgress) {
-//    return routeFps;
-//  }
-//  else {
-//    if (!isHoldFps) {
-//      if (abs(hcY) > abs(pcY)) y = hcY * SPEED_MULTIPLIER;
-//      else y = pcY * SPEED_MULTIPLIER;
-//    }
-//    return y;
-//  }
+void setControllerXY() {
+  static double y = 0.0D;
+  static double x = 0.0D;
+  
+  if (!isHoldFps) {
+    if (abs(hcY) > abs(pcY)) y = hcY;
+    else y = pcY;
+  }
+  controllerY = y;
+  
+  if (!isHoldHeading) {
+    if (abs(hcX) > abs(pcX)) x = hcX;
+    else x = pcX;
+  }
+  controllerX = x;
+
 }
 
 
@@ -360,13 +359,13 @@ double getControllerY() {
  * getControllerX() return turn from two controllers & hold state
  **************************************************************************/
 double getControllerX() {
-  return hcX;
-//  static double x = 0.0D;
-//  if (!isHoldHeading) {
-//    if (abs(hcX) > abs(pcX)) x = hcX;
-//    else x = pcX;
-//  }
-//  return x;
+//  return hcX;
+  static double x = 0.0D;
+  if (!isHoldHeading) {
+    if (abs(hcX) > abs(pcX)) x = hcX;
+    else x = pcX;
+  }
+  return x;
 }
 
 

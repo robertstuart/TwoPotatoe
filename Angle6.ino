@@ -150,18 +150,47 @@ void setNavigation() {
   int rotations = (int) ((tickCumHeading + c) / 360.0);
   tickHeading = tickCumHeading - (((double) rotations) * 360.0);
   
-    // Set the current map heading
+    // Map heading
   double h = gyroHeading - mapOrientation;  // ---------------- Set source for map heading------------------------
+//  double h = tickHeading - mapOrientation;  // ---------------- Set source for map heading------------------------
   if (h > 180.0) h -= 360.0;
   else if (h < -180.0) h += 360.0;
   currentMapHeading = h;
   
-  // Set the current location
+  // Loocation
   double dist = ((double) (tickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
   navOldTickPosition = tickPosition;
   currentMapLoc.x += sin(currentMapHeading * DEG_TO_RAD) * dist;
   currentMapLoc.y += cos(currentMapHeading * DEG_TO_RAD) * dist;
+  
+  currentAccelLoc();
 }
+
+
+
+
+//double accelFpsSelfX = 0.0;
+//double accelFpsSelfY = 0.0;
+//double accelFpsMapX = 0.0;
+//double accelFpsMapY = 0.0;
+//struct loc currentAccelSelfLoc;
+//struct loc currentAccelMapLoc;
+
+const double A_FACTOR = .000001D;
+/***********************************************************************.
+ *  setAccelLoc() Set currentAccelLoc
+ ***********************************************************************/
+void currentAccelLoc() {
+  currentAccelMapLoc.y += ((double) compass.a.y) * A_FACTOR;
+  currentAccelMapLoc.x += ((double) compass.a.x) * A_FACTOR;
+//  currentAccelMapLoc.x += accelFpsSelfX * .0025;
+//  currentAccelMapLoc.y += accelFpsSelfY * .0025;
+//  accelFpsMapX = (sin(currentMapHeading * DEG_TO_RAD) * accelFpsSelfX) + (cos(currentMapHeading * DEG_TO_RAD) * accelFpsSelfY);
+//  accelFpsMapY = (cos(currentMapHeading * DEG_TO_RAD) * accelFpsSelfX) + (sin(currentMapHeading * DEG_TO_RAD) * accelFpsSelfY);
+//  currentAccelMapLoc.x += accelFpsMapX * 0.0025;
+//  currentAccelMapLoc.y += accelFpsMapY * 0.0025;
+}
+
 
 
 /**************************************************************************.
@@ -178,7 +207,7 @@ void resetNavigation(double mh) {
   oldTPitch = 0.0D;
   currentMapLoc.x = 0;
   currentMapLoc.y = 0;
-  mapOrientation = DEFAULT_MAP_ORIENTATION;
+//  mapOrientation = DEFAULT_MAP_ORIENTATION;
 }
 
 void zeroGyro() {

@@ -42,6 +42,7 @@ void aTp6Run() {
       if ((subCycle % 4)  == 1) readAccel();  // 100/sec
       if ((subCycle % 16) == 3) readCompass();   // 25/sec
       setNavigation();
+      setControllerXY();
       aTp6(); 
       sendTp6Status();
       safeAngle();
@@ -74,8 +75,12 @@ void aTp6() {
   lpfCos2 = (lpfCosOld2 * .9) + (cos2 * (1.0D - .9));
   lpfCosOld2 = lpfCos2;
 
-//  controllerY = getControllerY();
-  tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
+  if (isRouteInProgress) {
+    tp6ControllerSpeed = routeFps;
+  }
+  else {
+    tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
+  }
 
   // find the speed error
 //  double tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
@@ -137,15 +142,22 @@ void sendTp6Status() {
 //          (short) (tickHeading * 100.0),
 //          (short) (gyroHeading * 100.0),
 //          (short) (gmHeading * 100.0));
-  if (true) {
+  if (isRouteInProgress) {
+    
+//  currentAccelSelfLoc.x += accelFpsSelfX * 0.0025;
+//  currentAccelSelfLoc.y += accelFpsSelfY * 0.0025;
+//  currentAccelMapLoc.x += accelFpsMapX * 0.0025;
+//  currentAccelMapLoc.y += accelFpsMapY * 0.0025;
+  
     addLog(
           (long) tickPosition,
           (short) (currentMapLoc.x * 100.0),
           (short) (currentMapLoc.y * 100.0),
           (short) (sonarRight * 100.0),
-          (short) 0,
           (short) (currentMapHeading * 100.0),
-          (short) routeStepPtr);
+          (short) ((tp6FpsLeft - tp6FpsRight) * 100.0),
+          (short) 0
+          );
     }
   turnTickProgress = tickPosition - routeStartTickTurn;
   turnTargetBearing = (((double) turnTickProgress) * 88.0) / routeRadius;
@@ -213,7 +225,7 @@ void sendTp6Status() {
  ***********************************************************************/
 void tp6Steer(double fps) {
   double speedAdjustment;
-//  controllerX = getControllerX();
+  controllerX = getControllerX();
   if (!isGyroSteer) {
       speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
     }

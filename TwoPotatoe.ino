@@ -10,9 +10,38 @@
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
 
+#define TICKS_PER_CIRCLE_YAW  11900.0  // Larger number increases degrees turn
+
+String rtA[] = {"N  Garage loop",
+                "Z         0",
+                "GY       0,14   5",
+                "T        12,16  5   2", // Turn toward garbage bins
+                "GX       12,16  5",
+                "T        14.6,0    5   2",  // Turn toward street.
+                "GY       14.6,12   5",
+                "GY       14.6,0    3.5",
+                "T        2,-2   5   2",  // Turn toward tools
+                "GX       2,-2   5",
+                "T        0,14   5   2",  // Turn toward trebuchet
+                "F"
+}; 
+
+
+//String rtA[] = {"N  Out & back",
+//                "M         0",
+//                "Z         0",
+//                "S         0  30",
+//                "GY      0,8   3",
+//                "S        00   2",
+//                "S       -90   2",
+//                "S       -180   2",
+//                "GY      0,0   2",
+//                "F"
+//}; 
+
 //String rtA[] = {"N  Office-hallway",
 //                "M    -51.62", 
-//                "Z    -51.62", 
+////                "Z    -51.62", 
 //                "S         0  30",
 //                "GY      0,5   3",
 //                "T      15,7   3    2",
@@ -32,32 +61,32 @@
 //}; 
 
 
-String rtA[] = {"N  Brewing Market",
-                "M       0.0", 
-                "Z         0", 
-                "S        90   2",
-                "GX     15,0   3",            // go E to sidewalk
-                "T     17,46   3    2",       // turn toward N
-                "GY    17,46   3",            // to N end of sidewalk
-                "T     48,48   3    2",       // turn E toward lot
-                "GX    48,48   3",            // E into lot
-                "T     56,50   3    2",       // turn North in lot
-                "GY    56,60   3",            // go N a little
-                "T     88,58   3    2",       // turn East at top of lot
-                "GX    88,58   3",            // to East side of lot
-                "T    90,-46   3    2",       // turn toward S
-                "GY   90,-46   3",            // go to SE end of lot
-                "T    52,-48   3    2",       // turn W toward BrewingMarket
-                "GX   52,-48   3",            // Go toward Brewing Market
-                "T     50,46   3    2",       // turn to NW corner of lot
-                "GY    50,46   3",            // go to NW corner of lot
-                "T     19,48   3,   2",       // turn toward Brewing Market
-                "GX    19,48   3",            // go to sidewalk
-                "T      17,2   3    2",       // turn S
-                "GY     17,2   3",            // go S
-                "T       0,0   3    2",
-                "F"    
-}; 
+//String rtA[] = {"N  Brewing Market",
+//                "M       0.0", 
+//                "Z         0", 
+//                "S        90   2",
+//                "GX     15,0   3",            // go E to sidewalk
+//                "T     17,46   3    2",       // turn toward N
+//                "GY    17,46   3",            // to N end of sidewalk
+//                "T     48,48   3    2",       // turn E toward lot
+//                "GX    48,48   3",            // E into lot
+//                "T     56,50   3    2",       // turn North in lot
+//                "GY    56,60   3",            // go N a little
+//                "T     88,58   3    2",       // turn East at top of lot
+//                "GX    88,58   3",            // to East side of lot
+//                "T    90,-46   3    2",       // turn toward S
+//                "GY   90,-46   3",            // go to SE end of lot
+//                "T    52,-48   3    2",       // turn W toward BrewingMarket
+//                "GX   52,-48   3",            // Go toward Brewing Market
+//                "T     50,46   3    2",       // turn to NW corner of lot
+//                "GY    50,46   3",            // go to NW corner of lot
+//                "T     19,48   3,   2",       // turn toward Brewing Market
+//                "GX    19,48   3",            // go to sidewalk
+//                "T      17,2   3    2",       // turn S
+//                "GY     17,2   3",            // go S
+//                "T       0,0   3    2",
+//                "F"    
+//}; 
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
@@ -133,7 +162,6 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
 #define TICKS_PER_FOOT 3017.0D
 //#define TICKS_PER_FOOT 1536.0D
-#define TICKS_PER_CIRCLE_YAW  10350.0
 //#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
 #define TICKS_PER_DEGREE_YAW (TICKS_PER_CIRCLE_YAW / 360.0)
 //#define TICKS_PER_PITCH_DEGREE 20.0
@@ -241,6 +269,8 @@ struct loc {
 
 struct loc currentMapLoc;
 struct loc routeTargetLoc;
+struct loc currentAccelSelfLoc;
+struct loc currentAccelMapLoc;
 
 int routeStepPtr = 0;
 String routeTitle = "No route";
@@ -289,6 +319,11 @@ double oldTPitch = 0.0D;
 double tgPitch = 0.0D;
 double tgPitchDelta = 0.0D;
 double oldTgPitch = 0.0D;
+
+double accelFpsSelfX = 0.0;
+double accelFpsSelfY = 0.0;
+double accelFpsMapX = 0.0;
+double accelFpsMapY = 0.0;
 
 double rotation2 = 0.0D;
 double cos2 = 0.0D;
@@ -374,6 +409,8 @@ double pcX = 0.0;
 double pcY = 0.0;
 double controllerX = 0.0; // +1.0 to -1.0 from controller
 double controllerY = 0.0;  // Y value set by message from controller
+boolean isNewMessage = false;
+char message[100] = "";
 
 int gyroPitchRaw;  // Vertical plane parallel to wheels
 double gyroPitchRate;
