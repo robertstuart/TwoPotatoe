@@ -231,10 +231,10 @@ void checkMotorRight() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsRight / 2)) { // less than 1/2 target speed?
       if (targetMFpsRight > 0) {
-        setMotor(MOTOR_RIGHT, FWD, 99);
+        setMotor(MOTOR_RIGHT, FWD, 70);
       }
       else {
-        setMotor(MOTOR_RIGHT, BKWD, 99);
+        setMotor(MOTOR_RIGHT, BKWD, 70);
       }
     }
   }
@@ -249,10 +249,10 @@ void checkMotorLeft() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsLeft / 2)) { // less than 1/2 target speed?
       if (targetMFpsLeft > 0) {
-        setMotor(MOTOR_LEFT, FWD, 99);
+        setMotor(MOTOR_LEFT, FWD, 70);
       }
       else {
-        setMotor(MOTOR_LEFT, BKWD, 99);
+        setMotor(MOTOR_LEFT, BKWD, 70);
       }
     }
   }

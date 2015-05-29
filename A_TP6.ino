@@ -133,48 +133,18 @@ void sendTp6Status() {
   else if (loopc == 10) {
     sendStatusBluePc();
   }
-  else if (loopc == 18) { // debugging print statements 10/sec
-//    addLog(
-//          (long) ((double) tickPosition) / TICKS_PER_FOOT,
-//          (short) (currentMapLoc.x * 100.0),
-//          (short) (currentMapLoc.y * 100.0),
-//          (short) (magHeading * 100.0),
-//          (short) (tickHeading * 100.0),
-//          (short) (gyroHeading * 100.0),
-//          (short) (gmHeading * 100.0));
-  if (isRouteInProgress) {
-    
-//  currentAccelSelfLoc.x += accelFpsSelfX * 0.0025;
-//  currentAccelSelfLoc.y += accelFpsSelfY * 0.0025;
-//  currentAccelMapLoc.x += accelFpsMapX * 0.0025;
-//  currentAccelMapLoc.y += accelFpsMapY * 0.0025;
-  
-    addLog(
-          (long) tickPosition,
-          (short) (currentMapLoc.x * 100.0),
-          (short) (currentMapLoc.y * 100.0),
-          (short) (sonarRight * 100.0),
-          (short) (currentMapHeading * 100.0),
-          (short) ((tp6FpsLeft - tp6FpsRight) * 100.0),
-          (short) 0
-          );
-    }
-  turnTickProgress = tickPosition - routeStartTickTurn;
-  turnTargetBearing = (((double) turnTickProgress) * 88.0) / routeRadius;
-  aDiff = turnTargetBearing - currentMapHeading;
-  if (aDiff > 180.0) aDiff -= 360.0;
-  else if (aDiff < -180.0) aDiff += 360.0;
-  turnTrim = aDiff * 1.0;
-    
-//    addLog(
-//          (long) ((double) tickPosition) / TICKS_PER_FOOT,
-//          (short) (currentMapLoc.x * 100.0),
-//          (short) (currentMapLoc.y * 100.0),
-//          (short) (magHeading * 100.0),
-//          (short) (tickHeading * 100.0),
-//          (short) (gyroHeading * 100.0),
-//          (short) (sonarRight * 100.0));
-    
+  else if ((loopc == 15) || (loopc == 35)) { // debugging print statements 10/sec
+    if (isRouteInProgress) {
+//      addLog(
+//            (long) timeMicroseconds,
+//            (short) (currentMapLoc.x * 100.0),
+//            (short) (currentMapLoc.y * 100.0),
+//            (short) (sonarRight * 100.0),
+//            (short) (currentMapHeading * 100.0),
+//            (short) ((tp6FpsLeft - tp6FpsRight) * 100.0),
+//            (short) tickPosition
+//            );
+      }   
   }
     
 

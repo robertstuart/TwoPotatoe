@@ -14,14 +14,26 @@
 
 String rtA[] = {"N  Garage loop",
                 "Z         0",
-                "GY       0,14   5",
-                "T        12,16  5   2", // Turn toward garbage bins
-                "GX       12,16  5",
-                "T        14.6,0    5   2",  // Turn toward street.
-                "GY       14.6,12   5",
-                "GY       14.6,0    3.5",
-                "T        2,-2   5   2",  // Turn toward tools
-                "GX       2,-2   5",
+                "WY       0,12   4",        // Step 3
+                "CY       0.5    2 4 2.4",
+                "CY      10.7    2 4 2.4",
+                "GY       0,12   4",
+                "T        10.5,14  4   2", // Turn toward garbage bins
+                "WX       10.5,14  4",
+                "CX        2.60  1 6 3.8",   
+                "CX       10.35  1 6 4.8" ,  
+                "GX       10.5,14  4",
+                "T        12.5,0    4   2",  // Turn toward street.
+                "WY       12.5,8   4",
+                "CY        7.3     1  5  2.6",
+                "WY       12.5,0    2.8",
+                "CY        0.0     1  6  3.94",
+                "GY       12.5,-0.4    2.8",
+                "T        2,-2   4   2",  // Turn toward tools
+                "WX       2,-2   4",
+                "CX       7.4    0   3  1.6",
+                "CX       2.2   0   3  1.1",
+                "GX       2,-2   4",
                 "T        0,14   5   2",  // Turn toward trebuchet
                 "F"
 }; 
@@ -168,7 +180,7 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define TICKS_PER_PITCH_DEGREE 54.0D
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
-#define DEFAULT_MAP_ORIENTATION -45.0
+#define DEFAULT_MAP_ORIENTATION 0.0
 #define SONAR_SENS 0.042
 
 // Decrease this value to get greater turn for a given angle

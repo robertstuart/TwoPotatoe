@@ -3,6 +3,7 @@
 int originalStepStringPtr = 0;
 String stepString = "";
 int numLen = 0;
+int loopX = 0;
 
 /************************************************************************
  *  Route() called every loop (400/sec)
@@ -19,6 +20,7 @@ void route() {
     case 'N':
     case 'M':
     case 'Z':
+    case 'W':
         isNewRouteStep = true;
         break;
     case 'S': // Stand
@@ -31,7 +33,7 @@ void route() {
       if (routeWaitTime < timeMilliseconds) isNewRouteStep = true;
       orient();
       break;
-    case 'x': // Moving toward X axis & waiting to take a sonar reading
+    case 'x': // CX - Moving toward X axis & waiting to take a sonar reading
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x; 
       routeCoDistance = routeCoDistanceXY - currentMapLoc.x;
       if (isRouteTargetIncreasing) {
@@ -48,7 +50,7 @@ void route() {
       }
       steerHeading();
       break;
-    case 'X': // Move toward X axis
+    case 'X': // GX - Move toward X axis
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x; 
       if (isRouteTargetIncreasing) {
         if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
@@ -58,9 +60,10 @@ void route() {
       }
       steerHeading();
       break;
-    case 'y': // Moving toward Y axis & waiting to take a sonar reading
+    case 'y': // CY - Moving toward Y axis & waiting to take a sonar reading
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y; 
       routeCoDistance = routeCoDistanceXY - currentMapLoc.y;
+//      sprintf(message, "%5.2f", routeCoDistance ); isNewMessage = true;
       if (isRouteTargetIncreasing) {
         if (routeCoDistance <= 0.0) { 
           isNewRouteStep = true;
@@ -75,7 +78,8 @@ void route() {
       }
       steerHeading();
       break;
-    case 'Y': // Move toward Y axis
+      
+    case 'Y': // GY - Move toward Y axis
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y; 
       if (isRouteTargetIncreasing) {
         if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
@@ -102,18 +106,194 @@ void route() {
 }
 
 
+/************************************************************************
+ *  interpretRouteLine()  
+ ************************************************************************/
+boolean interpretRouteLine() {
+  double retDbl;
+  int retInt;
+  char charX;
+  char axisC;
+
+  stepString = rtA[routeStepPtr++];
+  originalStepStringPtr = 0;
+  Serial.print(stepString);  Serial.print(":   "); 
+  routeCurrentAction = stepString.charAt(0);
+  stepString = stepString.substring(1);
+  originalStepStringPtr++;
+  
+  switch (routeCurrentAction) {
+    case 'N':
+      stripWhite();
+      routeTitle = stepString;
+      break;
+      
+    case 'M':
+      mapOrientation = readNum();
+      Serial.print(mapOrientation);
+      if (mapOrientation == STEP_ERROR) return false;
+      break;
+      
+    case 'Z':
+      mapOrientation = readNum();
+      Serial.print(mapOrientation);
+      if (mapOrientation == STEP_ERROR) return false;
+      resetNavigation(0.0);
+      break;
+      
+    case 'S':
+      routeTargetBearing = readNum();
+      Serial.print(routeTargetBearing); Serial.print("  ");
+      if (routeTargetBearing == STEP_ERROR) return false;
+      routeTargetLoc.x = sin(routeTargetBearing * DEG_TO_RAD) * 100.0;
+      routeTargetLoc.y = cos(routeTargetBearing * DEG_TO_RAD) * 100.0;
+      
+      retDbl = readNum();
+      if (retDbl == STEP_ERROR) return false;
+      Serial.print(retDbl);
+      routeWaitTime = timeMilliseconds + ((int) retDbl) * 1000;
+      routeFps = 0.0;
+      break;
+      
+    case 'G':
+      charX = stepString.charAt(0);
+      if (charX == 'X') routeCurrentAction = 'X';
+      else if (charX == 'Y') routeCurrentAction = 'Y';
+      else return false;
+      stepString = stepString.substring(1);
+      
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");      
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      if (routeCurrentAction == 'X') {
+        routeTargetXY = routeTargetLoc.x;
+        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      else {
+        routeTargetXY = routeTargetLoc.y;
+        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      
+      routeRadius = readNum();
+      Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius < .5) routeRadius = 0.5;
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
+      break;
+      
+
+    case 'W':  // dup of G
+      charX = stepString.charAt(0);
+      if (charX == 'X') axisC = 'X';
+      else if (charX == 'Y') axisC = 'Y';
+      else return false;
+      stepString = stepString.substring(1);
+      
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");      
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      if (axisC == 'X') {
+        routeTargetXY = routeTargetLoc.x;
+        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      else {
+        routeTargetXY = routeTargetLoc.y;
+        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      
+      routeRadius = readNum();
+      Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius < .5) routeRadius = 0.5;
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
+      break;
+      
+    case 'C':
+      charX = stepString.charAt(0);
+      if (charX == 'X') routeCurrentAction = 'x';
+      else if (charX == 'Y') routeCurrentAction = 'y';
+      else return false;
+      stepString = stepString.substring(1);
+
+      routeCoDistanceXY = readNum();
+      Serial.print(routeCoDistanceXY);
+      if (routeCoDistanceXY == STEP_ERROR) return false;
+      
+      routeSonarMin = readNum();
+      Serial.print(routeSonarMin);
+      if (routeSonarMin == STEP_ERROR) return false;
+      
+      routeSonarMax = readNum();
+      Serial.print(routeSonarMax);
+      if (routeSonarMax == STEP_ERROR) return false;
+      
+      routeSonarDist = readNum();
+      Serial.print(routeSonarDist);
+      if (routeSonarDist == STEP_ERROR) return false;
+      break;
+      
+    case 'T':  // Turn
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      
+      routeRadius = readNum();
+      Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius < .5) routeRadius = 0.5;
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0D ; 
+      
+      setTargetPosition();
+      aDiff = routeTargetBearing - currentMapHeading;
+      if (aDiff > 180.0) aDiff -= 360.0;
+      else if (aDiff < -180.0) aDiff += 360.0;
+      routeIsRightTurn = aDiff > 0.0;
+      routeStartTickTurn = tickPosition;      
+      break;
+      
+    case 'R':
+      routeStepPtr = (int) readNum();
+      Serial.print(retInt);
+      if ((routeStepPtr == STEP_ERROR) || (routeStepPtr >= (routeStepPtr - 2))) return false;
+      break;
+      
+    case 'F':
+      isRouteInProgress = false;
+      break;
+    default:
+      Serial.println("Step Error.");
+      return false;
+  }
+  Serial.println();
+  sprintf(message, "Step %d: %c", routeStepPtr, routeCurrentAction); isNewMessage = true;
+  return true;  
+}
+
 
 /************************************************************************
  *  readSonar() 
  ************************************************************************/
  void readSonar() {
-  double diff = 0.0;
-  sonarRight = ((double) analogRead(SONAR_RIGHT_AN)) * SONAR_SENS; // to feet
-  if ((sonarRight > routeSonarMin) && (sonarRight < routeSonarMax)) {
-    diff = routeSonarDist - sonarRight;
+//  double diff = 0.0;
+//  sonarRight = ((double) analogRead(SONAR_RIGHT_AN)) * SONAR_SENS; // to feet
+//  if ((sonarRight > routeSonarMin) && (sonarRight < routeSonarMax)) {
+//    diff = routeSonarDist - sonarRight;
 //    if (routeCurrentAction == 'x') currentMapLoc.y += diff;
 //    else currentMapLoc.x += diff;
-  }
+//  }
 }
 
 
@@ -125,6 +305,7 @@ void route() {
 void steerHeading() {
   static double oldTb = 0.0;
   double tb;
+
   if (abs(routeTargetXYDistance) < 1.0) { // No turning when closer than X.X feet.
     tb = oldTb;
   }
@@ -250,7 +431,7 @@ void resetRoute() {
   while (true) {
     if (!interpretRouteLine()) {
       isRouteInProgress = false;
-      sprintf(message, "Route error!"); isNewMessage = true;
+      sprintf(message, "Error step %d!", routeStepPtr); isNewMessage = true;
       return;
     }
     if (!isRouteInProgress) break;
@@ -262,149 +443,6 @@ void resetRoute() {
 }
 
 
-
-/************************************************************************
- *  interpretRouteLine()  
- ************************************************************************/
-boolean interpretRouteLine() {
-  double retDbl;
-  int retInt;
-  char charX;
-
-  stepString = rtA[routeStepPtr++];
-  originalStepStringPtr = 0;
-  Serial.print(stepString);  Serial.print(":   "); 
-  routeCurrentAction = stepString.charAt(0);
-  stepString = stepString.substring(1);
-  originalStepStringPtr++;
-  
-  switch (routeCurrentAction) {
-    case 'N':
-      stripWhite();
-      routeTitle = stepString;
-      break;
-      
-    case 'M':
-      mapOrientation = readNum();
-      Serial.print(mapOrientation);
-      if (mapOrientation == STEP_ERROR) return false;
-      break;
-      
-    case 'Z':
-      mapOrientation = readNum();
-      Serial.print(mapOrientation);
-      if (mapOrientation == STEP_ERROR) return false;
-      resetNavigation(0.0);
-      break;
-      
-    case 'S':
-      routeTargetBearing = readNum();
-      Serial.print(routeTargetBearing); Serial.print("  ");
-      if (routeTargetBearing == STEP_ERROR) return false;
-      routeTargetLoc.x = sin(routeTargetBearing * DEG_TO_RAD) * 100.0;
-      routeTargetLoc.y = cos(routeTargetBearing * DEG_TO_RAD) * 100.0;
-      
-      retDbl = readNum();
-      if (retDbl == STEP_ERROR) return false;
-      Serial.print(retDbl);
-      routeWaitTime = timeMilliseconds + ((int) retDbl) * 1000;
-      routeFps = 0.0;
-      break;
-      
-    case 'G':
-      charX = stepString.charAt(0);
-      if (charX == 'X') routeCurrentAction = 'X';
-      else if (charX == 'Y') routeCurrentAction = 'Y';
-      else return false;
-      stepString = stepString.substring(1);
-      
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");      
-      if (routeTargetLoc.y == STEP_ERROR) return false;
-      if (routeCurrentAction == 'X') {
-        routeTargetXY = routeTargetLoc.x;
-        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      else {
-        routeTargetXY = routeTargetLoc.y;
-        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      
-      routeFps = readNum();
-      Serial.print(routeFps);  Serial.print("   ");
-      if (routeFps == STEP_ERROR) return false;
-      
-      routeRadius = readNum();
-      Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius < .5) routeRadius = 0.5;
-      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
-      break;
-      
-    case 'C':
-      charX = stepString.charAt(0);
-      if (charX != 'X') routeCurrentAction = 'x';
-      else if (charX != 'Y') routeCurrentAction = 'y';
-      else return false;
-      stepString = stepString.substring(1);
-
-      routeCoDistanceXY = readNum();
-      Serial.print(routeCoDistanceXY);
-      if (routeCoDistanceXY == STEP_ERROR) return false;
-      
-      routeSonarMin = readNum();
-      Serial.print(routeSonarMin);
-      if (routeSonarMin == STEP_ERROR) return false;
-      
-      routeSonarMax = readNum();
-      Serial.print(routeSonarMax);
-      if (routeSonarMax == STEP_ERROR) return false;
-      
-      routeSonarDist = readNum();
-      Serial.print(routeSonarDist);
-      if (routeSonarDist == STEP_ERROR) return false;
-      break;
-      
-    case 'T':
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-      if (routeTargetLoc.y == STEP_ERROR) return false;
-
-      routeFps = readNum();
-      Serial.print(routeFps);  Serial.print("   ");
-      if (routeFps == STEP_ERROR) return false;
-      
-      routeRadius = readNum();
-      Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius < .5) routeRadius = 0.5;
-      if (routeRadius == STEP_ERROR) routeRadius = 2.0D ; 
-      
-      setTargetPosition();
-      aDiff = routeTargetBearing - currentMapHeading;
-      if (aDiff > 180.0) aDiff -= 360.0;
-      else if (aDiff < -180.0) aDiff += 360.0;
-      routeIsRightTurn = aDiff > 0.0;
-      routeStartTickTurn = tickPosition;      
-      break;
-      
-    case 'R':
-      routeStepPtr = (int) readNum();
-      Serial.print(retInt);
-      if ((routeStepPtr == STEP_ERROR) || (routeStepPtr >= (routeStepPtr - 2))) return false;
-      break;
-      
-    case 'F':
-      isRouteInProgress = false;
-      break;
-    default:
-      Serial.println("Step Error.");
-      return false;
-  }
-  Serial.println();
-  sprintf(message, "Step %d: %c", routeStepPtr, routeCurrentAction); isNewMessage = true;
-  return true;  
-}
 
 double readNum() {
   stripWhite();

@@ -9,6 +9,10 @@ boolean beepStat = false;
 int *beepSequence;
 int beepPtr = 0;
 
+#define SONAR_BUF_SIZE 10
+int sonarBuf[SONAR_BUF_SIZE];
+int sonarBufPtr = 0;
+
 boolean flip = false;
 int warningCount = 0;
 int criticalCount = 0;
@@ -371,13 +375,22 @@ double getControllerX() {
 
 
 /**************************************************************************.
- * sonar()
+ * sonar() Get lowest in 5 readings: 1/3 sec or 3 ft at 10 ft/sec
  **************************************************************************/
 void sonar() {
   static unsigned long sonarTrigger = 0;
+  int r;
   if (timeMilliseconds > sonarTrigger) {
-    sonarTrigger = timeMilliseconds + 60UL;
-    sonarRight = ((float) analogRead(SONAR_RIGHT_AN)) * SONAR_SENS; // to feet
+    sonarTrigger = timeMilliseconds + 30UL;
+    r = analogRead(SONAR_RIGHT_AN);
+//   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds); 
+    sonarBuf[sonarBufPtr++] = r;
+    if (sonarBufPtr >= SONAR_BUF_SIZE) sonarBufPtr = 0;
+    int minS = 1000000;
+    for (int i = 0; i < SONAR_BUF_SIZE; i++) {
+      if (minS > sonarBuf[i]) minS = sonarBuf[i];
+    }
+    sonarRight = ((double) minS) * SONAR_SENS; // to feet
   }
 }
 
