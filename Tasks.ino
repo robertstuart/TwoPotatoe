@@ -32,9 +32,9 @@ unsigned long warningTrigger = 0;
 unsigned long batteryLastGood = 0;
 
 
-const byte* patternBlue = BLINK_OFF;       
-const byte* patternYellow = BLINK_OFF;       
-const byte* patternRed = BLINK_OFF;       
+const byte* patternBlue = BLINK_OFF;
+const byte* patternYellow = BLINK_OFF;
+const byte* patternRed = BLINK_OFF;
 int blinkPtrBlue = 0;
 int blinkPtrYellow = 0;
 int blinkPtrRed = 0;
@@ -58,7 +58,7 @@ void commonTasks() {
   timeMilliseconds = timeMicroseconds / 1000;
   readXBee();  // Read commands from PC or Hand Controller
   readBluetooth();
-//  motorIdle();
+  //  motorIdle();
   led();
   battery();
   controllerConnected();
@@ -88,7 +88,7 @@ void setRunningState() {
 
   if (mode == MODE_TP6) {
     // Set the runnng bit to control motors
-    if ((isRunReady && isUpright && isOnGround) || isJump) {
+    if ((isRunReady && isUpright) && (isOnGround || isJump)) {
       isRunning = true;
     }
     else {
@@ -96,9 +96,9 @@ void setRunningState() {
     }
   }
   else { // For all test modes, just set accoding to ready bit
-      isRunning = isRunReady;   
+    isRunning = isRunReady;
   }
-  
+
   // Set the blue connection led
   if (isHcActive) setBlink(BLUE_LED_PIN, BLINK_ON);
   else if (isPcActive) setBlink(BLUE_LED_PIN, BLINK_SB);
@@ -106,26 +106,26 @@ void setRunningState() {
 
   // set red (mode) and yellow (state)
   switch (mode) {
-  case MODE_TP6:
-    if  (isRouteInProgress) {
-      setBlink(YELLOW_LED_PIN, BLINK_FF);
-      setBlink(RED_LED_PIN, BLINK_FF);  
-    }
-    else {
-      setBlink(RED_LED_PIN, BLINK_SF);  
-      if (isRunning)         setBlink(YELLOW_LED_PIN, BLINK_ON);
-      else if (isRunReady)   setBlink(YELLOW_LED_PIN, BLINK_FF);
-      else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
-    }
-    if ((!isHcActive) && (!isPcActive)) {
-      pcX = pcY = hcX = hcY = 0.0f;
-    }
-    break;
-  default:
-    setBlink(RED_LED_PIN, BLINK_SF);    
-    if (isRunReady) setBlink(YELLOW_LED_PIN, BLINK_SF);
-    else setBlink(YELLOW_LED_PIN, BLINK_ON);
-    break;
+    case MODE_TP6:
+      if  (isRouteInProgress) {
+        setBlink(YELLOW_LED_PIN, BLINK_FF);
+        setBlink(RED_LED_PIN, BLINK_FF);
+      }
+      else {
+        setBlink(RED_LED_PIN, BLINK_SF);
+        if (isRunning)         setBlink(YELLOW_LED_PIN, BLINK_ON);
+        else if (isRunReady)   setBlink(YELLOW_LED_PIN, BLINK_FF);
+        else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
+      }
+      if ((!isHcActive) && (!isPcActive)) {
+        pcX = pcY = hcX = hcY = 0.0f;
+      }
+      break;
+    default:
+      setBlink(RED_LED_PIN, BLINK_SF);
+      if (isRunReady) setBlink(YELLOW_LED_PIN, BLINK_SF);
+      else setBlink(YELLOW_LED_PIN, BLINK_ON);
+      break;
   }
 }
 
@@ -142,7 +142,7 @@ void setRunningState() {
 void safeAngle() {
   static unsigned long tTime = 0UL; // time of last state change
   static boolean tState = false;  // Timed state. true = upright
-  
+
   boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 35))); // Current real state
   if (cState != tState) {
     tTime = timeMilliseconds; // Start the timer for a state change.
@@ -151,7 +151,7 @@ void safeAngle() {
   else {
     if ((timeMilliseconds - tTime) > 50) {
       isUpright = cState;
-    } 
+    }
   }
 }  // End safeAngle().
 
@@ -160,30 +160,37 @@ void safeAngle() {
  * onGround() set  T
  *
  *      The TP_STATE_ON_GROUND bit is set whenever both wheels show a force
- *      greater than the threshold.  Whenever the force on either wheels 
- *      drops below the threshold TP_STATE_ON_GROUND is cleared but  
+ *      greater than the threshold.  Whenever the force on either wheels
+ *      drops below the threshold TP_STATE_ON_GROUND is cleared but
  *      isJump is set to true.  After 0.3 seconds in the "off-ground"
  *      isJump is set to false.
  **************************************************************************/
 void onGround() {
-  int groundTime = 0;
+  static unsigned int groundTime = 0;
   forceLeft = analogRead(L_FORCE_PIN);
   forceRight = analogRead(R_FORCE_PIN);
-  isOnGround = (forceLeft < 700) && (forceRight < 700);
-  if (isOnGround) {
-    if (!isOnGround)  {
-      if (magHeading == 0.0) return; // Wait until heading has been read.
-      isOnGround = true;
-      isJump = false;
-      groundTime = timeMilliseconds;
-    }
+  boolean og = (forceLeft < 700) && (forceRight < 700);
+  if (og) {
+    groundTime = timeMilliseconds;
+    isOnGround = true;
+    isJump = false;
   }
   else { // in air
+    if (isOnGround) { // State change.
+      double sumRight = 0.0D;
+      double sumLeft = 0.0D;
+      isJump = true;
+      for (int i = 0; i < FPS_BUF_SIZE; i++) {
+        sumRight += fpsRightBuf[i];
+        sumLeft += fpsLeftBuf[i];
+      }
+      tp6FpsRightJump = sumRight / ((double) FPS_BUF_SIZE) ;
+      tp6FpsLeftJump = sumLeft  / ((double) FPS_BUF_SIZE)  ;
+    }
+    if (timeMilliseconds > (groundTime + 300)) isJump = false;
     isOnGround = false;
-    if (timeMilliseconds < (groundTime + 300)) isJump = true;
-    else isJump = false; 
   }
-}  
+}
 
 
 /**************************************************************************.
@@ -205,7 +212,7 @@ void battery() {
   if (timeMilliseconds > batteryTrigger) {
     batteryTrigger += 1000;  // 1 per second
     battVolt = (1000 * analogRead(BATT_PIN)) / 451;
-  } 
+  }
 }
 
 
@@ -232,7 +239,7 @@ void motorIdle() {
 void led() {
   if (timeMilliseconds > blinkTrigger) {
     blinkTrigger += 100;  // 10 per second
-    
+
     int b = (patternBlue[blinkPtrBlue++] == 1) ? HIGH : LOW;
     if (patternBlue[blinkPtrBlue] == END_MARKER) blinkPtrBlue = 0;
     digitalWrite(BLUE_LED_PIN, b);
@@ -342,13 +349,13 @@ void switches() {
 void setControllerXY() {
   static double y = 0.0D;
   static double x = 0.0D;
-  
+
   if (!isHoldFps) {
     if (abs(hcY) > abs(pcY)) y = hcY;
     else y = pcY;
   }
   controllerY = y;
-  
+
   if (!isHoldHeading) {
     if (abs(hcX) > abs(pcX)) x = hcX;
     else x = pcX;
@@ -363,7 +370,7 @@ void setControllerXY() {
  * getControllerX() return turn from two controllers & hold state
  **************************************************************************/
 double getControllerX() {
-//  return hcX;
+  //  return hcX;
   static double x = 0.0D;
   if (!isHoldHeading) {
     if (abs(hcX) > abs(pcX)) x = hcX;
@@ -383,7 +390,7 @@ void sonar() {
   if (timeMilliseconds > sonarTrigger) {
     sonarTrigger = timeMilliseconds + 30UL;
     r = analogRead(SONAR_RIGHT_AN);
-//   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds); 
+    //   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds);
     sonarBuf[sonarBufPtr++] = r;
     if (sonarBufPtr >= SONAR_BUF_SIZE) sonarBufPtr = 0;
     int minS = 1000000;

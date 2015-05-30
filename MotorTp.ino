@@ -449,6 +449,7 @@ void readSpeedRight() {
     mFpsRight = sum / count;
   }
   fpsRight =((double) mFpsRight) / 1000.0;
+  fpsRightBuf[++fpsRightBufPtr % FPS_BUF_SIZE] = fpsRight;
 }
 
 void readSpeedLeft() {
@@ -466,6 +467,7 @@ void readSpeedLeft() {
     mFpsLeft = sum / count;
   }
   fpsLeft =((double) mFpsLeft) / 1000.0;
+  fpsLeftBuf[++fpsLeftBufPtr % FPS_BUF_SIZE] = fpsLeft;
 }
 
 

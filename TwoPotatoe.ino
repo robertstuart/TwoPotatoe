@@ -15,8 +15,8 @@
 String rtA[] = {"N  Garage loop",
                 "Z         0",
                 "WY       0,12   4",        // Step 3
-                "CY       0.5    2 4 2.4",
-                "CY      10.7    2 4 2.4",
+                "CY       0.5    2 4 2.27 i",
+                "CY      10.7    2 4 1.72 o",
                 "GY       0,12   4",
                 "T        10.5,14  4   2", // Turn toward garbage bins
                 "WX       10.5,14  4",
@@ -24,9 +24,8 @@ String rtA[] = {"N  Garage loop",
                 "CX       10.35  1 6 4.8" ,  
                 "GX       10.5,14  4",
                 "T        12.5,0    4   2",  // Turn toward street.
-                "WY       12.5,8   4",
+                "WY       12.5,0   4",
                 "CY        7.3     1  5  2.6",
-                "WY       12.5,0    2.8",
                 "CY        0.0     1  6  3.94",
                 "GY       12.5,-0.4    2.8",
                 "T        2,-2   4   2",  // Turn toward tools
@@ -188,6 +187,7 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 //#define GYRO_SENS 0.0085     // Multiplier to get degree. -0.075/8?
 #define GYRO_SENS 0.00834139     // Multiplier to get degree. subtract 1.8662%
 
+#define INVALID_VAL -123456.78D
 
 // Due has 96 kbytes sram
 #define DATA_ARRAY_SIZE 2048
@@ -393,16 +393,21 @@ long targetMFpsLeft = 0L;
 long targetBrakeMFpsLeft = 0L;
 long targetRevMFpsLeft = 0L;
 
+#define FPS_BUF_SIZE 40
 double fpsRight = 0.0f; // right feet per second
-double fpsLeft = 0.0f;  // left feet per second
+double fpsRightBuf[FPS_BUF_SIZE];
+int fpsRightBufPtr = 0;
+double fpsLeft = 0.0f;  // left feet per second TODO rename!
+double fpsLeftBuf[FPS_BUF_SIZE];
+int fpsLeftBufPtr = 0;
 double wheelSpeedFps = 0.0f;
 int mWheelSpeedFps = 0;
 
-unsigned long gyroTrigger = 0L;
-unsigned long statusTrigger = 0L;
-unsigned long oldTimeTrigger = 0L;
-unsigned long timeMicroseconds = 0L; // Set in main loop.  Used by several routines.
-unsigned long timeMilliseconds = 0L; // Set in main loop from above.  Used by several routines.
+unsigned long gyroTrigger = 0UL;
+unsigned long statusTrigger = 0UL;
+unsigned long oldTimeTrigger = 0UL;
+unsigned long timeMicroseconds = 0UL; // Set in main loop.  Used by several routines.
+unsigned long timeMilliseconds = 0UL; // Set in main loop from above.  Used by several routines.
 
 int tpState = 0; // contains system state bits
 boolean isJump = false;
@@ -542,6 +547,8 @@ double tp5FpsLeft = 0.0f;
 double tp5FpsRight = 0.0f;
 double tp6FpsLeft = 0.0f;
 double tp6FpsRight = 0.0f;
+double tp6FpsLeftJump = 0.0f;
+double tp6FpsRightJump = 0.0f;
 
 int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;

@@ -111,8 +111,14 @@ void aTp6() {
   tp6Fps = fpsLpfCorrection + lpfCos2;
   if (isRouteInProgress) route();
   else tp6Steer(tp6Fps);
-  setTargetSpeedRight(tp6FpsRight);
-  setTargetSpeedLeft(tp6FpsLeft);
+  if (isJump) {
+    setTargetSpeedRight(tp6FpsRightJump);
+    setTargetSpeedLeft(tp6FpsLeftJump);
+  }
+  else {
+    setTargetSpeedRight(tp6FpsRight);
+    setTargetSpeedLeft(tp6FpsLeft);
+  }
 } // end aTp6() 
 
 
@@ -129,22 +135,13 @@ void sendTp6Status() {
   }
   if (loopc == 0)  {
     sendStatusXBeeHc(); 
-  }
-  else if (loopc == 10) {
     sendStatusBluePc();
+    isNewMessage = false;
   }
   else if ((loopc == 15) || (loopc == 35)) { // debugging print statements 10/sec
     if (isRouteInProgress) {
-//      addLog(
-//            (long) timeMicroseconds,
-//            (short) (currentMapLoc.x * 100.0),
-//            (short) (currentMapLoc.y * 100.0),
-//            (short) (sonarRight * 100.0),
-//            (short) (currentMapHeading * 100.0),
-//            (short) ((tp6FpsLeft - tp6FpsRight) * 100.0),
-//            (short) tickPosition
-//            );
-      }   
+      routeLog();
+    }
   }
     
 

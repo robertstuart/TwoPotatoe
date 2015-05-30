@@ -179,6 +179,9 @@ void sendStatusBluePc() {
   sendBMsg(SEND_BATT, battVolt); // integer
   sendBMsg(SEND_MODE, mode); // integer
   sendBMsg(SEND_VALSET, vSetStatus); // integer 
+  if (isNewMessage) {
+    sendBMsg(SEND_MESSAGE, message); 
+  }
   sendBMsg(SEND_STATE, getState()); // MUST BE LAST MESSAGE!
 }
 
@@ -193,7 +196,6 @@ void sendStatusXBeeHc() {
   sendXMsg(SEND_VALSET, vSetStatus); // integer 
   if (isNewMessage) {
     sendXMsg(SEND_MESSAGE, message); 
-    isNewMessage = false;
   }
   sendXMsg(SEND_STATE, getState());
 }
