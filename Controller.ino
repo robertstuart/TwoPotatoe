@@ -21,6 +21,7 @@ void   readBluetooth() {
         if (msgStrPtrB >= B_BUFFER_SIZE) {
           isMessageInProgressB = false;
         } else if (b == 0) {
+          msgStrX[msgStrPtrX] = 0;
           doMsg(msgCmdB, msgStrB, msgStrPtrB, false);
         } 
         else {
@@ -45,6 +46,7 @@ void   readXBee() {
         if (msgStrPtrX >= B_BUFFER_SIZE) {
           isMessageInProgressX = false;
         } else if (b == 0) {
+          msgStrX[msgStrPtrX] = 0;
           doMsg(msgCmdX, msgStrX, msgStrPtrX, true);
         } 
         else {
@@ -62,6 +64,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   float floatVal;
   boolean booleanVal;
   int x = 0;
+  String ss;
   
   tHc = timeMilliseconds;
   msgStr[count] = 0; // Just to be sure.
@@ -90,7 +93,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         digitalWrite(RIGHT_HL_PIN, x);
         digitalWrite(LEFT_HL_PIN, x);
         digitalWrite(REAR_TL_PIN, x);
-        sprintf(message, "Lights: %d", x); isNewMessage = true;
+//        sprintf(message, "Lights: %d", x); isNewMessage = true;
       }
       break;
     case RCV_ROUTE:
@@ -126,6 +129,26 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       if (sscanf(msgStr, "%d", &x) > 0) {
         isGyroSteer = (x == 0) ? false : true;
       }
+      break;
+    case RCV_SET_ROUTE:      // 0 to decrease, 1 to increase
+      if (sscanf(msgStr, "%d", &x) > 0) {
+        setRoute((x == 0) ? false : true);
+      }
+      break;
+    case RCV_ROUTE_DATA: 
+      loadRouteLine(String(msgStr));
+      break;
+    case RCV_DELETE_ROUTE:
+      break;
+    case RCV_MODE:
+      break;
+    case RCV_Y:
+      if(sscanf(msgStr, "%f", &floatVal) > 0) {
+        (*currentValSet).y = floatVal;
+      } 
+      break;
+    case RCV_RESET_NAV:
+      resetNavigation(0.0);
       break;
     default:
       Serial.print("Illegal message received: "); Serial.println(cmd);
@@ -172,13 +195,10 @@ int dumpPtr, dumpEnd;
  *********************************************************/
 void sendStatusBluePc() {
   sendBMsg(SEND_FPS, 2, wheelSpeedFps);
-  sendBMsg(SEND_PITCH, 1, gaPitch);
-  sendBMsg(SEND_HEADING, 1, magHeading);
+  sendBMsg(SEND_HEADING, 1, currentMapHeading);
   sendBMsg(SEND_SONAR, 2, sonarRight);
   sendBMsg(SEND_ROUTE_STEP, routeStepPtr); // integer
   sendBMsg(SEND_BATT, battVolt); // integer
-  sendBMsg(SEND_MODE, mode); // integer
-  sendBMsg(SEND_VALSET, vSetStatus); // integer 
   if (isNewMessage) {
     sendBMsg(SEND_MESSAGE, message); 
   }
@@ -187,17 +207,16 @@ void sendStatusBluePc() {
 
 void sendStatusXBeeHc() {
   sendXMsg(SEND_FPS, 2, wheelSpeedFps);
-  sendXMsg(SEND_PITCH, 1, gaPitch);
   sendXMsg(SEND_HEADING, 1, magHeading);
   sendXMsg(SEND_SONAR, 2, sonarRight);
   sendXMsg(SEND_ROUTE_STEP, routeStepPtr); // integer
   sendXMsg(SEND_BATT, battVolt); // integer
-  sendXMsg(SEND_MODE, mode); // integer
-  sendXMsg(SEND_VALSET, vSetStatus); // integer 
+  sendXMsg(SEND_X, 2, currentMapLoc.x); // float
+  sendXMsg(SEND_Y, 2, currentMapLoc.y); // float 
   if (isNewMessage) {
     sendXMsg(SEND_MESSAGE, message); 
   }
-  sendXMsg(SEND_STATE, getState());
+  sendXMsg(SEND_STATE, getState()); // MUST BE LAST MESSAGE!
 }
 
 
@@ -286,7 +305,7 @@ void sendXMsg(int cmd, int val) {
   XBEE_SER.write((byte) 0);
 }
 
-void sendXMsg(int cmd, char val[]) {
+void sendXMsg(int cmd, String val) {
   XBEE_SER.write(cmd);
   XBEE_SER.print(val);
   XBEE_SER.write((byte) 0);

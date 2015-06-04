@@ -25,7 +25,7 @@ void aTp6Run() {
   timeMicroseconds = gyroTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
-  angleInit6();
+  angleInit6();  // causes freeze?
 //  motorInitTp6();
   motorInitTp();
   currentValSet = &tp6;

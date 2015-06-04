@@ -15,10 +15,10 @@ void routeLog() {
     (long) timeMicroseconds,
     (short) (currentMapLoc.x * 100.0),
     (short) (currentMapLoc.y * 100.0),
-    (short) (sonarRight * 100.0),
     (short) (currentMapHeading * 100.0),
-    (short) (routeSonarDist * 100.0),
-    (short) routeStepPtr
+    (short) (routeTargetLoc.x * 100.0),
+    (short) (routeTargetLoc.y * 100.0),
+    (short) (routeTargetBearing * 100.0)
   );
 }
 
@@ -118,7 +118,7 @@ void route() {
 
   // Move to new action if current action is done.
   if (isNewRouteStep) { // Move to next action in list.
-    interpretRouteLine();
+    interpretRouteLine(getNextStepString());
   }
 }
 
@@ -126,14 +126,16 @@ void route() {
 /************************************************************************
  *  interpretRouteLine()
  ************************************************************************/
-boolean interpretRouteLine() {
+boolean interpretRouteLine(String ss) {
   double retDbl;
   int retInt;
   char charX;
   char axisC;
-
+  
+  stepString = ss;
   isSaveOrientation = isSavePosition = isFixOrientation = false;
-  stepString = rtA[routeStepPtr++];
+//  stepString = garageLoop[routeStepPtr++];
+//  stepString = getNextStepString();
   originalStepStringPtr = 0;
   Serial.print(stepString);  Serial.print(":   ");
   routeCurrentAction = stepString.charAt(0);
@@ -422,6 +424,7 @@ void steerHeading() {
   else {
     oldTb = tb = routeTargetBearing;
   }
+  if (routeFps < 0.0) tb += 180.0;
   aDiff = tb - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
@@ -531,29 +534,6 @@ void setTargetBearing() {
 
 
 
-/************************************************************************
- *  resetRoute()
- ************************************************************************/
-void resetRoute() {
-  routeStepPtr = 0;
-  isRouteInProgress = true;
-  // Run through it to see if it compiles
-  while (true) {
-    if (!interpretRouteLine()) {
-      isRouteInProgress = false;
-      sprintf(message, "Error step %d!", routeStepPtr); isNewMessage = true;
-      return;
-    }
-    if (!isRouteInProgress) break;
-  }
-  // It made it here.  Therefore run it.
-  routeStepPtr = 0;
-  interpretRouteLine();
-  isRouteInProgress = true;
-}
-
-
-
 double readNum() {
   stripWhite();
   double num = stepString.toFloat();
@@ -570,6 +550,7 @@ struct loc readLoc() {
   if (numLen == 0) return locLoc;
   if (stepString.charAt(0) != ',') return locLoc;
   stepString = stepString.substring(1);
+//  stripWhite();
   double y = stepString.toFloat();
   stripNum();
   if (numLen == 0) return locLoc;

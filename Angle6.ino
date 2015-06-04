@@ -12,8 +12,11 @@ int zMin = -3893;  // -2325; // -2070;
 int zMax = 2819;   // 3702; //  4216;
 
 void angleInit6() {
+  delay(20);
   Wire.begin();
+  delay(20);
   compass.init();
+  delay(20);
   compass.enableDefault(); // Mag: [DR=6.25 Hz, 4 gauss, contin] Accel: [2g]
   compass.writeAccReg(LSM303::CTRL1, 0x67); // Accel DR=100 HZ, all axis
   gyro.init(); // Sets no parameters
@@ -23,6 +26,11 @@ void angleInit6() {
 #define TG_PITCH_TC 0.90D
 
 boolean readGyro() {
+  static int temperatureLoop = 0;
+  static int sumX = 0;
+  static int sumY = 0;
+  static int sumZ = 0;
+  
   static int oldX, oldY, oldZ;
     gyro.read();  // 860 microseconds
     if ((gyro.g.x == oldX) && (gyro.g.y == oldY) && (gyro.g.z == oldZ)) return false;
@@ -31,21 +39,22 @@ boolean readGyro() {
     oldZ = gyro.g.z;
     
     // Pitch
-    double gyroPitchRaw = (double) (gyro.g.y - gyroErrorX); // add in constant error
+    double gyroPitchRaw = (double) (gyro.g.y - gyroTempCompY); // add in constant error
     double gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
     gyroPitchDelta = (gyroPitchRate * 2500.0) / 1000000.0; // degrees changed during period
     gPitch = gPitch + gyroPitchDelta;   // Used by tgPitch & debugging
     gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
     
     // Roll
-    double gyroRollRaw = -(double) (gyro.g.x - gyroErrorY); 
+    double gyroRollRaw = -(double) (gyro.g.x - gyroTempCompX); 
     double gyroRollRate = gyroRollRaw * GYRO_SENS;
     double gyroRollDelta = (gyroRollRate * 2500.0) / 1000000.0;
     gRoll = gRoll + gyroRollDelta;
     gaRoll = gyroRollDelta + gaRoll;
     
     // Yaw
-    double gyroYawRaw = (double) (gyro.g.z - gyroErrorZ);  // add in constant error
+    double gyroYawRaw = (double) (gyro.g.z - gyroTempCompZ);  // add in constant error
+//    double gyroYawRaw = (double) (gyro.g.z - ((int) (*currentValSet).y));  // add in constant error
     double gyroYawRate = gyroYawRaw * GYRO_SENS;  // Rate in degreesChange/sec
     double gyroYawDelta = (gyroYawRate * 2500.0) / 1000000.0; // degrees changed during period
     gyroCumHeading = gyroCumHeading + gyroYawDelta;   //
@@ -60,6 +69,29 @@ boolean readGyro() {
     tgPitch = (q * TG_PITCH_TC) + (gPitch * (1.0D - TG_PITCH_TC));
     tgPitchDelta = tgPitch - oldTgPitch;
     oldTgPitch = tgPitch;
+    
+    sumX += oldX;
+    sumY += oldY;
+    sumZ += oldZ;
+    if ((++temperatureLoop % 400) == 0) {
+      int meanX = sumX / 400;
+      int meanY = sumY / 400;
+      int meanZ = sumZ / 400;
+      int t = gyro.readReg(L3G::OUT_TEMP); 
+      if (t > 127) t -= 256;
+      float temperature =(float) t;
+      gyroTempCompX = 176 + ((int) (1.5 * temperature));
+      gyroTempCompY = 27 + ((int) (-1.0 * temperature));
+      gyroTempCompZ = 82 + ((int) (6.6 * temperature));
+//      Serial.print(temperature); Serial.print("\t");
+//      Serial.print(gPitch); Serial.print("\t");
+//      Serial.print(gRoll); Serial.print("\t");
+//      Serial.print(gyroCumHeading); Serial.print("\t");
+//      Serial.print(meanX); Serial.print("\t");
+//      Serial.print(meanY); Serial.print("\t");
+//      Serial.print(meanZ); Serial.println();
+      sumX = sumY = sumZ = 0;
+    }
     
     return true;
 }
@@ -156,7 +188,6 @@ void setNavigation() {
   if (h > 180.0) h -= 360.0;
   else if (h < -180.0) h += 360.0;
   currentMapHeading = h;
-  
   // Loocation
   double dist = ((double) (tickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
   navOldTickPosition = tickPosition;
@@ -210,24 +241,24 @@ void resetNavigation(double mh) {
 //  mapOrientation = DEFAULT_MAP_ORIENTATION;
 }
 
-void zeroGyro() {
-  int xSum = 0;
-  int ySum = 0;
-  int zSum = 0;
-  angleInit6();
-  delay(500);
-  for (int i = 0; i < 400; i++) {
-    while (!readGyro()) {}
-    xSum += gyro.g.x;
-    ySum += gyro.g.y;
-    zSum += gyro.g.z;
-  }
-  gyroErrorX = xSum / 400;
-  gyroErrorY = ySum / 400;
-  gyroErrorZ = zSum / 400;
-  Serial.print(gyroErrorX); Serial.print("\t");
-  Serial.print(gyroErrorY); Serial.print("\t");
-  Serial.println(gyroErrorZ); 
-}
+//void zeroGyro() {
+//  int xSum = 0;
+//  int ySum = 0;
+//  int zSum = 0;
+//  angleInit6();
+//  delay(500);
+//  for (int i = 0; i < 400; i++) {
+//    while (!readGyro()) {}
+//    xSum += gyro.g.x;
+//    ySum += gyro.g.y;
+//    zSum += gyro.g.z;
+//  }
+//  gyroErrorX = xSum / 400;
+//  gyroErrorY = ySum / 400;
+//  gyroErrorZ = zSum / 400;
+//  Serial.print(gyroErrorX); Serial.print("\t");
+//  Serial.print(gyroErrorY); Serial.print("\t");
+//  Serial.println(gyroErrorZ); 
+//}
 
 

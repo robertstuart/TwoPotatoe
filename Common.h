@@ -11,6 +11,9 @@ const int SEND_STATE       = 136;
 const int SEND_BATT        = 137;
 const int SEND_MODE        = 138;
 const int SEND_VALSET      = 139;
+const int SEND_ROUTE_NAME  = 140;
+const int SEND_X           = 141;
+const int SEND_Y           = 142;
 
 const int RCV_JOYX         = 129;
 const int RCV_JOYY         = 130;
@@ -31,6 +34,11 @@ const int RCV_ROTATE       = 144;
 const int RCV_HOLD_HEADING = 145;
 const int RCV_HOLD_FPS     = 146;
 const int RCV_GYRO_STEER   = 147;
+const int RCV_SET_ROUTE    = 148; // 0 to decrease, 1 to increase
+const int RCV_ROUTE_DATA   = 149; 
+const int RCV_XXXX_ROUTE   = 150;
+const int RCV_DELETE_ROUTE = 151;
+const int RCV_MODE         = 152;
 
 const int SEND_RCV_TERM    =   0;
 

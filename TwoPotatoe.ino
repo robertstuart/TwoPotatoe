@@ -12,92 +12,6 @@
 
 #define TICKS_PER_CIRCLE_YAW  11900.0  // Larger number increases degrees turn
 
-String rtA[] = {"N  Garage loop",
-                "Z         0",
-                "WY       0,12   4",        // Step 3
-                "CY       0.5    2 4 2.27 i",
-                "CY      10.7    2 4 1.72 o",
-                "GY       0,12   4",
-                "T        10.5,14  4   2", // Turn toward garbage bins
-                "WX       10.5,14  4",
-                "CX        2.60  1 6 3.8",   
-                "CX       10.35  1 6 4.8" ,  
-                "GX       10.5,14  4",
-                "T        12.5,0    4   2",  // Turn toward street.
-                "WY       12.5,0   4",
-                "CY        7.3     1  5  2.6",
-                "CY        0.0     1  6  3.94",
-                "GY       12.5,-0.4    2.8",
-                "T        2,-2   4   2",  // Turn toward tools
-                "WX       2,-2   4",
-                "CX       7.4    0   3  1.6",
-                "CX       2.2   0   3  1.1",
-                "GX       2,-2   4",
-                "T        0,14   5   2",  // Turn toward trebuchet
-                "F"
-}; 
-
-
-//String rtA[] = {"N  Out & back",
-//                "M         0",
-//                "Z         0",
-//                "S         0  30",
-//                "GY      0,8   3",
-//                "S        00   2",
-//                "S       -90   2",
-//                "S       -180   2",
-//                "GY      0,0   2",
-//                "F"
-//}; 
-
-//String rtA[] = {"N  Office-hallway",
-//                "M    -51.62", 
-////                "Z    -51.62", 
-//                "S         0  30",
-//                "GY      0,5   3",
-//                "T      15,7   3    2",
-//                "GX     15,7   3",
-////                "CX        3   3    1   3",
-////                "CX        12  3    1   3",
-////                "GX     15,7   3",
-//                "S        90   2",
-//                "S       -90   3",
-//                "GX      2,7   3",
-////                "CX        9   3    1   3",
-////                "CX        3   3    1   3",
-////                "GX      2,7   3",
-//                "T       0,0   3    2",
-//                "GY      0,0   2",
-//                "F"
-//}; 
-
-
-//String rtA[] = {"N  Brewing Market",
-//                "M       0.0", 
-//                "Z         0", 
-//                "S        90   2",
-//                "GX     15,0   3",            // go E to sidewalk
-//                "T     17,46   3    2",       // turn toward N
-//                "GY    17,46   3",            // to N end of sidewalk
-//                "T     48,48   3    2",       // turn E toward lot
-//                "GX    48,48   3",            // E into lot
-//                "T     56,50   3    2",       // turn North in lot
-//                "GY    56,60   3",            // go N a little
-//                "T     88,58   3    2",       // turn East at top of lot
-//                "GX    88,58   3",            // to East side of lot
-//                "T    90,-46   3    2",       // turn toward S
-//                "GY   90,-46   3",            // go to SE end of lot
-//                "T    52,-48   3    2",       // turn W toward BrewingMarket
-//                "GX   52,-48   3",            // Go toward Brewing Market
-//                "T     50,46   3    2",       // turn to NW corner of lot
-//                "GY    50,46   3",            // go to NW corner of lot
-//                "T     19,48   3,   2",       // turn toward Brewing Market
-//                "GX    19,48   3",            // go to sidewalk
-//                "T      17,2   3    2",       // turn S
-//                "GY     17,2   3",            // go S
-//                "T       0,0   3    2",
-//                "F"    
-//}; 
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
@@ -180,7 +94,7 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define DRIFT_COUNT 100
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
 #define DEFAULT_MAP_ORIENTATION 0.0
-#define SONAR_SENS 0.042
+#define SONAR_SENS 0.0385
 
 // Decrease this value to get greater turn for a given angle
 //#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
@@ -266,7 +180,7 @@ struct valSet tp6 = {
   2.0,    // v
   0.18,    // w
   0.05,    // x
-  45.0,   // y
+ 130.0,   // y
   -2.60}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
@@ -304,7 +218,7 @@ int routeWaitTime = 0L;
 boolean isEsReceived = false;
 boolean isRouteTargetIncreasing = false;
 double routeTargetXY = 0.0;
-double mapOrientation = DEFAULT_MAP_ORIENTATION;
+double mapOrientation = 0.0;
 long navOldTickPosition = 0L;
 double currentMapHeading = 0.0;
 double routeTargetXYDistance = 0.0;
@@ -314,6 +228,10 @@ double routeSonarMax = 0.0;
 double routeSonarDist = 0.0;
 double routeCoDistance = 0.0;
 int originalAction = 0;
+
+int gyroTempCompX = 200;
+int gyroTempCompY = 0;
+int gyroTempCompZ = 140;
 
 double gaPitch = 0.0;
 double gaRoll = 0.0;
@@ -572,16 +490,11 @@ unsigned int stopTimeLeft = UNSIGNED_LONG_MAX;
  *
  *********************************************************/
 void setup() {
-
   XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
-  BLUE_SER.begin(115200);  // Bluetooth
-  
+  BLUE_SER.begin(115200);  // Bluetooth 
   Serial.begin(115200); // for debugging output
-  //  resetXBee();
-  
+   
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
-  
-  
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
   pinMode(YELLOW_LED_PIN,OUTPUT);
   pinMode(RED_LED_PIN,OUTPUT);
@@ -618,10 +531,10 @@ void setup() {
   digitalWrite(GREEN_LED_PIN, LOW);
 
 
-  zeroGyro();
+//  zeroGyro();
   gyroTrigger = micros();
   readCompass();
-  resetNavigation(magHeading);
+  resetNavigation(0.0);
   beep(BEEP_UP);
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
