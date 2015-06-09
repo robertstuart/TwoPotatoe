@@ -350,18 +350,19 @@ void setControllerXY() {
   static double y = 0.0D;
   static double x = 0.0D;
 
-  if (!isHoldFps) {
-    if (abs(hcY) > abs(pcY)) y = hcY;
-    else y = pcY;
-  }
-  controllerY = y;
-
-  if (!isHoldHeading) {
-    if (abs(hcX) > abs(pcX)) x = hcX;
-    else x = pcX;
-  }
-  controllerX = x;
-
+//  if (!isHoldFps) {
+//    if (abs(hcY) > abs(pcY)) y = hcY;
+//    else y = pcY;
+//  }
+//  controllerY = y;
+//
+//  if (!isHoldHeading) {
+//    if (abs(hcX) > abs(pcX)) x = hcX;
+//    else x = pcX;
+//  }
+//  controllerX = x;
+  controllerX = hcX;
+  controllerY = hcY;
 }
 
 
@@ -389,7 +390,7 @@ void sonar() {
   int r;
   if (timeMilliseconds > sonarTrigger) {
     sonarTrigger = timeMilliseconds + 30UL;
-    r = analogRead(SONAR_RIGHT_AN);
+    int r = analogRead(SONAR_RIGHT_AN);
     //   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds);
     sonarBuf[sonarBufPtr++] = r;
     if (sonarBufPtr >= SONAR_BUF_SIZE) sonarBufPtr = 0;
@@ -397,7 +398,8 @@ void sonar() {
     for (int i = 0; i < SONAR_BUF_SIZE; i++) {
       if (minS > sonarBuf[i]) minS = sonarBuf[i];
     }
-    sonarRight = ((double) minS) * SONAR_SENS; // to feet
+    sonarRightMin = ((double) minS) * SONAR_SENS; // to feet
+    sonarRight = ((double) r) * SONAR_SENS;
   }
 }
 

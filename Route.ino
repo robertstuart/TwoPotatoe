@@ -9,16 +9,18 @@ int loopX = 0;
 boolean isSaveOrientation = false;
 boolean isSavePosition = false;
 boolean isFixOrientation = false;
+int standTPRight = 0;
+int standTPLeft = 0;
 
 void routeLog() {
   addLog(
-    (long) timeMicroseconds,
+    (long) routeStepPtr,
     (short) (currentMapLoc.x * 100.0),
     (short) (currentMapLoc.y * 100.0),
+    (short) (routeTargetBearing * 100.0),
     (short) (currentMapHeading * 100.0),
-    (short) (routeTargetLoc.x * 100.0),
-    (short) (routeTargetLoc.y * 100.0),
-    (short) (routeTargetBearing * 100.0)
+    (short) (magHeading * 100.0),
+    (short) (currentMapHeading * 100.0)
   );
 }
 
@@ -40,16 +42,23 @@ void route() {
     case 'W':
       isNewRouteStep = true;
       break;
-    case 'S': // Stand
-      if (digitalRead(GN_SW_PIN) == LOW) isNewRouteStep = true;
-      if (digitalRead(YE_SW_PIN) == LOW) isNewRouteStep = true;
+      
+    case 'O': // Orient
+      if (abs(currentMapHeading - routeTargetBearing) < 0.1) isNewRouteStep = true;
+      orient();
+      break;
+      
+    case 'S': // Stand using tickHeading.  Set currentMapHeading on exit.
       if (isEsReceived) {
         isNewRouteStep = true;
         isEsReceived = false;
       }
+      if (digitalRead(GN_SW_PIN) == LOW) isNewRouteStep = true;
+      if (digitalRead(RE_SW_PIN) == LOW) isNewRouteStep = true;
       if (routeWaitTime < timeMilliseconds) isNewRouteStep = true;
-      orient();
+      holdPosition();
       break;
+      
     case 'x': // CX - Moving toward X axis & waiting to take a sonar reading
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x;
       routeCoDistance = routeCoDistanceXY - currentMapLoc.x;
@@ -67,6 +76,7 @@ void route() {
       }
       steerHeading();
       break;
+      
     case 'X': // GX - Move toward X axis
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x;
       if (isRouteTargetIncreasing) {
@@ -125,6 +135,8 @@ void route() {
 
 /************************************************************************
  *  interpretRouteLine()
+ *      Called every time the end criterion for a route step is reached.
+ *      Read the new route step and set the values.
  ************************************************************************/
 boolean interpretRouteLine(String ss) {
   double retDbl;
@@ -162,16 +174,16 @@ boolean interpretRouteLine(String ss) {
       break;
 
     case 'S':  // Stand
-      routeTargetBearing = readNum();
-      Serial.print(routeTargetBearing); Serial.print("  ");
-      if (routeTargetBearing == STEP_ERROR) return false;
-      routeTargetLoc.x = sin(routeTargetBearing * DEG_TO_RAD) * 100.0;
-      routeTargetLoc.y = cos(routeTargetBearing * DEG_TO_RAD) * 100.0;
+      mapOrientation = readNum();
+      standTPRight = tickPositionRight;
+      standTPLeft = tickPositionLeft;
+      Serial.print(mapOrientation); Serial.print("  ");
+      if (mapOrientation == STEP_ERROR) return false;
 
       retDbl = readNum();
-      if (retDbl == STEP_ERROR) return false;
+      if (retDbl == STEP_ERROR) routeWaitTime = timeMilliseconds + 1000000;
+      else routeWaitTime = timeMilliseconds + ((int) retDbl) * 1000;
       Serial.print(retDbl);
-      routeWaitTime = timeMilliseconds + ((int) retDbl) * 1000;
       routeFps = 0.0;
       break;
 
@@ -291,7 +303,7 @@ boolean interpretRouteLine(String ss) {
       if (routeRadius < .5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0D ;
 
-      setTargetBearing();
+//      setTargetBearing();
       aDiff = routeTargetBearing - currentMapHeading;
       if (aDiff > 180.0) aDiff -= 360.0;
       else if (aDiff < -180.0) aDiff += 360.0;
@@ -498,7 +510,7 @@ void turnRadius() {
   else if (aDiff < -180.0) aDiff += 360.0;
   double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
-  speedAdjustment = (wheelSpeedFps / routeRadius) * 0.55 * d;
+  speedAdjustment = (wheelSpeedFps / routeRadius) * 0.64 * d;
 
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
@@ -517,6 +529,46 @@ void orient() {
 
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
+}
+
+
+
+/************************************************************************
+ *  holdPosition() Keep position from base tickPosition
+ ************************************************************************/
+void holdPosition() {
+  float headingSpeedAdjustment = 0.0;
+  float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
+  float joyY = (abs(pcY) > abs(hcY)) ? pcY : hcY;
+  routeFps = 0.0;
+  
+  if (abs(joyX) > 0.05) {
+    headingSpeedAdjustment = joyX * 0.3;
+    standTPRight = tickPositionRight;
+    standTPLeft = tickPositionLeft;
+  }
+  else {
+    int targetTD = standTPRight - standTPLeft;
+    int currentTD = tickPositionRight - tickPositionLeft;
+    headingSpeedAdjustment = ((float) (currentTD - targetTD)) * 0.01;
+  }
+
+  if (abs(joyY) > 0.05) {
+    routeFps = joyY * 1.0;
+    standTPRight = tickPositionRight;
+    standTPLeft = tickPositionLeft;
+  } 
+  else {
+    int targetPos = standTPRight + standTPLeft;
+    int currentPos = tickPositionRight + tickPositionLeft;
+    routeFps = ((float) (targetPos - currentPos)) * 0.0005;
+  }
+
+  tp6FpsRight = tp6Fps - headingSpeedAdjustment;
+  tp6FpsLeft = tp6Fps + headingSpeedAdjustment;
+//  tp6FpsRight = tp6Fps;
+//  tp6FpsLeft = tp6Fps;
+
 }
 
 

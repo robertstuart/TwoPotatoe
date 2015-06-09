@@ -72,14 +72,14 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   switch(cmd) {
     case RCV_JOYX:
       if (sscanf(msgStr, "%f", &floatVal) >0) {
-        if (isHc) hcX = floatVal; 
-        else pcX = floatVal;
+        hcX = floatVal; 
+        pcX = 0.0;
       }
       break;
     case RCV_JOYY:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        if (isHc) hcY = floatVal;
-        else pcY = floatVal;
+        hcY = floatVal;
+        pcY = 0.0;
       }
       break;
     case RCV_RUN:
@@ -147,6 +147,11 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         (*currentValSet).y = floatVal;
       } 
       break;
+    case RCV_Z:
+      if(sscanf(msgStr, "%f", &floatVal) > 0) {
+        (*currentValSet).z = floatVal;
+      } 
+      break;
     case RCV_RESET_NAV:
       resetNavigation(0.0);
       break;
@@ -195,7 +200,7 @@ int dumpPtr, dumpEnd;
  *********************************************************/
 void sendStatusBluePc() {
   sendBMsg(SEND_FPS, 2, wheelSpeedFps);
-  sendBMsg(SEND_HEADING, 1, currentMapHeading);
+  sendBMsg(SEND_HEADING, 1, magHeading);
   sendBMsg(SEND_SONAR, 2, sonarRight);
   sendBMsg(SEND_ROUTE_STEP, routeStepPtr); // integer
   sendBMsg(SEND_BATT, battVolt); // integer

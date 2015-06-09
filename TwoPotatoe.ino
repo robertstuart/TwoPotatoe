@@ -29,7 +29,7 @@ const int MOT_LEFT_DIR =     5 ;
 const int MOT_RIGHT_PWMH =   6; 
 const int MOT_LEFT_PWMH =    7;  
 
-const double SPEED_MULTIPLIER = 5.0;
+const double SPEED_MULTIPLIER = 15.0;
 const unsigned int TP_PWM_FREQUENCY = 10000;
 
 
@@ -181,7 +181,7 @@ struct valSet tp6 = {
   0.18,    // w
   0.05,    // x
  130.0,   // y
-  -2.60}; // z accelerometer offset
+  -3.00}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -334,6 +334,7 @@ int cmdState = 0;  // READY, PWR, & HOME command bits
 unsigned int forceRight = 0; // force sensor value
 unsigned int forceLeft = 0; // force sensor value
 double sonarRight = 0.0;
+double sonarRightMin = 0.0;
 unsigned int sonarFront = 0;
 unsigned int sonarLeft = 0;
 
