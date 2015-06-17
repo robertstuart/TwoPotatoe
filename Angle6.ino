@@ -188,7 +188,7 @@ void setNavigation() {
   if (h > 180.0) h -= 360.0;
   else if (h < -180.0) h += 360.0;
   currentMapHeading = h;
-  // Loocation
+  // Location
   double dist = ((double) (tickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
   navOldTickPosition = tickPosition;
   currentMapLoc.x += sin(currentMapHeading * DEG_TO_RAD) * dist;

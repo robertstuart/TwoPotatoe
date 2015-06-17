@@ -10,6 +10,8 @@
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
 
+//#define TICKS_PER_FOOT 3017.0D  // For G-made inflatable
+#define TICKS_PER_FOOT 3183.0D // For Pro-Line Masher 2.8" PRO1192-12
 #define TICKS_PER_CIRCLE_YAW  11900.0  // Larger number increases degrees turn
 
 
@@ -29,7 +31,7 @@ const int MOT_LEFT_DIR =     5 ;
 const int MOT_RIGHT_PWMH =   6; 
 const int MOT_LEFT_PWMH =    7;  
 
-const double SPEED_MULTIPLIER = 15.0;
+const double SPEED_MULTIPLIER = 12.0;
 const unsigned int TP_PWM_FREQUENCY = 10000;
 
 
@@ -85,7 +87,6 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
 
-#define TICKS_PER_FOOT 3017.0D
 //#define TICKS_PER_FOOT 1536.0D
 //#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
 #define TICKS_PER_DEGREE_YAW (TICKS_PER_CIRCLE_YAW / 360.0)
@@ -296,6 +297,10 @@ boolean isRouteInProgress  = false; // Route in progress
 boolean isDumpingData = false; // Dumping data
 boolean isHoldHeading = false; // 
 boolean isHoldFps = false; // 
+boolean isStand = false; // 
+
+int standTPRight = 0;
+int standTPLeft = 0;
 
 unsigned long tickTimeRight = 0UL;  // time for the last interrupt
 unsigned long tickTimeLeft = 0UL;
@@ -750,18 +755,10 @@ void aPulseSequence() {
  *
  * Xbee settings
  *
- *     The XBee is configured with the default settings 
- *     except for the following:
- *
- *     CH     0x19  Channel
- *     ID     2221  PAN ID (Is this needed?)
- *     MY     7770  Source Address :TwoPotatoe
- *            7771                  PC
- *            7772                  Hand Controller
- *     MM     0     MAC Mode: Digi mode
- *     RR     2     retries
- *     BD     6     57600 baud
- *     AP     2     API mode: API enabled w/ppp
+ *     The XBee is 900 hz modules are left in their 
+ *     default state except that the baud rate is set to 
+ *     57k and the destination addresses are set 
+ *     to point to the other module.
  *
  *********************************************************/
 

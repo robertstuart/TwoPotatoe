@@ -9,17 +9,15 @@ int loopX = 0;
 boolean isSaveOrientation = false;
 boolean isSavePosition = false;
 boolean isFixOrientation = false;
-int standTPRight = 0;
-int standTPLeft = 0;
 
 void routeLog() {
   addLog(
     (long) routeStepPtr,
     (short) (currentMapLoc.x * 100.0),
     (short) (currentMapLoc.y * 100.0),
-    (short) (routeTargetBearing * 100.0),
-    (short) (currentMapHeading * 100.0),
-    (short) (magHeading * 100.0),
+    (short) (sonarRight * 100.0),
+    (short) (sonarRightMin * 100.0),
+    (short) (gyroCumHeading * 100.0),
     (short) (currentMapHeading * 100.0)
   );
 }
@@ -39,6 +37,7 @@ void route() {
     case 'N':
     case 'M':
     case 'Z':
+    case 'E':
     case 'W':
       isNewRouteStep = true;
       break;
@@ -56,7 +55,8 @@ void route() {
       if (digitalRead(GN_SW_PIN) == LOW) isNewRouteStep = true;
       if (digitalRead(RE_SW_PIN) == LOW) isNewRouteStep = true;
       if (routeWaitTime < timeMilliseconds) isNewRouteStep = true;
-      holdPosition();
+      if (isNewRouteStep == true) resetNavigation(0.0);
+      else holdPosition();
       break;
       
     case 'x': // CX - Moving toward X axis & waiting to take a sonar reading
@@ -116,6 +116,13 @@ void route() {
       }
       steerHeading();
       break;
+      
+    case 'D':  // Discombobulator
+      routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
+      if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
+      discombobulate();
+      break;
+      
     case 'T': // Turn
       if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewRouteStep = true;
       turnRadius();
@@ -164,6 +171,9 @@ boolean interpretRouteLine(String ss) {
       mapOrientation = readNum();
       Serial.print(mapOrientation);
       if (mapOrientation == STEP_ERROR) return false;
+      break;
+      
+    case 'E':
       break;
 
     case 'Z':
@@ -217,7 +227,17 @@ boolean interpretRouteLine(String ss) {
       if (routeRadius < .5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0;
       break;
-
+      
+    case 'D':  // Discombobulator
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      routeTargetXY = routeTargetLoc.y;
+      
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      break;
 
     case 'W':  // dup of G
       charX = stepString.charAt(0);
@@ -342,7 +362,8 @@ void doChartedObject() {
   boolean isHeadingEast = true;
   boolean isGoodReading = true;
 
-  routeLog();
+  routeLog(); // Before
+  
   if ((sonarRight < routeSonarMin) || (sonarRight > routeSonarMax)) isGoodReading = false;
 
   // Adjust the XY location
@@ -357,7 +378,7 @@ void doChartedObject() {
     if (isGoodReading) currentMapLoc.y += lateralError;
   }
   else {
-    if ((currentMapHeading < -90.0) && (currentMapHeading > 90.0)) isHeadingNorth = false;
+    if ((currentMapHeading < -90.0) || (currentMapHeading > 90.0)) isHeadingNorth = false;
     if (isHeadingNorth) {
       lateralError = routeSonarDist - sonarRight;
     }
@@ -413,6 +434,7 @@ void doChartedObject() {
       gyroCumHeading += angleCorrection;
     }
   }
+  routeLog(); // After
 
   //  sprintf(message, "%5.2f %5.2f", sonarRight, routeSonarDist);
   //  sprintf(message, "%5.2f %5.2f %5.2f", sonarRight, routeSonarDist, angleCorrection);
@@ -421,6 +443,7 @@ void doChartedObject() {
 }
 
 
+#define RAD_TURN 10.0
 /************************************************************************
  *  steerHeading() Find the correct heading to the target and adjust the
  *               wheel speeds to turn toward the target.  As tp approaches
@@ -430,24 +453,45 @@ void steerHeading() {
   static double oldTb = 0.0;
   double tb;
 
-  if (abs(routeTargetXYDistance) < 5.0) { // No turning when closer than X.X feet.
+  if (abs(routeTargetXYDistance) < 2.0) { // No turning when closer than X.X feet.
     tb = oldTb;
   }
   else {
     oldTb = tb = routeTargetBearing;
   }
   if (routeFps < 0.0) tb += 180.0;
+  
+
   aDiff = tb - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
+  double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
+  speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
+  
+  // Reduce adjustment proportionally if less than X degrees.
+  if (abs(aDiff) < 2.0) {
+    speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
+  }
+
+  tp6FpsRight = tp6Fps - speedAdjustment;
+  tp6FpsLeft = tp6Fps + speedAdjustment;
+}
+
+
+
+/************************************************************************
+ *  discombobulate()
+ ************************************************************************/
+void discombobulate() {  
+  aDiff = routeTargetBearing - currentMapHeading;
+  if (aDiff > 180.0) aDiff -= 360.0;
+  else if (aDiff < -180.0) aDiff += 360.0;
   speedAdjustment = aDiff * (S_LIM / A_LIM);
   speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
-
   tp6FpsLeft = tp6Fps + speedAdjustment;
   tp6FpsRight = tp6Fps - speedAdjustment;
 }
-
 
 
 /************************************************************************

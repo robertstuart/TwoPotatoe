@@ -43,32 +43,79 @@ String simplePOC[] = {
 };
 
 
-
-String garageLoop[] = {"N Garage loop",
-                "Z         0",
-                "WY       0,12   4",        // Step 3
-                "CY       0.5    2 4 2.27 i",
-                "CY      10.7    2 4 1.72 o",
-                "GY       0,12   4",
-                "T        10.5,14  4   2", // Turn toward garbage bins
-                "WX       10.5,14  4",
-                "CX        2.60  1 6 3.8",   
-                "CX       10.35  1 6 4.8" ,  
-                "GX       10.5,14  4",
-                "T        12.5,0    4   2",  // Turn toward street.
-                "WY       12.5,0   4",
-                "CY        7.3     1  5  2.6",
-                "CY        0.0     1  6  3.94",
-                "GY       12.5,-0.4    2.8",
-                "T        2,-2   4   2",  // Turn toward tools
-                "WX       2,-2   4",
-                "CX       7.4    0   3  1.6",
-                "CX       2.2   0   3  1.1",
-                "GX       2,-2   4",
-                "T        0,14   5   2",  // Turn toward trebuchet
+String garageLoopSND[] = {"N Garage Sonar NoDis",
+                "Z     0",
+                "S     0",
+                "WY          0,12    3",                            // Step 3
+                "CY                       0.5    2  4 2.6 i",
+                "CY                      10.7    2 4 1.72 o",
+                "GY          0,12    3",
+                "T          11,14    3   2",                      // Turn toward garbage bins
+                "WX         11,14    3",
+                "CX                       2.60  1 6 3.8",   
+                "CX                       9.0   1 6 3.8" ,  
+                "GX         11,14    3",
+                "T          13,-0.5  3   2",                      // Turn toward street.
+                "WY         13,-0.5  3",
+                "CY                      10     1  5  3.9",
+                "CY                       0     1  6  4.5",
+                "GY         13,-0.5  3",
+                "T           2,-2.5  3   2",                      // Turn toward tools
+                "WX          2,-2.5  3",
+                "CX                         8    0   3  2.3",
+                "GX          2,-2.5  3",
+                "T           0,12    3   2",                      // Turn toward trebuchet
                 "F"
 }; 
+    
 
+
+
+String garageLoopS[] = {"N Garage loop Sonar",
+                "Z     0",
+                "S     0",
+                "WY         0,12  4",                            // Step 3
+                "CY                       0.5    2  4 2.6 i",
+                "CY                      10.7    2 4 1.72 o",
+                "GY          0,12   4",
+                "T          11,14   4   2",                      // Turn toward garbage bins
+                "WX         11,14   4",
+                "CX                       2.60  1 6 3.8",   
+                "CX                       9.0   1 6 3.8" ,  
+                "GX         11,14  4",
+                "T          13,-.5    4   2",                   // Turn toward street.
+                "GY         13,8     4.5",
+                "D          13,2     4",
+                "E WY       12.5,0   3",
+                "E CY        9.0     1  5  3.9",
+                "E CY        0.0     1  6  4.5",
+                "GY         13,-0.5  3.5",
+                "T           2,-2.5  4   2",  // Turn toward tools
+                "E WX       2,-2   4",
+                "E CX       8.0    0   3  2.3",
+                "E CX       2.2   0   3   2.6",
+                "GX        2,-2.5   4",
+                "T         0,14   5   2",  // Turn toward trebuchet
+                "F"
+}; 
+    
+
+String garageLoopNS[] = {"N Garage loop no Sonar",
+                "Z     0",
+                "S     0",
+                "GY     0,12    4",
+                "T     11,14    4   2", // Turn toward garbage bins
+                "GX    11,14    4",
+                "T     13,-0.5  4   2",  // Turn toward street.
+                "GY    13,8     4.5",
+                "D     13,2     4",
+                "GY    13,-0.5  3.5",
+                "T      2,-2.5  4   2",  // Turn toward tools
+                "GX     2,-2.5  4",
+                "T      0,12    5   2",  // Turn toward trebuchet
+                "F"
+}; 
+    
 String square12[] = {"N Square 12 ft",
                 "Z         0",
                 "GY        0,8   3",
@@ -151,7 +198,7 @@ String outAndBack12[] = {"N Out and back 12",
 //                "F"    
 //}; 
 
-String *routeTable[] = {garageLoop, square12, outAndBack12, simplePOC};
+String *routeTable[] = {garageLoopS, garageLoopNS, garageLoopSND, square12, outAndBack12, simplePOC};
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
 

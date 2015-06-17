@@ -78,6 +78,9 @@ void aTp6() {
   if (isRouteInProgress) {
     tp6ControllerSpeed = routeFps;
   }
+  else if (isStand) {
+    tp6ControllerSpeed = standFps();
+  }
   else {
     tp6ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
   }
@@ -88,6 +91,9 @@ void aTp6() {
 
   // compute a weighted angle to eventually correct the speed error
   tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
+  if (tp6TargetAngle > 12.0)  tp6TargetAngle = 12.0;
+  if (tp6TargetAngle < -12.0) tp6TargetAngle = -12.0;
+
 //  double tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
   
   // Correct for angle error during rotation on vertical axis.  Do not know the cause of this.
@@ -109,8 +115,11 @@ void aTp6() {
   // Add the angle error to the base speed to get the target speed.
 //  tp6Fps = fpsLpfCorrection + tp6LpfCos;
   tp6Fps = fpsLpfCorrection + lpfCos2;
+  
   if (isRouteInProgress) route();
+  else if (isStand) standSteer();
   else tp6Steer(tp6Fps);
+  
   if (isJump) {
     setTargetSpeedRight(tp6FpsRightJump);
     setTargetSpeedLeft(tp6FpsLeftJump);
@@ -133,12 +142,12 @@ void sendTp6Status() {
   if (isDumpingData) {
     if ((loopc % 4) == 0)  dumpData();
   }
-  if (loopc == 0)  {
+  if ((loopc == 0)  || (loopc == 20))  { // Status 20/sec
     sendStatusXBeeHc(); 
     sendStatusBluePc();
     isNewMessage = false;
   }
-  else if ((loopc == 15) || (loopc == 35)) { // debugging print statements 10/sec
+  else if ((loopc == 10) || (loopc == 30)) { // debugging print statements 20/sec
     if (isRouteInProgress) {
       routeLog();
     }
@@ -205,4 +214,43 @@ void tp6Steer(double fps) {
     tp6FpsLeft = tp6Fps + speedAdjustment;
     tp6FpsRight = tp6Fps - speedAdjustment;
 }
+
+/************************************************************************
+ *  stand() Keep position from base tickPosition
+ ************************************************************************/
+double standFps() {
+  float joyY = (abs(pcY) > abs(hcY)) ? pcY : hcY;
+  routeFps = 0.0;
+  
+  if (abs(joyY) > 0.05) {
+    standTPRight = tickPositionRight;
+    standTPLeft = tickPositionLeft;
+    return(joyY * 1.0);
+  } 
+  else {
+    int targetPos = standTPRight + standTPLeft;
+    int currentPos = tickPositionRight + tickPositionLeft;
+    return((float) ((targetPos - currentPos)) * 0.0005);
+  }
+}
+
+void standSteer() {
+  float headingSpeedAdjustment = 0.0;
+  float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
+  
+  if (abs(joyX) > 0.05) {
+    headingSpeedAdjustment = joyX * 0.3;
+    standTPRight = tickPositionRight;
+    standTPLeft = tickPositionLeft;
+  }
+  else {
+    int targetTD = standTPRight - standTPLeft;
+    int currentTD = tickPositionRight - tickPositionLeft;
+    headingSpeedAdjustment = ((float) (currentTD - targetTD)) * 0.01;
+  }
+
+  tp6FpsRight = tp6Fps - headingSpeedAdjustment;
+  tp6FpsLeft = tp6Fps + headingSpeedAdjustment;
+}
+
 

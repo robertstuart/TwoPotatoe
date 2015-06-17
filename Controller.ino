@@ -68,7 +68,10 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   
   tHc = timeMilliseconds;
   msgStr[count] = 0; // Just to be sure.
-  
+  if ((cmd != RCV_JOYX) && (cmd != RCV_JOYY)) {
+    Serial.print(cmd); Serial.print("  "); Serial.println(msgStr);
+  }
+ 
   switch(cmd) {
     case RCV_JOYX:
       if (sscanf(msgStr, "%f", &floatVal) >0) {
@@ -142,12 +145,23 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_MODE:
       break;
-    case RCV_Y:
+    case RCV_STAND:
+     if (sscanf(msgStr, "%d", &x) > 0) {
+        isStand = (x == 0) ? false : true;
+        if (isStand) {
+          sprintf(message, "Stand"); isNewMessage = true;
+          standTPRight = tickPositionRight;
+          standTPLeft = tickPositionLeft;
+        }
+        else {sprintf(message, " ");  isNewMessage = true;}
+      }
+      break;
+    case RCV_Y: // valset y
       if(sscanf(msgStr, "%f", &floatVal) > 0) {
         (*currentValSet).y = floatVal;
       } 
       break;
-    case RCV_Z:
+    case RCV_Z:  // valset z
       if(sscanf(msgStr, "%f", &floatVal) > 0) {
         (*currentValSet).z = floatVal;
       } 
@@ -239,6 +253,7 @@ int getState() {
   if (isHoldHeading)      statusInt += 256;
   if (isHoldFps)          statusInt += 512;
   if (isGyroSteer)        statusInt += 1024;
+  if (isStand)            statusInt += 2048;
   return statusInt;
 }
 
