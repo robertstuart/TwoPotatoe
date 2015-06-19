@@ -91,8 +91,12 @@ void aTp6() {
 
   // compute a weighted angle to eventually correct the speed error
   tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
-  if (tp6TargetAngle > 12.0)  tp6TargetAngle = 12.0;
-  if (tp6TargetAngle < -12.0) tp6TargetAngle = -12.0;
+  
+  // Compute maximum angles for the current wheel speed and enforce limits.
+  float fwdA = wheelSpeedFps - 13.0;
+  float bkwdA = wheelSpeedFps + 13.0;
+  if (tp6TargetAngle < fwdA)  tp6TargetAngle = fwdA;
+  if (tp6TargetAngle > bkwdA) tp6TargetAngle = bkwdA;
 
 //  double tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
   
@@ -137,8 +141,10 @@ void aTp6() {
  ***********************************************************************/
 void sendTp6Status() {
   static unsigned int loopc = 0;
+  static unsigned int loopd = 0;
   static float marker = 1.1;
   loopc = ++loopc % 40; // 10/sec loop.
+  loopd = ++loopd % 400; // 1/sec loop.
   if (isDumpingData) {
     if ((loopc % 4) == 0)  dumpData();
   }
@@ -153,6 +159,9 @@ void sendTp6Status() {
     }
   }
     
+  if (loopd == 0) {
+    Serial.print(currentMapHeading); Serial.print("\t"); Serial.println(magHeading);
+  }
 
 //    addLog(
 //          (long) tickPosition,

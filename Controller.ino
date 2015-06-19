@@ -133,6 +133,10 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         isGyroSteer = (x == 0) ? false : true;
       }
       break;
+    case RCV_ZERO_GYRO:
+      gyroDriftZ = meanZ;
+      Serial.print("Drift Z: "); Serial.println(gyroDriftZ);
+      break;
     case RCV_SET_ROUTE:      // 0 to decrease, 1 to increase
       if (sscanf(msgStr, "%d", &x) > 0) {
         setRoute((x == 0) ? false : true);

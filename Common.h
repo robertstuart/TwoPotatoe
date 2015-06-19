@@ -40,6 +40,7 @@ const int RCV_XXXX_ROUTE   = 150;
 const int RCV_DELETE_ROUTE = 151;
 const int RCV_MODE         = 152;
 const int RCV_STAND        = 153;
+const int RCV_ZERO_GYRO    = 154;
 
 const int SEND_RCV_TERM    =   0;
 

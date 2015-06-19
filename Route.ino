@@ -17,7 +17,7 @@ void routeLog() {
     (short) (currentMapLoc.y * 100.0),
     (short) (sonarRight * 100.0),
     (short) (sonarRightMin * 100.0),
-    (short) (gyroCumHeading * 100.0),
+    (short) (magHeading * 100.0),
     (short) (currentMapHeading * 100.0)
   );
 }
@@ -117,9 +117,15 @@ void route() {
       steerHeading();
       break;
       
-    case 'D':  // Discombobulator
+    case 'D':  // Discombobulator, going south.
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
       if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
+      discombobulate();
+      break;
+      
+    case 'K':  // Discombobulator, going north.
+      routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
+      if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
       discombobulate();
       break;
       
@@ -229,6 +235,7 @@ boolean interpretRouteLine(String ss) {
       break;
       
     case 'D':  // Discombobulator
+    case 'K':  // Discombobulator
       routeTargetLoc = readLoc();
       Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
       if (routeTargetLoc.y == STEP_ERROR) return false;

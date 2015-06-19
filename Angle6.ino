@@ -27,9 +27,6 @@ void angleInit6() {
 
 boolean readGyro() {
   static int temperatureLoop = 0;
-  static int sumX = 0;
-  static int sumY = 0;
-  static int sumZ = 0;
   
   static int oldX, oldY, oldZ;
     gyro.read();  // 860 microseconds
@@ -53,7 +50,8 @@ boolean readGyro() {
     gaRoll = gyroRollDelta + gaRoll;
     
     // Yaw
-    double gyroYawRaw = (double) (gyro.g.z - gyroTempCompZ);  // add in constant error
+//    double gyroYawRaw = (double) (gyro.g.z - gyroTempCompZ);  // add in constant error
+    double gyroYawRaw = (double) (gyro.g.z - gyroDriftZ);  // add in constant error
 //    double gyroYawRaw = (double) (gyro.g.z - ((int) (*currentValSet).y));  // add in constant error
     double gyroYawRate = gyroYawRaw * GYRO_SENS;  // Rate in degreesChange/sec
     double gyroYawDelta = (gyroYawRate * 2500.0) / 1000000.0; // degrees changed during period
@@ -74,9 +72,9 @@ boolean readGyro() {
     sumY += oldY;
     sumZ += oldZ;
     if ((++temperatureLoop % 400) == 0) {
-      int meanX = sumX / 400;
-      int meanY = sumY / 400;
-      int meanZ = sumZ / 400;
+      meanX = sumX / 400;
+      meanY = sumY / 400;
+      meanZ = sumZ / 400;
       int t = gyro.readReg(L3G::OUT_TEMP); 
       if (t > 127) t -= 256;
       float temperature =(float) t;

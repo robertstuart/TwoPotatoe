@@ -9,7 +9,7 @@ boolean beepStat = false;
 int *beepSequence;
 int beepPtr = 0;
 
-#define SONAR_BUF_SIZE 10
+#define SONAR_BUF_SIZE 6
 int sonarBuf[SONAR_BUF_SIZE];
 int sonarBufPtr = 0;
 
@@ -389,7 +389,7 @@ void sonar() {
   static unsigned long sonarTrigger = 0;
   int r;
   if (timeMilliseconds > sonarTrigger) {
-    sonarTrigger = timeMilliseconds + 30UL;
+    sonarTrigger = timeMilliseconds + 50UL;
     int r = analogRead(SONAR_RIGHT_AN);
     //   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds);
     sonarBuf[sonarBufPtr++] = r;

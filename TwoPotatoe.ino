@@ -105,7 +105,7 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define INVALID_VAL -123456.78D
 
 // Due has 96 kbytes sram
-#define DATA_ARRAY_SIZE 2048
+#define DATA_ARRAY_SIZE 2500
 
 // Arrays to save data to be dumped in blocks.
 long  aArray[ DATA_ARRAY_SIZE];
@@ -232,7 +232,14 @@ int originalAction = 0;
 
 int gyroTempCompX = 200;
 int gyroTempCompY = 0;
-int gyroTempCompZ = 140;
+int gyroTempCompZ = 105;
+int gyroDriftZ = 105;
+int sumX = 0;
+int sumY = 0;
+int sumZ = 0;
+int meanX = 0;
+int meanY = 0;
+int meanZ = 0;
 
 double gaPitch = 0.0;
 double gaRoll = 0.0;
