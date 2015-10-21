@@ -62,7 +62,7 @@ void commonTasks() {
   led();
   battery();
   controllerConnected();
-  onGround();
+  liftJump();
   setRunningState();
   sonar();
 }
@@ -88,7 +88,7 @@ void setRunningState() {
 
   if (mode == MODE_TP6) {
     // Set the runnng bit to control motors
-    if ((isRunReady && isUpright) && (isOnGround || isJump)) {
+    if ((isRunReady && isUpright) && (!isLifted)) {
       isRunning = true;
     }
     else {
@@ -157,39 +157,95 @@ void safeAngle() {
 
 
 /**************************************************************************.
- * onGround() set  T
- *
- *      The TP_STATE_ON_GROUND bit is set whenever both wheels show a force
- *      greater than the threshold.  Whenever the force on either wheels
- *      drops below the threshold TP_STATE_ON_GROUND is cleared but
- *      isJump is set to true.  After 0.3 seconds in the "off-ground"
- *      isJump is set to false.
+ * liftJump() Set the isLift and isJump variables.
+ *            isLift is true if onGround has been false XX seconds.
+ *            isJump goes true once on initial jump. Not true on bounce.
+ *      
  **************************************************************************/
-void onGround() {
-  static unsigned int groundTime = 0;
+void liftJump() {
+  static unsigned long liftTimer = 0UL; // Zero if not set.
+  static boolean oldIsOnGround = false;
+  
   forceLeft = analogRead(L_FORCE_PIN);
   forceRight = analogRead(R_FORCE_PIN);
-  boolean og = (forceLeft < 700) && (forceRight < 700);
-  if (og) {
-    groundTime = timeMilliseconds;
-    isOnGround = true;
-    isJump = false;
-  }
-  else { // in air
-    if (isOnGround) { // State change.
+  isOnGround = (forceLeft < 800) && (forceRight < 950);
+
+  if (liftTimer == 0UL) {  // Timer not running?
+    if (!isOnGround && oldIsOnGround) {
+      // We are starting a jump.
+      liftTimer = timeMilliseconds + 350;
+      isJump = true;
+      // figure out average speed for last .2 seconds    
       double sumRight = 0.0D;
       double sumLeft = 0.0D;
-      isJump = true;
+//      int end = (fpsRightBufPtr + FPS_BUF_SIZE - 40) % FPS_BUF_SIZE;
+//      int ptr = fpsRightBufPtr;
+//      while (fpsRightBufPtr++ != end) {
+//        
+//      }
+
       for (int i = 0; i < FPS_BUF_SIZE; i++) {
         sumRight += fpsRightBuf[i];
         sumLeft += fpsLeftBuf[i];
       }
       tp6FpsRightJump = sumRight / ((double) FPS_BUF_SIZE) ;
       tp6FpsLeftJump = sumLeft  / ((double) FPS_BUF_SIZE)  ;
+//      tp6FpsRightJump = tp6LpfCos;
+//      tp6FpsLeftJump = tp6LpfCos;
+    } 
+    else if (isOnGround) {     
+      isLifted = false;
+      isJump = false;
     }
-    if (timeMilliseconds > (groundTime + 300)) isJump = false;
-    isOnGround = false;
+  } 
+  else if (liftTimer < timeMilliseconds) {  // Timer expired?
+    liftTimer = 0UL;
+    isJump = false;
+    if (!isOnGround) {
+      isLifted = true;
+    }
+  } 
+  else { // Timer still running.
+    if (isJump && isOnGround) {
+      isJump = false;
+    }
   }
+  oldIsOnGround = isOnGround;
+  
+//  if (og) {
+//    groundTime = timeMilliseconds;
+//    isOnGround = true;
+//    isJump = false;
+//  }
+//  else { // in air
+//    if (isJumpTimerStarted) {
+//      jumpTime = timeMilliseconds - jumpStartTime;
+//      if (jumpTime < 300) {
+//        
+//      }
+//      
+//    }
+//    else if (isOnGround) { // State change.
+//      isJump = true;
+//      jumpTimerStarted = true;
+//      jump
+//
+//      // start timer to ignore bounces once it returns to ground.
+//
+//      // figure out average speed for last .2 seconds
+//      double sumRight = 0.0D;
+//      double sumLeft = 0.0D;
+//      for (int i = 0; i < FPS_BUF_SIZE; i++) {
+//        sumRight += fpsRightBuf[i];
+//        sumLeft += fpsLeftBuf[i];
+//      }
+//      tp6FpsRightJump = sumRight / ((double) FPS_BUF_SIZE) ;
+//      tp6FpsLeftJump = sumLeft  / ((double) FPS_BUF_SIZE)  ;
+//      
+//    }
+//    if (timeMilliseconds > (groundTime + 300)) isJump = false;
+//    isOnGround = false;
+//  }
 }
 
 
@@ -401,6 +457,16 @@ void sonar() {
     sonarRightMin = ((double) minS) * SONAR_SENS; // to feet
     sonarRight = ((double) r) * SONAR_SENS;
   }
+}
+
+
+/**************************************************************************.
+ *  rangeHeading() Set heading value between -180 and +180
+ **************************************************************************/
+double rangeHeading(double head) {
+  if (head > 180.0) head -= 360.0;
+  else if (head < -180.0) head += 360.0;
+  return head;
 }
 
 

@@ -5,7 +5,6 @@ double tp6Fps = 0.0f;
 double fpsCorrection = 0.0f;
 double tp6ControllerSpeed = 0;
 //double tp6LoopSec = 0.0f;
-double tp6LpfCos = 0.0;
 double tp6LpfCosOld = 0.0;
 //double targetHeading = 0.0;
 double fpsLpfCorrectionOld = 0.0;
@@ -25,11 +24,14 @@ void aTp6Run() {
   timeMicroseconds = gyroTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
-  angleInit6();  // causes freeze?
+//  angleInit6();  // causes freeze?
 //  motorInitTp6();
   motorInitTp();
   currentValSet = &tp6;
   setBlink(RED_LED_PIN, BLINK_SB);
+  delay(200);
+  readCompass();
+  resetNavigation('M', 0.0);
   while(mode == MODE_TP6) { // main loop
     commonTasks();
     // Do the timed loop
@@ -69,7 +71,10 @@ void aTp6() {
   tp6LpfCosAccel = tp6LpfCos - tp6LpfCosOld;
   tp6LpfCosOld = tp6LpfCos;
 
-  // Do new calculation
+  // compute the Center of Oscillation Tick Position
+  coTickPosition = tickPosition - ((long) (sin(gaPitch * DEG_TO_RAD) * 4000.0));
+
+  // Do new calculation.  Used for 
   rotation2 = -tgPitchDelta * 7.4;
   cos2 = wheelSpeedFps + rotation2;
   lpfCos2 = (lpfCosOld2 * .9) + (cos2 * (1.0D - .9));
@@ -90,7 +95,9 @@ void aTp6() {
   double tp6SpeedError = tp6ControllerSpeed - lpfCos2;
 
   // compute a weighted angle to eventually correct the speed error
-  tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
+  if (!isAngleControl) { // TargetAngle set by route() routines?
+    tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
+  }
   
   // Compute maximum angles for the current wheel speed and enforce limits.
   float fwdA = wheelSpeedFps - 13.0;
@@ -155,22 +162,26 @@ void sendTp6Status() {
   }
   else if ((loopc == 10) || (loopc == 30)) { // debugging print statements 20/sec
     if (isRouteInProgress) {
-      routeLog();
+//      routeLog();
     }
   }
     
   if (loopd == 0) {
-    Serial.print(currentMapHeading); Serial.print("\t"); Serial.println(magHeading);
+//    Serial.print(currentMapHeading); Serial.print("\t"); Serial.println(magHeading);
+//    Serial.print(forceRight); Serial.print("\t"); Serial.println(forceLeft);
+//Serial.print(currentMapHeading);Serial.print("\t");Serial.print(magHeading);Serial.print("\t");Serial.println(gyroHeading);
   }
-
-//    addLog(
-//          (long) tickPosition,
-//          (short) (wheelSpeedFps * 1000.0),
-//          (short) (tp6Rotation * 1000.0),
-//          (short) (rotation2 * 1000.0),
-//          (short) (tp6LpfCos * 1000.0),
-//          (short) (lpfCos2 * 1000.0),
-//          (short) (cos2 * 1000.0));
+  
+    // Every loop (400/sec)
+    addLog(
+          (long) coTickPosition,
+          (short) (wheelSpeedFps * 100.0),
+          (short) (gaPitch * 100.0),
+          (short) (tp6FpsRightJump * 100.0),
+          (short) (isOnGround),
+          (short) (isJump),
+          (short) (tp6LpfCos * 100.0)
+     );
 }
 
 

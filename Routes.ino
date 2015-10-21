@@ -6,12 +6,25 @@ String loadedRoute[200] = {
   "F"
 };  
 
+String stand1[] = {
+  "N Stand1",
+  "I",
+  "MG",
+  "GY  6,6   2",
+  "F"
+};  
+
+String orientW[] = {
+  "N Orient Wait",
+  "OW  0,5",
+  "GY  0,4   4",
+  "F"
+};  
+
 String run6[] = {
   "N Run 6",
   "Z   0",
   "S   0",
-  "GY  0,30   6",
-  "F"
 };  
 
 String run7[] = {
@@ -163,15 +176,23 @@ String shortRoute[] = {
   "N Short - loaded route",
   "Z   0",
   "S	0",
+  "GY	  0,6   4",
+  "GY	  0,46  8",
   "GY	  0,48  10",
-  "T	116,60  8 10",
-  "GX  116,60  10",
-  "T   128,-48 8 10",
-  "GY  128,-48 10",
+  "T	118,60  8 10",
+  "GX   118,60  10",
+  "GX   122,60  9",
+  "T    134,10  8 10",
+  "GY   134,10  10",
+  "D    134,-10 7",
+  "GY   134,-44 10",
+  "GY   134,-48 8",
   "T	 12,-60 8 10",
-  "GX   12,-60 10",
-  "T     0,0   8 10",
-  "GY    0,0   10",
+  "GX   16,-60 10",
+  "GX   12,-60 8",
+  "T     0,-4  8 10",
+  "GY    0,-4  10",
+  "GY    0,4   4",
   "F"
 };
 
@@ -179,28 +200,32 @@ String longRoute[] = {
   "N Long - loaded route",
   "Z    0",
   "S	0",
-  "E WY	0,49  8",
-  "E CY                 1 4  6 6 i",
-  "E CY                45 3  7 6 o",
-  "GY	 0,49  8",
-  "T   165,62  8 7",
-  "WX  165,62  8 ",
-  "CX                  40 1 10 6",  // CO 1
-  "CX                 140 1 10 6",  // CO 2
-  "GX  170,62  8",
-  "GX  186,69  8",
-  "GX  216,62  8",
-  "GX  236,69  8",
-  "GX  288,62  8",
-  "T	298,30  8 7",
-  "GY  298,30  8",
-  "GY  305,0   8",
-  "GY  298,-30 8",
-  "GY  298,-49 8",
-  "T    10,-59 8 7",
-  "GX   10,-59 8",
+//  "E WY	0,49  8",
+//  "E CY                 1 4  6 6",
+//  "E CY                45 3  7 6 o",
+  "GY	 0,4  4",
+  "GY	 0,49  10",
+  "T   155,62  8 7",
+// "WX  165,62  8 ",
+//  "CX                  31 1 10 6",  // CO 1
+//  "CX                 102 1 10 6",  // CO 2
+//  "CX                 150 1 10 6",  // CO 2
+  "GX  170,62  10",
+  "GX  186,69  10",
+  "GX  216,62  10",
+  "GX  236,69  10",
+  "GX  278,62  9",
+  "T   288,-52  8 7",
+//  "GY  288,30  8",
+//  "GY  305,0   8",
+//  "GY  298,-30 8",
+  "GY  288,-52 9",
+  "T    10,-62 8 7",
+  "GX   12,-62 10",
+  "GX   10,-62 10",
   "T     0,0   8 7",
-  "GY    0,0   8",
+  "GY    0,-5   8",
+  "GY    0,10  4",
   "F"
 };
 
@@ -365,7 +390,7 @@ String rtA[] = {
 }; 
 
 String *routeTable[] = {
-  loadedRoute, run6, run7, run8, run9, run10, run11, run12, run13, run14, run15,
+  loadedRoute, stand1, orientW, run6, run7, run8, run9, run10, run11, run12, run13, run14, run15,
   discombobulate4, discombobulate5, discombobulate6, discombobulate7, discombobulate8, discombobulate9, discombobulate10, discombobulate11,
   garageLoopSND, garageLoopS, square12, outAndBack12, shortRoute, longRoute};
 int routeTablePtr = 0;
@@ -420,6 +445,7 @@ void resetRoute() {
   routeStepPtr = 0;
   interpretRouteLine(getNextStepString()); // Load the first line.
   isRouteInProgress = true;
+  resetNavigation('M', 0);
 }
 
 

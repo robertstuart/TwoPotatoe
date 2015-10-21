@@ -4,6 +4,7 @@
 #include "pwm01.h"
 #include <DueTimer.h>
 #include <Wire.h>
+//#include <Wire1.h>
 #include <L3G.h>
 #include <LSM303.h>
 
@@ -34,6 +35,10 @@ const int MOT_LEFT_PWMH =    7;
 const double SPEED_MULTIPLIER = 12.0;
 const unsigned int TP_PWM_FREQUENCY = 10000;
 
+const int HEADING_SOURCE_G =  0;
+const int HEADING_SOURCE_M =  1;
+const int HEADING_SOURCE_T =  2;
+const int HEADING_SOURCE_GM = 3;
 
 #define BRAKE 2
 #define FWD 1
@@ -178,11 +183,11 @@ struct valSet tp4C = {
 struct valSet tp6 = { 
   4.8,    // t
   0.1,    // u
-  2.0,    // v
+  2.0,    // v - was 2.0, set to 3.0 for low speed
   0.18,    // w
   0.05,    // x
  130.0,   // y
-  -3.00}; // z accelerometer offset
+  -4.4}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -198,6 +203,9 @@ struct loc currentMapLoc;
 struct loc routeTargetLoc;
 struct loc currentAccelSelfLoc;
 struct loc currentAccelMapLoc;
+
+boolean isAngleControl = false;
+boolean decelStopped = false;
 
 int routeStepPtr = 0;
 String routeTitle = "No route";
@@ -242,6 +250,7 @@ int meanY = 0;
 int meanZ = 0;
 
 double gaPitch = 0.0;
+double tgaPitch = 0.0;
 double gaRoll = 0.0;
 
 double aPitch = 0.0;
@@ -286,18 +295,25 @@ double gmHeading = 0.0;
 double gmCumHeading = 0.0;
 double currentX = 0.0;
 double currentY = 0.0;
+int fixPosition = 0;
+double fixHeading = 0.0;
 
 // Speed and position variables
 long tickPositionRight = 0L;
 long tickPositionLeft = 0L;
 long tpDistanceDiff = 0L;
 long tickPosition;
+long coTickPosition;
+double tp6LpfCos = 0.0;
+double startDecelSpeed = 0.0;
 
 // System status (used to be status bits
 boolean isRunReady = false;   // Reflects the Run command
 boolean isRunning = false;
 boolean isUpright = false;
+boolean isLifted = true;
 boolean isOnGround = false;
+boolean isJump = false;
 boolean isHcActive = false; // Hand controller connected.
 boolean isPcActive = false; // PC connected
 boolean isRouteInProgress  = false; // Route in progress
@@ -323,7 +339,7 @@ long targetMFpsLeft = 0L;
 long targetBrakeMFpsLeft = 0L;
 long targetRevMFpsLeft = 0L;
 
-#define FPS_BUF_SIZE 40
+#define FPS_BUF_SIZE 80
 double fpsRight = 0.0f; // right feet per second
 double fpsRightBuf[FPS_BUF_SIZE];
 int fpsRightBufPtr = 0;
@@ -340,7 +356,6 @@ unsigned long timeMicroseconds = 0UL; // Set in main loop.  Used by several rout
 unsigned long timeMilliseconds = 0UL; // Set in main loop from above.  Used by several routines.
 
 int tpState = 0; // contains system state bits
-boolean isJump = false;
 int cmdState = 0;  // READY, PWR, & HOME command bits
 
 unsigned int forceRight = 0; // force sensor value
@@ -404,9 +419,6 @@ unsigned int packetSignal;
 boolean isTxStatusMessage = false;
 int txAckFrame = 0;
 boolean isBluePassthrough = false;
-
-int ackMsgType = TP_RCV_MSG_NULL;
-int ackMsgVal = 0;
 
 boolean isHcCommand = false;
 
@@ -495,6 +507,12 @@ unsigned int tr;
 unsigned int stopTimeRight = UNSIGNED_LONG_MAX;
 unsigned int stopTimeLeft = UNSIGNED_LONG_MAX;
 
+int motorRightAction;
+int headingSource = HEADING_SOURCE_GM;
+boolean isOrientWait = false;
+long standPos = 0;
+
+
 /*********************************************************
  *
  * setup()
@@ -544,10 +562,8 @@ void setup() {
   digitalWrite(GREEN_LED_PIN, LOW);
 
 
-//  zeroGyro();
+  angleInit6();
   gyroTrigger = micros();
-  readCompass();
-  resetNavigation(0.0);
   beep(BEEP_UP);
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
@@ -574,15 +590,12 @@ void loop() { //Main Loop
   case MODE_PWM_SPEED:
     aPwmSpeed();
     break;
-  case MODE_TP_SPEED:
-    aTpSpeed();
-    break;
-  case MODE_TP_SEQUENCE:
-    aTpSequence();
-    break;
-  case MODE_TP5:
-//    aTp5Run();
-    break;
+//  case MODE_TP_SPEED:
+//    aTpSpeed();
+//    break;
+//  case MODE_TP_SEQUENCE:
+//    aTpSequence();
+//    break;
   case MODE_TP6:
     aTp6Run();
     break;
@@ -603,17 +616,14 @@ void aPwmSpeed() {
   isRunning = true;
   motorInitTp();
 //  angleInitTp7();
-  setBlink(RED_LED_PIN, BLINK_SF);
+  setBlink(RED_LED_PIN, BLINK_SB);
   
   while (mode == MODE_PWM_SPEED) {
     commonTasks();
-    while (isDumpingData) {
-      dumpData();
-      delay(50);
-    }
     if (timeMicroseconds > pwmTrigger) {
       int action = FWD;
-      pwmTrigger = timeMicroseconds + 100000; // 10/sec
+      pwmTrigger = timeMicroseconds + 50000; // 20/sec
+      
       motorMode = vVal;
       if (tVal > 0) action = FWD;
       else action = BKWD;
@@ -621,16 +631,10 @@ void aPwmSpeed() {
       if (uVal > 0) action = FWD;
       else action = BKWD;
       setMotor(MOTOR_LEFT, action, abs(uVal));
-      readSpeed();      
-//      sendStatusFrame(XBEE_PC);
-//      Serial.print(interruptErrorsRight);
-//      Serial.print("\t"); 
-//      Serial.print(fpsRight); 
-//      Serial.print("\t"); 
-//      Serial.print(interruptErrorsLeft);
-//      Serial.print("\t"); 
-//      Serial.println(fpsLeft);
-      interruptErrorsRight = interruptErrorsLeft = 0;
+      readSpeed();  
+          
+      sendStatusXBeeHc(); 
+      sendStatusBluePc();
     } // end timed loop 
   } // while
 } // aPwmSpeed()
@@ -651,10 +655,6 @@ void aTpSpeed() {
   
   while (mode == MODE_TP_SPEED) {
     commonTasks();
-    while (isDumpingData) {
-      dumpData();
-      delay(1);
-    }
     if (timeMicroseconds > tpTrigger) {
       int action = FWD;
       tpTrigger = timeMicroseconds + 2500; // 400/sec

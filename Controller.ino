@@ -90,19 +90,23 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         isRunReady = (x == 0) ? false : true;
       }
       break;
+    case RCV_MODE:
+      if (sscanf(msgStr, "%d", &x) > 0) {
+        mode = x;
+        Serial.print("Mode: "); Serial.println(mode);
+      }
+      break;
     case RCV_LIGHTS:
       if (sscanf(msgStr, "%d", &x) > 0) {
         x = (x == 0) ? LOW : HIGH;
         digitalWrite(RIGHT_HL_PIN, x);
         digitalWrite(LEFT_HL_PIN, x);
         digitalWrite(REAR_TL_PIN, x);
-//        sprintf(message, "Lights: %d", x); isNewMessage = true;
       }
       break;
     case RCV_ROUTE:
       if (sscanf(msgStr, "%d", &x) > 0) {
         if (x == 1) {
-          isRouteInProgress = true;
           resetRoute();
         }
         else {
@@ -147,10 +151,8 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_DELETE_ROUTE:
       break;
-    case RCV_MODE:
-      break;
     case RCV_STAND:
-     if (sscanf(msgStr, "%d", &x) > 0) {
+      if (sscanf(msgStr, "%d", &x) > 0) {
         isStand = (x == 0) ? false : true;
         if (isStand) {
           sprintf(message, "Stand"); isNewMessage = true;
@@ -160,7 +162,34 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         else {sprintf(message, " ");  isNewMessage = true;}
       }
       break;
-    case RCV_Y: // valset y
+    case RCV_T: // valset t
+      if(sscanf(msgStr, "%f", &floatVal) > 0) {
+        if (mode == MODE_TP6) (*currentValSet).t = floatVal;
+        else tVal = (int) floatVal;
+      } 
+      break;
+    case RCV_U:  // valset u
+      if(sscanf(msgStr, "%f", &floatVal) > 0) {
+        if (mode == MODE_TP6) (*currentValSet).u = floatVal;
+        else uVal = (int) floatVal;
+      } 
+      break;
+    case RCV_V:  // valset v
+      if(sscanf(msgStr, "%f", &floatVal) > 0) {
+        (*currentValSet).v = floatVal;
+      } 
+      break;
+    case RCV_W:  // valset w
+      if(sscanf(msgStr, "%f", &floatVal) > 0) {
+        (*currentValSet).w = floatVal;
+      } 
+      break;
+    case RCV_X:  // valset x
+      if(sscanf(msgStr, "%f", &floatVal) > 0) {
+        (*currentValSet).x = floatVal;
+      } 
+      break;
+    case RCV_Y:  // valset y
       if(sscanf(msgStr, "%f", &floatVal) > 0) {
         (*currentValSet).y = floatVal;
       } 
@@ -171,7 +200,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       } 
       break;
     case RCV_RESET_NAV:
-      resetNavigation(0.0);
+//      resetNavigation(0.0);
       break;
     default:
       Serial.print("Illegal message received: "); Serial.println(cmd);
@@ -219,6 +248,7 @@ int dumpPtr, dumpEnd;
 void sendStatusBluePc() {
   sendBMsg(SEND_FPS, 2, wheelSpeedFps);
   sendBMsg(SEND_HEADING, 1, magHeading);
+  sendBMsg(SEND_PITCH, 1, gaPitch);
   sendBMsg(SEND_SONAR, 2, sonarRight);
   sendBMsg(SEND_ROUTE_STEP, routeStepPtr); // integer
   sendBMsg(SEND_BATT, battVolt); // integer
@@ -249,7 +279,7 @@ int getState() {
   if (isRunning)          statusInt += 1;
   if (isRunReady)         statusInt += 2;
   if (isUpright)          statusInt += 4;
-  if (isOnGround)         statusInt += 8;
+  if (isLifted)           statusInt += 8;
   if (isHcActive)         statusInt += 16;
   if (isPcActive)         statusInt += 32;
   if (isRouteInProgress)  statusInt += 64;

@@ -9,6 +9,10 @@ int loopX = 0;
 boolean isSaveOrientation = false;
 boolean isSavePosition = false;
 boolean isFixOrientation = false;
+long endStandTime = 0L;
+double routeStandFps = 0.0D;
+char axisC = ' ';
+double dDiff = 0.0D;
 
 void routeLog() {
   addLog(
@@ -23,10 +27,11 @@ void routeLog() {
 }
 
 /************************************************************************
- *  Route() called every loop (400/sec)
- *          1. Check if target reached.
- *          2. Set currentLoc.
- *          3. Adjust steering.
+ *  Route() called every loop (400/sec).
+ *          This is called as the last step in aTp6() for steering.
+ *            1. Check if target reached.
+ *            2. Set currentLoc.
+ *            3. Adjust steering.
  ************************************************************************/
 void route() {
   boolean isNewRouteStep = false;
@@ -39,26 +44,53 @@ void route() {
     case 'Z':
     case 'E':
     case 'W':
+    case 'H':
       isNewRouteStep = true;
       break;
-      
+
+    case 'A':  // Decelerate to zero & hold.
+      if (isEndStand()) {
+        isNewRouteStep = true;
+        isAngleControl = false;
+      }
+      steerStop();
+      break;
+
+    case 'D':  // Discombobulator, going south.
+      routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
+      if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
+      discombobulate();
+      break;
+
+    case 'I':  // Fix position
+       if (isEndStand()) isNewRouteStep = true;
+       else holdPosition();
+     break;
+ 
+    case 'K':  // Discombobulator, going north.
+      routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
+      if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
+      discombobulate();
+      break;
+
     case 'O': // Orient
-      if (abs(currentMapHeading - routeTargetBearing) < 0.1) isNewRouteStep = true;
+      if (!isOrientWait) {
+        if (abs(currentMapHeading - routeTargetBearing) < 1) isNewRouteStep = true;
+      }
+      if (isEndStand()) isNewRouteStep = true;
       orient();
       break;
-      
-    case 'S': // Stand using tickHeading.  Set currentMapHeading on exit.
-      if (isEsReceived) {
-        isNewRouteStep = true;
-        isEsReceived = false;
-      }
-      if (digitalRead(GN_SW_PIN) == LOW) isNewRouteStep = true;
-      if (digitalRead(RE_SW_PIN) == LOW) isNewRouteStep = true;
-      if (routeWaitTime < timeMilliseconds) isNewRouteStep = true;
-      if (isNewRouteStep == true) resetNavigation(0.0);
-      else holdPosition();
+
+    case 'S': // Stand using X or Y coordinates.  Set currentMapHeading on exit.
+      if (timeMilliseconds > endStandTime) isNewRouteStep = true;
+      else stand();
       break;
-      
+
+    case 'T': // Turn
+      if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewRouteStep = true;
+      turnRadius();
+      break;
+
     case 'x': // CX - Moving toward X axis & waiting to take a sonar reading
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x;
       routeCoDistance = routeCoDistanceXY - currentMapLoc.x;
@@ -76,7 +108,7 @@ void route() {
       }
       steerHeading();
       break;
-      
+
     case 'X': // GX - Move toward X axis
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x;
       if (isRouteTargetIncreasing) {
@@ -116,26 +148,9 @@ void route() {
       }
       steerHeading();
       break;
-      
-    case 'D':  // Discombobulator, going south.
-      routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
-      if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
-      discombobulate();
-      break;
-      
-    case 'K':  // Discombobulator, going north.
-      routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
-      if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
-      discombobulate();
-      break;
-      
-    case 'T': // Turn
-      if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewRouteStep = true;
-      turnRadius();
-      break;
     default:
       isRouteInProgress = false;
-      sprintf(message, "Illegal step in route()"); isNewMessage = true;
+      sprintf(message, "Illegal step: %d", routeStepPtr); isNewMessage = true;
       break;
   } // end switch()
 
@@ -155,12 +170,10 @@ boolean interpretRouteLine(String ss) {
   double retDbl;
   int retInt;
   char charX;
-  char axisC;
-  
+  double xyS;
+
   stepString = ss;
   isSaveOrientation = isSavePosition = isFixOrientation = false;
-//  stepString = garageLoop[routeStepPtr++];
-//  stepString = getNextStepString();
   originalStepStringPtr = 0;
   Serial.print(stepString);  Serial.print(":   ");
   routeCurrentAction = stepString.charAt(0);
@@ -168,116 +181,13 @@ boolean interpretRouteLine(String ss) {
   originalStepStringPtr++;
 
   switch (routeCurrentAction) {
-    case 'N':
-      stripWhite();
-      routeTitle = stepString;
+    case 'A': // Decelerate to zero.
+      startDecelSpeed = tp6LpfCos;
+      isAngleControl = true;
+      decelStopped = false;
       break;
-
-    case 'M':
-      mapOrientation = readNum();
-      Serial.print(mapOrientation);
-      if (mapOrientation == STEP_ERROR) return false;
-      break;
-      
-    case 'E':
-      break;
-
-    case 'Z':
-      mapOrientation = readNum();
-      Serial.print(mapOrientation);
-      if (mapOrientation == STEP_ERROR) return false;
-      resetNavigation(0.0);
-      break;
-
-    case 'S':  // Stand
-      mapOrientation = readNum();
-      standTPRight = tickPositionRight;
-      standTPLeft = tickPositionLeft;
-      Serial.print(mapOrientation); Serial.print("  ");
-      if (mapOrientation == STEP_ERROR) return false;
-
-      retDbl = readNum();
-      if (retDbl == STEP_ERROR) routeWaitTime = timeMilliseconds + 1000000;
-      else routeWaitTime = timeMilliseconds + ((int) retDbl) * 1000;
-      Serial.print(retDbl);
-      routeFps = 0.0;
-      break;
-
-    case 'G':
-      charX = stepString.charAt(0);
-      if (charX == 'X') routeCurrentAction = 'X';
-      else if (charX == 'Y') routeCurrentAction = 'Y';
-      else return false;
-      stepString = stepString.substring(1);
-
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-      if (routeTargetLoc.y == STEP_ERROR) return false;
-      if (routeCurrentAction == 'X') {
-        routeTargetXY = routeTargetLoc.x;
-        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      else {
-        routeTargetXY = routeTargetLoc.y;
-        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-
-      routeFps = readNum();
-      Serial.print(routeFps);  Serial.print("   ");
-      if (routeFps == STEP_ERROR) return false;
-
-      routeRadius = readNum();
-      Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius < .5) routeRadius = 0.5;
-      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
-      break;
-      
-    case 'D':  // Discombobulator
-    case 'K':  // Discombobulator
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-      if (routeTargetLoc.y == STEP_ERROR) return false;
-      routeTargetXY = routeTargetLoc.y;
-      
-      routeFps = readNum();
-      Serial.print(routeFps);  Serial.print("   ");
-      if (routeFps == STEP_ERROR) return false;
-      break;
-
-    case 'W':  // dup of G
-      charX = stepString.charAt(0);
-      if (charX == 'X') axisC = 'X';
-      else if (charX == 'Y') axisC = 'Y';
-      else return false;
-      stepString = stepString.substring(1);
-
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-      if (routeTargetLoc.y == STEP_ERROR) return false;
-      if (axisC == 'X') {
-        routeTargetXY = routeTargetLoc.x;
-        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      else {
-        routeTargetXY = routeTargetLoc.y;
-        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-
-      routeFps = readNum();
-      Serial.print(routeFps);  Serial.print("   ");
-      if (routeFps == STEP_ERROR) return false;
-
-      routeRadius = readNum();
-      Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius < .5) routeRadius = 0.5;
-      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
-      break;
-
-    case 'C':
+    
+    case 'C': // Charted object
       charX = stepString.charAt(0);
       if (charX == 'X') routeCurrentAction = 'x';
       else if (charX == 'Y') routeCurrentAction = 'y';
@@ -315,6 +225,140 @@ boolean interpretRouteLine(String ss) {
         else break;
       }
       break;
+      
+    case 'D':  // Discombobulator
+    case 'K':  // Discombobulator
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      routeTargetXY = routeTargetLoc.y;
+
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      break;
+
+    case 'E':
+      break;
+
+    case 'F':
+      isRouteInProgress = false;
+      break;
+
+    case 'G':
+      charX = stepString.charAt(0);
+      if (charX == 'X') routeCurrentAction = 'X';
+      else if (charX == 'Y') routeCurrentAction = 'Y';
+      else return false;
+      stepString = stepString.substring(1);
+
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      if (routeCurrentAction == 'X') {
+        routeTargetXY = routeTargetLoc.x;
+        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      else {
+        routeTargetXY = routeTargetLoc.y;
+        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+
+      routeRadius = readNum();
+      Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius < .5) routeRadius = 0.5;
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
+      break;
+
+    case 'H':
+      charX = stepString.charAt(0);
+      if (charX == 'G') {
+        headingSource = HEADING_SOURCE_G;
+        gyroCumHeading = magCumHeading;
+      }
+      else if (charX == 'M') headingSource = HEADING_SOURCE_M;
+      else if (charX == 'T') headingSource = HEADING_SOURCE_T;
+      else if (charX == 'H') headingSource = HEADING_SOURCE_GM;
+      break;
+
+    case 'I':
+      fixPosition = tickPosition;
+      fixHeading = tickHeading;
+      break;
+
+    case 'M':
+      charX = stepString.charAt(0);
+      stepString = stepString.substring(1);
+      if ((charX != 'G') && (charX != 'T') && (charX != 'M')) return false;
+      if (charX == 'M') {
+        retDbl = readNum();
+        Serial.print(retDbl);
+        if (retDbl == STEP_ERROR) return false;
+      }
+      resetNavigation(charX, retDbl);
+      break;
+
+    case 'N':
+      stripWhite();
+      routeTitle = stepString;
+      break;
+      
+     case 'O':  // Orient
+      charX = stepString.charAt(0);
+      if (charX == 'W') {
+        isOrientWait = true;
+        stepString = stepString.substring(1);
+      }
+      else {
+        isOrientWait = false;
+      }
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      standPos = tickPosition;
+      break;
+  
+    case 'R':
+      routeStepPtr = (int) readNum();
+      Serial.print(retInt);
+      if ((routeStepPtr == STEP_ERROR) || (routeStepPtr >= (routeStepPtr - 2))) return false;
+      break;
+
+    case 'S':  // Stand
+      charX = stepString.charAt(0);
+      if (charX == 'X')   axisC = 'X';
+      else if (charX == 'Y') axisC = 'Y';
+      else return false;
+      stepString = stepString.substring(1);
+      
+      xyS = readNum();
+      Serial.print(xyS); Serial.print("   ");
+      if (xyS == STEP_ERROR) return false;
+
+      if (axisC == 'X') {
+        routeTargetLoc.x = xyS;
+        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      else {
+        routeTargetLoc.y = xyS;
+        routeTargetXY = routeTargetLoc.y;
+        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+
+      retDbl = readNum();
+      Serial.print(retDbl);
+       if (retDbl == STEP_ERROR) return false;
+      endStandTime = ((long) (retDbl * 1000.0D)) + timeMilliseconds;
+      routeStandFps = routeFps;  // keep it for reference.
+      break;
 
     case 'T':  // Turn
       routeTargetLoc = readLoc();
@@ -330,23 +374,45 @@ boolean interpretRouteLine(String ss) {
       if (routeRadius < .5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0D ;
 
-//      setTargetBearing();
+      //      setTargetBearing();
       aDiff = routeTargetBearing - currentMapHeading;
       if (aDiff > 180.0) aDiff -= 360.0;
       else if (aDiff < -180.0) aDiff += 360.0;
       routeIsRightTurn = aDiff > 0.0;
       routeStartTickTurn = tickPosition;
       break;
+      
+    case 'W':  // dup of G
+      charX = stepString.charAt(0);
+      if (charX == 'X') axisC = 'X';
+      else if (charX == 'Y') axisC = 'Y';
+      else return false;
+      stepString = stepString.substring(1);
 
-    case 'R':
-      routeStepPtr = (int) readNum();
-      Serial.print(retInt);
-      if ((routeStepPtr == STEP_ERROR) || (routeStepPtr >= (routeStepPtr - 2))) return false;
-      break;
+      routeTargetLoc = readLoc();
+      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+      if (routeTargetLoc.y == STEP_ERROR) return false;
+      if (axisC == 'X') {
+        routeTargetXY = routeTargetLoc.x;
+        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
+      else {
+        routeTargetXY = routeTargetLoc.y;
+        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+        else isRouteTargetIncreasing = false;
+      }
 
-    case 'F':
-      isRouteInProgress = false;
+      routeFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+
+      routeRadius = readNum();
+      Serial.print(routeRadius);  Serial.print("   ");
+      if (routeRadius < .5) routeRadius = 0.5;
+      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
       break;
+ 
     default:
       Serial.println("Step Error.");
       return false;
@@ -354,6 +420,21 @@ boolean interpretRouteLine(String ss) {
   Serial.println();
   //  sprintf(message, "Step %d: %c", routeStepPtr, routeCurrentAction); isNewMessage = true;
   return true;
+}
+
+
+/************************************************************************
+ *  isEndStand() return true if EndStand buttons pressed or message
+ *               from controller.
+ ************************************************************************/
+boolean isEndStand() {
+  if (isEsReceived) {
+    isEsReceived = false;
+    return true;
+  }
+  if (digitalRead(GN_SW_PIN) == LOW) return true;
+  if (digitalRead(RE_SW_PIN) == LOW) return true;
+  return false;
 }
 
 
@@ -369,8 +450,8 @@ void doChartedObject() {
   boolean isHeadingEast = true;
   boolean isGoodReading = true;
 
-  routeLog(); // Before
-  
+//  routeLog(); // Before
+
   if ((sonarRight < routeSonarMin) || (sonarRight > routeSonarMax)) isGoodReading = false;
 
   // Adjust the XY location
@@ -441,7 +522,7 @@ void doChartedObject() {
       gyroCumHeading += angleCorrection;
     }
   }
-  routeLog(); // After
+//  routeLog(); // After
 
   //  sprintf(message, "%5.2f %5.2f", sonarRight, routeSonarDist);
   //  sprintf(message, "%5.2f %5.2f %5.2f", sonarRight, routeSonarDist, angleCorrection);
@@ -451,6 +532,7 @@ void doChartedObject() {
 
 
 #define RAD_TURN 10.0
+#define RAD_TURN 2.0
 /************************************************************************
  *  steerHeading() Find the correct heading to the target and adjust the
  *               wheel speeds to turn toward the target.  As tp approaches
@@ -458,16 +540,12 @@ void doChartedObject() {
  ************************************************************************/
 void steerHeading() {
   static double oldTb = 0.0;
-  double tb;
+  double tb;  // Target bearing
 
-  if (abs(routeTargetXYDistance) < 2.0) { // No turning when closer than X.X feet.
-    tb = oldTb;
-  }
-  else {
-    oldTb = tb = routeTargetBearing;
-  }
+  // No turning when closer than X.X feet.
+  if (abs(routeTargetXYDistance) < 2.0)  tb = oldTb;
+  else oldTb = tb = routeTargetBearing;
   if (routeFps < 0.0) tb += 180.0;
-  
 
   aDiff = tb - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
@@ -475,7 +553,7 @@ void steerHeading() {
   double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
   speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
-  
+
   // Reduce adjustment proportionally if less than X degrees.
   if (abs(aDiff) < 2.0) {
     speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
@@ -485,12 +563,85 @@ void steerHeading() {
   tp6FpsLeft = tp6Fps + speedAdjustment;
 }
 
+/************************************************************************
+ *  steerStop() Steer while decelerating to a stop.
+ *              Use the current routeTargetBearing.
+ *              2.0 change produced 5 degrees of pitch.
+ ************************************************************************/
+void steerStop() {
+  // This only has an effect on the next loop.
+//  if (!isDecelStopped == false) {
+//      if (startDecelSpeed > 0.0) {
+//        tp6TargetAngle = 20.0;
+//        if (tp6LpfCos < 0.1) isDecelStopped = true;
+//      }
+//      else {
+//        tp6TargetAngle = -20.0;
+//        if (tp6LpfCos > 0.1) isDecelStopped = true;
+//      }
+//      if (isDecelStopped) 
+//  }
+//  else { // Decel has stopped. Just seek to target.
+//    
+//  }
+//  
+//  aDiff = routeTargetBearing - currentMapHeading;
+//  if (aDiff > 180.0) aDiff -= 360.0;
+//  else if (aDiff < -180.0) aDiff += 360.0;
+//  double d = (aDiff > 0.0) ? 1.0 : -1.0;
+//
+//  speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
+//
+//  // Reduce adjustment proportionally if less than X degrees.
+//  if (abs(aDiff) < 2.0) {
+//    speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
+//  }
+//
+//  tp6FpsRight = tp6Fps - speedAdjustment;
+//  tp6FpsLeft = tp6Fps + speedAdjustment;
+}
+
+
+/************************************************************************
+ *  stand() Decreasing speed as approaching target.
+ *               Do not steer.
+ ************************************************************************/
+void stand() {
+  static double oldTb = 0.0;
+  double tb;
+
+  tb = routeTargetBearing;
+  if (routeFps < 0.0) tb += 180.0;
+
+
+  aDiff = tb - currentMapHeading;
+  if (aDiff > 180.0) aDiff -= 360.0;
+  else if (aDiff < -180.0) aDiff += 360.0;
+  double d = (aDiff > 0.0) ? 1.0 : -1.0;
+
+  speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
+
+  // Reduce adjustment proportionally if less than X degrees.
+  if (abs(aDiff) < 2.0) {
+    speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
+  }
+
+  tp6FpsRight = tp6Fps - speedAdjustment;
+  tp6FpsLeft = tp6Fps + speedAdjustment;
+
+  if (axisC == 'X') dDiff = routeTargetLoc.x - currentMapLoc.x;
+  else dDiff = routeTargetLoc.y - currentMapLoc.y;
+
+  routeFps = dDiff * 1.5; // Note: this only affect the next loop.
+  if (routeFps > routeStandFps) routeFps = routeStandFps;
+}
+
 
 
 /************************************************************************
  *  discombobulate()
  ************************************************************************/
-void discombobulate() {  
+void discombobulate() {
   aDiff = routeTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
@@ -504,46 +655,46 @@ void discombobulate() {
 /************************************************************************
  *  zeroMapHeading()
  ************************************************************************/
-boolean zeroMapHeading() {
-  boolean st = isRunReady;
-  isRunReady = false;
-  delay(200);
-  readCompass();
-  resetNavigation(magHeading);
-  isRunReady = st;
-
-  //  static unsigned int magTimeout = 0U;
-  //  static double magSum = 0.0D;
-  //  static int magCount = 0;
-  //
-  //  aDiff = routeMagTargetBearing - magHeading;
-  //  if (aDiff > 180.0) aDiff -= 360.0;
-  //  else if (aDiff < -180.0) aDiff += 360.0;
-  //  speedAdjustment = aDiff * (S_LIM / A_LIM);
-  //  speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
-  //
-  //  tp6FpsLeft = tp6Fps + speedAdjustment;
-  //  tp6FpsRight = tp6Fps - speedAdjustment;
-  //
-  //  if (!isReachedMagHeading) {
-  //    if (abs(aDiff) < 1.0) {
-  //      isReachedMagHeading = true;
-  //      magTimeout = timeMilliseconds + 2000;
-  //      magSum = 0.0D;
-  //      magCount = 0;
-  //    }
-  //  }
-  //  else {
-  //    magSum += magHeading;
-  //    magCount++;
-  //    if (timeMilliseconds > magTimeout) {
-  //      double mh = magSum / ((double) magCount);
-  //      resetNavigation(mh);
-  //      return true;
-  //    }
-  //  }
-  //  return false;
-}
+//boolean zeroMapHeading() {
+//  boolean st = isRunReady;
+//  isRunReady = false;
+//  delay(200);
+//  readCompass();
+//  resetNavigationMag();
+//  isRunReady = st;
+//
+//  //  static unsigned int magTimeout = 0U;
+//  //  static double magSum = 0.0D;
+//  //  static int magCount = 0;
+//  //
+//  //  aDiff = routeMagTargetBearing - magHeading;
+//  //  if (aDiff > 180.0) aDiff -= 360.0;
+//  //  else if (aDiff < -180.0) aDiff += 360.0;
+//  //  speedAdjustment = aDiff * (S_LIM / A_LIM);
+//  //  speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
+//  //
+//  //  tp6FpsLeft = tp6Fps + speedAdjustment;
+//  //  tp6FpsRight = tp6Fps - speedAdjustment;
+//  //
+//  //  if (!isReachedMagHeading) {
+//  //    if (abs(aDiff) < 1.0) {
+//  //      isReachedMagHeading = true;
+//  //      magTimeout = timeMilliseconds + 2000;
+//  //      magSum = 0.0D;
+//  //      magCount = 0;
+//  //    }
+//  //  }
+//  //  else {
+//  //    magSum += magHeading;
+//  //    magCount++;
+//  //    if (timeMilliseconds > magTimeout) {
+//  //      double mh = magSum / ((double) magCount);
+//  //      resetNavigation(mh);
+//  //      return true;
+//  //    }
+//  //  }
+//  //  return false;
+//}
 
 /************************************************************************
  *  turnRadius()
@@ -568,9 +719,10 @@ void turnRadius() {
 }
 
 /************************************************************************
- *  orient()
+ *  orient() Orient to magnetic direction and hold position.
  ************************************************************************/
 void orient() {
+
   aDiff = routeTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
@@ -580,46 +732,51 @@ void orient() {
 
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
+
+  routeFps = ((float) (standPos - tickPosition)) * 0.0005;
 }
 
 
 
 /************************************************************************
- *  holdPosition() Keep position from base tickPosition
+ *  holdPosition() Keep position from base tickPosition        
  ************************************************************************/
 void holdPosition() {
-  float headingSpeedAdjustment = 0.0;
+  static boolean isOldOnGround = false;
+  float speedAdjustment = 0.0;
   float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
   float joyY = (abs(pcY) > abs(hcY)) ? pcY : hcY;
   routeFps = 0.0;
-  
+
+  if (isOnGround && !isOldOnGround) {
+    fixPosition = tickPosition;
+    fixHeading = tickHeading;
+  }
+  isOldOnGround = isOnGround;
+
+  // Change the targets
   if (abs(joyX) > 0.05) {
-    headingSpeedAdjustment = joyX * 0.3;
-    standTPRight = tickPositionRight;
-    standTPLeft = tickPositionLeft;
+    fixHeading = rangeHeading(fixHeading + (joyX * .2));
   }
-  else {
-    int targetTD = standTPRight - standTPLeft;
-    int currentTD = tickPositionRight - tickPositionLeft;
-    headingSpeedAdjustment = ((float) (currentTD - targetTD)) * 0.01;
-  }
-
   if (abs(joyY) > 0.05) {
-    routeFps = joyY * 1.0;
-    standTPRight = tickPositionRight;
-    standTPLeft = tickPositionLeft;
-  } 
-  else {
-    int targetPos = standTPRight + standTPLeft;
-    int currentPos = tickPositionRight + tickPositionLeft;
-    routeFps = ((float) (targetPos - currentPos)) * 0.0005;
+    fixPosition = fixPosition + ((int) (joyY * 10.0));
   }
 
-  tp6FpsRight = tp6Fps - headingSpeedAdjustment;
-  tp6FpsLeft = tp6Fps + headingSpeedAdjustment;
-//  tp6FpsRight = tp6Fps;
-//  tp6FpsLeft = tp6Fps;
+  
+  double aDiff = rangeHeading(fixHeading - tickHeading);
+  speedAdjustment = aDiff * .2;
+  tp6FpsRight = tp6Fps - speedAdjustment;
+  tp6FpsLeft = tp6Fps + speedAdjustment;
 
+  // Adjust routeFps to set position.
+  int dist = coTickPosition - fixPosition; // P
+  double fps = tp6LpfCos;
+  routeFps = ((double) -(dist * .001)) - (fps * 0.5);
+
+//  static int lp = 0;
+//  if ((lp++ % 200) == 0) {
+//    sprintf(message, "tickHeading: %3.2f:    fixHeading: %3.2f", tickHeading, fixHeading); isNewMessage = true;
+//  }
 }
 
 
@@ -653,7 +810,7 @@ struct loc readLoc() {
   if (numLen == 0) return locLoc;
   if (stepString.charAt(0) != ',') return locLoc;
   stepString = stepString.substring(1);
-//  stripWhite();
+  //  stripWhite();
   double y = stepString.toFloat();
   stripNum();
   if (numLen == 0) return locLoc;

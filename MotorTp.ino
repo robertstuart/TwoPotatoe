@@ -112,15 +112,17 @@ void encoderIsrRight() {
     action = BRAKE;
   }
   setMotor(MOTOR_RIGHT, action, pw);
+motorRightAction = action;
   
-//addLog((long) (tickPositionRight),
-//       (short) targetMFpsRight,
+//addLog((long) (tickTimeRight),
 //       (short) wsMFpsRight,
-//       (short) action,
-//       (short) pw, 
-//       (short) (0),
-//       (short) (0));
-
+//       (short) targetMFpsRight,
+//       (short) targetBrakeMFpsRight,
+//       (short) targetRevMFpsRight, 
+//       (short) pw,
+//       (short) action
+//       );
+//
 } // encoderIsrRight()
 
 
@@ -350,18 +352,18 @@ void setTargetSpeedLeft(double targetSpeed) {
 /*********************************************************
  * setMotorMode()
  *********************************************************/
- void setMotorMode(int mm) {
-   motorMode = mm;
-   if (mm == MM_DRIVE_BRAKE) {
-     g_APinDescription[MOT_RIGHT_MODE].pPort -> PIO_SODR = g_APinDescription[MOT_RIGHT_MODE].ulPin; // HIGHT
-     g_APinDescription[MOT_LEFT_MODE].pPort -> PIO_SODR = g_APinDescription[MOT_LEFT_MODE].ulPin; // HIGHT
-   }
-   else {
-     g_APinDescription[MOT_RIGHT_MODE].pPort -> PIO_CODR = g_APinDescription[MOT_RIGHT_MODE].ulPin;   // LOW
-     g_APinDescription[MOT_LEFT_MODE].pPort -> PIO_CODR = g_APinDescription[MOT_LEFT_MODE].ulPin;   // LOW
-   }
-
- }
+// void setMotorMode(int mm) {
+//   motorMode = mm;
+//   if (mm == MM_DRIVE_BRAKE) {
+//     g_APinDescription[MOT_RIGHT_MODE].pPort -> PIO_SODR = g_APinDescription[MOT_RIGHT_MODE].ulPin; // HIGHT
+//     g_APinDescription[MOT_LEFT_MODE].pPort -> PIO_SODR = g_APinDescription[MOT_LEFT_MODE].ulPin; // HIGHT
+//   }
+//   else {
+//     g_APinDescription[MOT_RIGHT_MODE].pPort -> PIO_CODR = g_APinDescription[MOT_RIGHT_MODE].ulPin;   // LOW
+//     g_APinDescription[MOT_LEFT_MODE].pPort -> PIO_CODR = g_APinDescription[MOT_LEFT_MODE].ulPin;   // LOW
+//   }
+//
+// }
  
  
  
