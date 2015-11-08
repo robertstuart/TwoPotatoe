@@ -3,7 +3,6 @@
  ***********************************************************************/
 double tp6Fps = 0.0f;
 double fpsCorrection = 0.0f;
-double tp6ControllerSpeed = 0;
 //double tp6LoopSec = 0.0f;
 double tp6LpfCosOld = 0.0;
 //double targetHeading = 0.0;
@@ -24,9 +23,6 @@ void aTp6Run() {
   timeMicroseconds = gyroTrigger = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
-//  angleInit6();  // causes freeze?
-//  motorInitTp6();
-  motorInitTp();
   currentValSet = &tp6;
   setBlink(RED_LED_PIN, BLINK_SB);
   delay(200);
@@ -38,13 +34,13 @@ void aTp6Run() {
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
     if (timeMicroseconds > gyroTrigger) {
-      gyroTrigger +=  2400; // 400/sec
+      gyroTrigger +=  2400; // ~400/sec
       subCycle++;
-      readGyro();
-      if ((subCycle % 4)  == 1) readAccel();  // 100/sec
-      if ((subCycle % 16) == 3) readCompass();   // 25/sec
-      setNavigation();
       setControllerXY();
+      readGyro();
+//      if ((subCycle % 16) == 3) readCompass();   // 25/sec
+      setNavigation();
+      if ((subCycle % 4)  == 1) readAccel();  // 100/sec
       aTp6(); 
       sendTp6Status();
       safeAngle();
@@ -71,10 +67,7 @@ void aTp6() {
   tp6LpfCosAccel = tp6LpfCos - tp6LpfCosOld;
   tp6LpfCosOld = tp6LpfCos;
 
-  // compute the Center of Oscillation Tick Position
-  coTickPosition = tickPosition - ((long) (sin(gaPitch * DEG_TO_RAD) * 4000.0));
-
-  // Do new calculation.  Used for 
+   // Do new calculation.  Used for including ticks in pitch estimation.
   rotation2 = -tgPitchDelta * 7.4;
   cos2 = wheelSpeedFps + rotation2;
   lpfCos2 = (lpfCosOld2 * .9) + (cos2 * (1.0D - .9));
@@ -104,19 +97,11 @@ void aTp6() {
   float bkwdA = wheelSpeedFps + 13.0;
   if (tp6TargetAngle < fwdA)  tp6TargetAngle = fwdA;
   if (tp6TargetAngle > bkwdA) tp6TargetAngle = bkwdA;
-
 //  double tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
   
-  // Correct for angle error during rotation on vertical axis.  Do not know the cause of this.
-  // Is it the actual angle or is it an error from the acceleromenter?
-  // Seems to work correctly if it is lp filtered (at accel rate?).
-  // Should this be done in Angle6?
-  double rc = (fpsRight - fpsLeft) * 1.9;
-  rotationCorrection = ((rc - rotationCorrection) * .005) + rotationCorrection;
-  
   // Compute angle error and weight factor
-  tp6AngleError = tp6TargetAngle - gaPitch + rotationCorrection;  //** 2
-//  tp6AngleError = tp6TargetAngle - gaPitch;  //** 2
+//  tp6AngleError = tp6TargetAngle - gaPitch + rotationCorrection;  //** 2
+  tp6AngleError = tp6TargetAngle - gaPitch;  //** 2
   fpsCorrection = tp6AngleError * (*currentValSet).w; //******************* Angle error to speed *******************
 //  speedCorrection = tp6AngleError * 0.18; //******************* Angle error to speed *******************
 //  fpsLpfCorrection = (fpsLpfCorrectionOld * (1.0f - 0.1))  + (speedCorrection * 0.1);
@@ -126,19 +111,21 @@ void aTp6() {
   // Add the angle error to the base speed to get the target speed.
 //  tp6Fps = fpsLpfCorrection + tp6LpfCos;
   tp6Fps = fpsLpfCorrection + lpfCos2;
-  
+
+  // These routines set the steering values, amoung other things.
   if (isRouteInProgress) route();
   else if (isStand) standSteer();
   else tp6Steer(tp6Fps);
+
   
-  if (isJump) {
-    setTargetSpeedRight(tp6FpsRightJump);
-    setTargetSpeedLeft(tp6FpsLeftJump);
-  }
-  else {
+//  if (isJump) {
+//    setTargetSpeedRight(tp6FpsRightJump);
+//    setTargetSpeedLeft(tp6FpsLeftJump);
+//  }
+//  else {
     setTargetSpeedRight(tp6FpsRight);
     setTargetSpeedLeft(tp6FpsLeft);
-  }
+//  }
 } // end aTp6() 
 
 
@@ -160,61 +147,80 @@ void sendTp6Status() {
     sendStatusBluePc();
     isNewMessage = false;
   }
-  else if ((loopc == 10) || (loopc == 30)) { // debugging print statements 20/sec
-    if (isRouteInProgress) {
-//      routeLog();
-    }
-  }
-    
-  if (loopd == 0) {
-//    Serial.print(currentMapHeading); Serial.print("\t"); Serial.println(magHeading);
-//    Serial.print(forceRight); Serial.print("\t"); Serial.println(forceLeft);
-//Serial.print(currentMapHeading);Serial.print("\t");Serial.print(magHeading);Serial.print("\t");Serial.println(gyroHeading);
-  }
-  
-    // Every loop (400/sec)
-    addLog(
-          (long) coTickPosition,
-          (short) (wheelSpeedFps * 100.0),
-          (short) (gaPitch * 100.0),
-          (short) (tp6FpsRightJump * 100.0),
-          (short) (isOnGround),
-          (short) (isJump),
-          (short) (tp6LpfCos * 100.0)
-     );
+  else if ((loopc == 10) || (loopc == 30)) { // Logging & debugging 20/sec
+//    log20PerSec();
+//    if (isRouteInProgress) routeLog();
+  }    
+//  if (loopd == 0) log1PerSec();
+  log400PerSec();
 }
 
+void log20PerSec() {
+  addLog(
+        (long) coTickPosition,
+        (short) (gaPitch * 100.0),
+        (short) (wheelSpeedFps),
+        (short) (0),
+        (short) (0),
+        (short) (0),
+        (short) (isOnGround)
+   );
+}
 
-///***********************************************************************.
-// *  log6() - Put data in circular log buffer.
-// ***********************************************************************/
-//void log6() {
-//  noInterrupts();
-//  if (motorStateRight) {
-//    timeMicroseconds = micros();
-//    unsigned int t = timeMicroseconds - startTimeRight;
-//    if (signPwRight > 0) pwPlusSumRight += t;
-//    else pwMinusSumRight += t;
-//    startTimeRight = timeMicroseconds;
-//  }
-//  unsigned int pP = pwPlusSumRight;
-//  unsigned int pM = pwMinusSumRight;
-//  int p = pP - pM;
-//  pwPlusSumRight = 0;
-//  pwMinusSumRight = 0;
-//  interrupts();
-//  
-////  addLog(
-////          (long) (gaPitch * 100.0),
-////          (short) pP,
-////          (short) pM,
-////          (short) (wheelSpeedFps * 100.0),
-////          (short) (tp6LpfCos * 100.0),
-////          (short) (tp6TargetAngle * 100.0),
-////          (short) (fpsLpfCorrection * 100.0));
+//void log400PerSec() {
+////  if (!isRouteInProgress) return;
+//  addLog(
+//        (long) (gPitch * 100.0),
+//        (short) (gaPitch * 100.0),
+//        (short) (wheelSpeedFps * 100.0),
+//        (short) (tp6LpfCos * 100.0),
+//        (short) (tp6ControllerSpeed * 100.0),
+//        (short) (((double)(targetMFpsRight + targetMFpsRight)) / 20.0D),
+//        (short) (isOnGround)
+//   );
 //}
-//
-//
+
+void log400PerSec() {
+//  if (!isRouteInProgress) return;
+  addLog(
+        (long) (0),
+        (short) (currentMapLoc.y * 100.0),
+        (short) (tp6LpfCos * 100.0),
+        (short) (gaPitch * 100.0),
+        (short) (wheelSpeedFps * 100.0),
+        (short) (stopDist * 100.0),
+        (short) (routeStepPtr)
+   );
+
+
+//    int bounds = 0;
+//    if (abs(gaPitch) < 1.0) bounds++;
+//    if  (abs(tp6LpfCos) < 0.1)  bounds++;
+//    if  (abs(stopADiff) < 1.0)  bounds++;
+//    if  (abs(wheelSpeedFps) < 0.1)  bounds++;
+//    if  (abs(stopDist) < 0.05)   bounds++;
+//    
+//  addLog(
+//        (long) (bounds),
+//        (short) (gaPitch * 100.0),
+//        (short) (tp6LpfCos * 100.0),
+//        (short) (stopADiff * 100.0),
+//        (short) (wheelSpeedFps * 100.0),
+//        (short) (stopDist * 100.0),
+//        (short) (wheelSpeedFps * 100.0)
+//   );
+}
+        
+void log1PerSec() {
+  static unsigned long t;
+  unsigned long t2 = millis();
+  
+  Serial.print("T: "); Serial.print(t2 - t); Serial.print("\t");
+  t = t2;
+  Serial.print("Pitch: "); Serial.print(gPitch, 1); Serial.print("\t");
+  Serial.print("Roll: "); Serial.print(gRoll, 1); Serial.print("\t");
+  Serial.print("Yaw: "); Serial.print(gYaw, 1); Serial.println();
+}
 
 /***********************************************************************.
  *  tp6Steer() 
@@ -222,18 +228,36 @@ void sendTp6Status() {
 void tp6Steer(double fps) {
   double speedAdjustment;
   controllerX = getControllerX();
-  if (!isGyroSteer) {
-      speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
-    }
-    else {
-      targetGHeading += 0.1 * controllerX;
-      double aDiff =  targetGHeading - gyroCumHeading;
-      speedAdjustment = aDiff * (S_LIM / A_LIM);
-      speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
-    }
-    tp6FpsLeft = tp6Fps + speedAdjustment;
-    tp6FpsRight = tp6Fps - speedAdjustment;
+  if (isSpin) {
+    speedAdjustment = controllerX * 10.0D;
+  }
+  else {
+    speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX; 
+  }
+  tp6FpsLeft = tp6Fps + speedAdjustment;
+  tp6FpsRight = tp6Fps - speedAdjustment;
 }
+
+
+
+/************************************************************************
+ *  spin() Just keep the motors running correctly while doing a spin.
+ ************************************************************************/
+double spin() {
+  if (isSpin) {
+    double spinRate = getControllerX() * 10.0D;
+    setTargetSpeedRight(-spinRate);
+    setTargetSpeedLeft(spinRate);
+  }
+  else {
+//    double normalRate = getControllerX() * 2.0D;
+    double normalRate = (((1.0 - abs(0.0)) * 1.5) + 0.5) * getControllerX(); 
+    setTargetSpeedRight(-normalRate);
+    setTargetSpeedLeft(normalRate);
+  }
+}
+
+
 
 /************************************************************************
  *  stand() Keep position from base tickPosition

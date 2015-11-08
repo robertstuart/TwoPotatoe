@@ -1,176 +1,82 @@
 String loadedRoute[200] = {
-  "N Run 5 - place holder",
-  "Z   0",
-  "S   0",
-  "GY  0,30   5",
+  "N Place holder",
+  "MG",
+  "GY  0,2   3",
   "F"
 };  
 
 String stand1[] = {
-  "N Stand1",
-  "I",
+  "N Stand30",
+  "A",
   "MG",
-  "GY  6,6   2",
+  "GY  0,3   3.0",
+  "SYW 4.0",
   "F"
 };  
 
-String orientW[] = {
-  "N Orient Wait",
-  "OW  0,5",
-  "GY  0,4   4",
+String singleStep[] = {
+  "N Single Step",
+  "A",
+  "MG",
+  "GY 0,99  0.0",
+  "P",
+  "Sy 1.0",
   "F"
 };  
 
-String run6[] = {
-  "N Run 6",
-  "Z   0",
-  "S   0",
-};  
 
-String run7[] = {
-  "N Run 7",
-  "Z   0",
-  "S   0",
-  "GY  0,30   7",
+String backSteps[] = {
+  "N Back Steps",
+  "A",
+  "MG",
+  "GY 0,99  0.0",
+  "P",
+  "Sy 0.8",
+  "P",
+  "Sy 0.8",
   "F"
 };  
 
-String run8[] = {
-  "N Run 8",
-  "Z   0",
-  "S   0",
-  "GY  0,30   8",
+
+String spSteps[] = {
+  "N Skatepark Steps",
+  "A",
+  "MG",
+  "GY 0,99  0.0",
+  "P",
+  "Sy 0.8",
+  "P",
+  "Sy 0.8",
+  "P",
+  "GY 0,10 5.0",
   "F"
 };  
 
-String run9[] = {
-  "N Run 9",
-  "Z   0",
-  "S   0",
-  "GY  0,30   9",
+String runupJump[] = {
+  "N Run Up Jump",
+  "A",
+  "MG",
+  "GY  0,10.0   8",
+  "GY  0,11.0   6",
+  "GY  0,15.0   15",
   "F"
 };  
 
-String run10[] = {
-  "N Run 10",
-  "Z   0",
-  "S   0",
-  "GY  0,30   10",
-  "GY  0,40   8",
+String smallSquare[] = {
+  "N Small Square",
+  "A",
+  "MG",
+  "GY  0,2   2.5",
+  "T   4,4   2.5   2.2",
+  "GX  4,4   2.5",
+  "T   6,0   2.5   2.2",
+  "GY  6,0   2.5",
+  "T   2,-2  2.5   2.2",
+  "GX  2,-2  2.5",
+  "T   0,2   2.5   2.2",
   "F"
 };  
 
-String run11[] = {
-  "N Run 11",
-  "Z   0",
-  "S   0",
-  "GY  0,30   11",
-  "GY  0,40   8",
-  "F"
-};  
-
-String run12[] = {
-  "N Run 12",
-  "Z   0",
-  "S   0",
-  "GY  0,30   12",
-  "GY  0,40   8",
-  "F"
-};  
-
-String run13[] = {
-  "N Run 13",
-  "Z   0",
-  "S   0",
-  "GY  0,30   13",
-  "GY  0,40   8",
-  "F"
-};  
-
-String run14[] = {
-  "N Run 14",
-  "Z   0",
-  "S   0",
-  "GY  0,30   14",
-  "GY  0,40   8",
-  "F"
-};  
-
-String run15[] = {
-  "N Run 15",
-  "Z   0",
-  "S   0",
-  "GY  0,30   15",
-  "GY  0,40   8",
-  "F"
-};
-
-String discombobulate4[] = {
-  "N Discombobulate 4",
-  "Z   0",
-  "S   0",
-  "K  0,30   4",
-  "F"
-};  
-
-String discombobulate5[] = {
-  "N Discombobulate 5",
-  "Z   0",
-  "S   0",
-  "K  0,30   5",
-  "F"
-};  
-
-String discombobulate6[] = {
-  "N Discombobulate 6",
-  "Z   0",
-  "S   0",
-  "K  0,30   6",
-  "F"
-};  
-
-String discombobulate7[] = {
-  "N Discombobulate 7",
-  "Z   0",
-  "S   0",
-  "K  0,30   7",
-  "F"
-};  
-
-String discombobulate8[] = {
-  "N Discombobulate 8",
-  "Z   0",
-  "S   0",
-  "K  0,30   8",
-  "F"
-};  
-
-String discombobulate9[] = {
-  "N Discombobulate 9",
-  "Z   0",
-  "S   0",
-  "K   0,30   9",
-  "GY  0,40   8",
-  "F"
-};  
-
-String discombobulate10[] = {
-  "N Discombobulate 10",
-  "Z   0",
-  "S   0",
-  "K   0,30   10",
-  "GY  0,40   8",
- "F"
-};  
-
-String discombobulate11[] = {
-  "N Discombobulate 11",
-  "Z   0",
-  "S   0",
-  "K   0,20   11",
-  "GY  0,40   8",
-  "F"
-};  
 
 String shortRoute[] = {
   "N Short - loaded route",
@@ -390,9 +296,7 @@ String rtA[] = {
 }; 
 
 String *routeTable[] = {
-  loadedRoute, stand1, orientW, run6, run7, run8, run9, run10, run11, run12, run13, run14, run15,
-  discombobulate4, discombobulate5, discombobulate6, discombobulate7, discombobulate8, discombobulate9, discombobulate10, discombobulate11,
-  garageLoopSND, garageLoopS, square12, outAndBack12, shortRoute, longRoute};
+  loadedRoute, singleStep, backSteps, stand1, smallSquare, runupJump,};
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
 
@@ -409,16 +313,17 @@ String getNextStepString() {
  *  setRoute()
  ************************************************************************/
 void setRoute(boolean increment) {
-  int nRoutes = (sizeof(routeTable) / sizeof(int)) + 1;
+  int nRoutes = (sizeof(routeTable) / sizeof(int));
   
-  if (increment) routeTablePtr++;
-  else routeTablePtr--;
-  
-  if (routeTablePtr < 0) routeTablePtr = nRoutes -1;
-  else if (routeTablePtr >= nRoutes) routeTablePtr = 0;
-  
-  if (routeTablePtr == nRoutes - 1) currentRoute = loadedRoute;
-  else currentRoute = routeTable[routeTablePtr];
+  if (increment) {
+    routeTablePtr++;
+    if (routeTablePtr >= nRoutes) routeTablePtr = 0;
+  }
+  else {
+    routeTablePtr--;
+    if (routeTablePtr < 0) routeTablePtr = nRoutes - 1;
+  }
+  currentRoute = routeTable[routeTablePtr];
   
   routeStepPtr = 0;
   interpretRouteLine(currentRoute[0]);
@@ -427,11 +332,12 @@ void setRoute(boolean increment) {
 }
 
 /************************************************************************
- *  resetRoute()
+ *  startRoute()
  ************************************************************************/
-void resetRoute() {
+void startRoute() {
   routeStepPtr = 0;
   isRouteInProgress = true;
+  isEsReceived = false;
   // Run through it to see if it compiles
   while (true) {
     if (!interpretRouteLine(getNextStepString())) {

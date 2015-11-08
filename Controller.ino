@@ -5,7 +5,6 @@ int msgCmdB = 0;
 boolean isMessageInProgressB = false;
 char msgStrX[B_BUFFER_SIZE];
 int msgStrPtrX = 0;
-int msgCmdX = 0;
 boolean isMessageInProgressX = false;
 
 void   readBluetooth() {
@@ -81,8 +80,13 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_JOYY:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        hcY = floatVal;
-        pcY = 0.0;
+        if (isSpin) {
+          hcY = pcY = 0.0;
+        }
+        else {
+          hcY = floatVal;
+          pcY = 0.0;         
+        }
       }
       break;
     case RCV_RUN:
@@ -101,13 +105,13 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         x = (x == 0) ? LOW : HIGH;
         digitalWrite(RIGHT_HL_PIN, x);
         digitalWrite(LEFT_HL_PIN, x);
-        digitalWrite(REAR_TL_PIN, x);
+//        digitalWrite(REAR_TL_PIN, x);
       }
       break;
     case RCV_ROUTE:
       if (sscanf(msgStr, "%d", &x) > 0) {
         if (x == 1) {
-          resetRoute();
+          startRoute();
         }
         else {
           isRouteInProgress = false;
@@ -127,19 +131,10 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         isHoldHeading = (x == 0) ? false : true;
       }
       break;
-    case RCV_HOLD_FPS:
+    case RCV_SPIN:
       if (sscanf(msgStr, "%d", &x) > 0) {
-        isHoldFps = (x == 0) ? false : true;
+        isSpin = (x == 0) ? false : true;
       }
-      break;
-    case RCV_GYRO_STEER:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        isGyroSteer = (x == 0) ? false : true;
-      }
-      break;
-    case RCV_ZERO_GYRO:
-      gyroDriftZ = meanZ;
-      Serial.print("Drift Z: "); Serial.println(gyroDriftZ);
       break;
     case RCV_SET_ROUTE:      // 0 to decrease, 1 to increase
       if (sscanf(msgStr, "%d", &x) > 0) {
@@ -285,8 +280,8 @@ int getState() {
   if (isRouteInProgress)  statusInt += 64;
   if (isDumpingData)      statusInt += 128;
   if (isHoldHeading)      statusInt += 256;
-  if (isHoldFps)          statusInt += 512;
-  if (isGyroSteer)        statusInt += 1024;
+  if (isSpin)             statusInt += 512;
+  if (false)              statusInt += 1024; // empty
   if (isStand)            statusInt += 2048;
   return statusInt;
 }

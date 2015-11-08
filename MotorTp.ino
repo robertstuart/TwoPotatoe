@@ -73,6 +73,7 @@ void encoderIsrRight() {
   
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
+  if (isDiagnostics) return;
   
   if (targetMFpsRight > 0L) {
     if (wsMFpsRight < targetMFpsRight) {              // < target speed
@@ -158,6 +159,7 @@ void encoderIsrLeft() {
 //runLog((long) tickTimeLeft, (long) mWsFpsLeft , (long) encA, (long) encB);
   if (mode == MODE_PULSE_SEQUENCE) return;
   if (mode == MODE_PWM_SPEED) return;
+  if (isDiagnostics) return;
 
   if (targetMFpsLeft > 0L) {
     if (wsMFpsLeft < targetMFpsLeft) {
@@ -233,10 +235,14 @@ void checkMotorRight() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsRight / 2)) { // less than 1/2 target speed?
       if (targetMFpsRight > 0) {
+        noInterrupts();
         setMotor(MOTOR_RIGHT, FWD, 70);
+        interrupts();
       }
       else {
+        noInterrupts();
         setMotor(MOTOR_RIGHT, BKWD, 70);
+        interrupts();
       }
     }
   }
@@ -251,10 +257,14 @@ void checkMotorLeft() {
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsLeft / 2)) { // less than 1/2 target speed?
       if (targetMFpsLeft > 0) {
+        noInterrupts();
         setMotor(MOTOR_LEFT, FWD, 70);
+        interrupts();
       }
       else {
+        noInterrupts();
         setMotor(MOTOR_LEFT, BKWD, 70);
+        interrupts();
       }
     }
   }
@@ -437,12 +447,12 @@ void setMotor(int motor, int action, int pw) {
  *
  *********************************************************/
 void readSpeedRight() {
-  noInterrupts();
+//  noInterrupts();
   long sum = wsMFpsRightSum;
   int count =  wsMFpsRightCount;
   wsMFpsRightSum = 0L;
   wsMFpsRightCount = 0;
-  interrupts();
+//  interrupts();
   if (count == 0) {
     int newMFps = ENC_FACTOR_M / (micros() - tickTimeRight);
     if (newMFps < mFpsRight) mFpsRight = newMFps; // Set new if lower
@@ -451,16 +461,15 @@ void readSpeedRight() {
     mFpsRight = sum / count;
   }
   fpsRight =((double) mFpsRight) / 1000.0;
-  fpsRightBuf[++fpsRightBufPtr % FPS_BUF_SIZE] = fpsRight;
 }
 
 void readSpeedLeft() {
-  noInterrupts();
+//  noInterrupts();
   long sum = wsMFpsLeftSum;
   int count =  wsMFpsLeftCount;
   wsMFpsLeftSum = 0L;
   wsMFpsLeftCount = 0;
-  interrupts();
+//  interrupts();
   if (count == 0) {
     int newMFps = ENC_FACTOR_M / (micros() - tickTimeLeft);
     if (newMFps < mFpsLeft) mFpsLeft = newMFps; // Set new if lower
@@ -469,7 +478,6 @@ void readSpeedLeft() {
     mFpsLeft = sum / count;
   }
   fpsLeft =((double) mFpsLeft) / 1000.0;
-  fpsLeftBuf[++fpsLeftBufPtr % FPS_BUF_SIZE] = fpsLeft;
 }
 
 

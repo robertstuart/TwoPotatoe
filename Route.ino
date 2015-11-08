@@ -16,13 +16,13 @@ double dDiff = 0.0D;
 
 void routeLog() {
   addLog(
-    (long) routeStepPtr,
-    (short) (currentMapLoc.x * 100.0),
+    (long) (currentMapLoc.x * 100.0),
     (short) (currentMapLoc.y * 100.0),
-    (short) (sonarRight * 100.0),
-    (short) (sonarRightMin * 100.0),
-    (short) (magHeading * 100.0),
-    (short) (currentMapHeading * 100.0)
+    (short) (routeTargetLoc.x * 100.0),
+    (short) (routeTargetLoc.y * 100.0),
+    (short) (phantomTargetLoc.x * 100.0),
+    (short) (phantomTargetLoc.y * 100.0),
+    (short) (phantomTargetBearing * 100.0)
   );
 }
 
@@ -48,24 +48,16 @@ void route() {
       isNewRouteStep = true;
       break;
 
-    case 'A':  // Decelerate to zero & hold.
-      if (isEndStand()) {
-        isNewRouteStep = true;
-        isAngleControl = false;
-      }
-      steerStop();
-      break;
+    case 'A':  // Adjust position and bearing
+       if (isEndStand()) isNewRouteStep = true;
+       else adjustPosition();
+       break;
 
     case 'D':  // Discombobulator, going south.
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
       if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
       discombobulate();
       break;
-
-    case 'I':  // Fix position
-       if (isEndStand()) isNewRouteStep = true;
-       else holdPosition();
-     break;
  
     case 'K':  // Discombobulator, going north.
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
@@ -73,17 +65,20 @@ void route() {
       discombobulate();
       break;
 
+    case 'P':
+      if (jump()) isNewRouteStep = true;
+      break;
+
     case 'O': // Orient
-      if (!isOrientWait) {
+      if (!isRouteWait) {
         if (abs(currentMapHeading - routeTargetBearing) < 1) isNewRouteStep = true;
       }
       if (isEndStand()) isNewRouteStep = true;
       orient();
       break;
 
-    case 'S': // Stand using X or Y coordinates.  Set currentMapHeading on exit.
-      if (timeMilliseconds > endStandTime) isNewRouteStep = true;
-      else stand();
+    case 'S': // Stop. Next step when WS, Pitch, Bearing, COS are near zero.
+      if (stopFix()) isNewRouteStep = true;
       break;
 
     case 'T': // Turn
@@ -110,6 +105,7 @@ void route() {
       break;
 
     case 'X': // GX - Move toward X axis
+      if (abs(routeFps) < 0.1) isNewRouteStep = true;
       routeTargetXYDistance = routeTargetXY - currentMapLoc.x;
       if (isRouteTargetIncreasing) {
         if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
@@ -139,6 +135,7 @@ void route() {
       break;
 
     case 'Y': // GY - Move toward Y axis
+      if (abs(routeFps) < 0.1) isNewRouteStep = true;
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
       if (isRouteTargetIncreasing) {
         if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
@@ -157,6 +154,7 @@ void route() {
   // Move to new action if current action is done.
   if (isNewRouteStep) { // Move to next action in list.
     interpretRouteLine(getNextStepString());
+    sprintf(message, "Step %d: %c", routeStepPtr, routeCurrentAction); isNewMessage = true;
   }
 }
 
@@ -169,8 +167,9 @@ void route() {
 boolean interpretRouteLine(String ss) {
   double retDbl;
   int retInt;
-  char charX;
+  char char1, char2;
   double xyS;
+  double aDiff;
 
   stepString = ss;
   isSaveOrientation = isSavePosition = isFixOrientation = false;
@@ -180,17 +179,22 @@ boolean interpretRouteLine(String ss) {
   stepString = stepString.substring(1);
   originalStepStringPtr++;
 
+  (*currentValSet).v = 2.0;  // restore speed correction.
+
   switch (routeCurrentAction) {
-    case 'A': // Decelerate to zero.
-      startDecelSpeed = tp6LpfCos;
-      isAngleControl = true;
-      decelStopped = false;
+    
+    case 'A': // Adjust position and bearing.
+      fixPosition = tickPosition;
+      fixHeading = tickHeading;
+      routeTargetLoc.y = 100.0; // For following command.
+      routeTargetLoc.x = 0.0;
+      setPhantomTarget();
       break;
     
     case 'C': // Charted object
-      charX = stepString.charAt(0);
-      if (charX == 'X') routeCurrentAction = 'x';
-      else if (charX == 'Y') routeCurrentAction = 'y';
+      char1 = stepString.charAt(0);
+      if (char1 == 'X') routeCurrentAction = 'x';
+      else if (char1 == 'Y') routeCurrentAction = 'y';
       else return false;
       stepString = stepString.substring(1);
 
@@ -211,15 +215,15 @@ boolean interpretRouteLine(String ss) {
       if (routeSonarDist == STEP_ERROR) return false;
 
       while (true) {
-        charX = readChar();
-        Serial.print(charX); Serial.print(" ");
-        if (charX == 'i') { // Save for later Or-i-entation  fix?
+        char1 = readChar();
+        Serial.print(char1); Serial.print(" ");
+        if (char1 == 'i') { // Save for later Or-i-entation  fix?
           isSaveOrientation = true;
         }
-        else if (charX == 's') { // Save for later Po-s-ition fix?
+        else if (char1 == 's') { // Save for later Po-s-ition fix?
           isSavePosition = true;
         }
-        else if (charX == 'o') { // Fix the map orientation?
+        else if (char1 == 'o') { // Fix the map orientation?
           isFixOrientation = true;
         }
         else break;
@@ -246,9 +250,9 @@ boolean interpretRouteLine(String ss) {
       break;
 
     case 'G':
-      charX = stepString.charAt(0);
-      if (charX == 'X') routeCurrentAction = 'X';
-      else if (charX == 'Y') routeCurrentAction = 'Y';
+      char1 = stepString.charAt(0);
+      if (char1 == 'X') routeCurrentAction = 'X';
+      else if (char1 == 'Y') routeCurrentAction = 'Y';
       else return false;
       stepString = stepString.substring(1);
 
@@ -265,6 +269,7 @@ boolean interpretRouteLine(String ss) {
         if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
         else isRouteTargetIncreasing = false;
       }
+      setPhantomTarget();
 
       routeFps = readNum();
       Serial.print(routeFps);  Serial.print("   ");
@@ -277,31 +282,26 @@ boolean interpretRouteLine(String ss) {
       break;
 
     case 'H':
-      charX = stepString.charAt(0);
-      if (charX == 'G') {
+      char1 = stepString.charAt(0);
+      if (char1 == 'G') {
         headingSource = HEADING_SOURCE_G;
         gyroCumHeading = magCumHeading;
       }
-      else if (charX == 'M') headingSource = HEADING_SOURCE_M;
-      else if (charX == 'T') headingSource = HEADING_SOURCE_T;
-      else if (charX == 'H') headingSource = HEADING_SOURCE_GM;
-      break;
-
-    case 'I':
-      fixPosition = tickPosition;
-      fixHeading = tickHeading;
+      else if (char1 == 'M') headingSource = HEADING_SOURCE_M;
+      else if (char1 == 'T') headingSource = HEADING_SOURCE_T;
+      else if (char1 == 'H') headingSource = HEADING_SOURCE_GM;
       break;
 
     case 'M':
-      charX = stepString.charAt(0);
+      char1 = stepString.charAt(0);
       stepString = stepString.substring(1);
-      if ((charX != 'G') && (charX != 'T') && (charX != 'M')) return false;
-      if (charX == 'M') {
+      if ((char1 != 'G') && (char1 != 'T') && (char1 != 'M')) return false;
+      if (char1 == 'M') {
         retDbl = readNum();
         Serial.print(retDbl);
         if (retDbl == STEP_ERROR) return false;
       }
-      resetNavigation(charX, retDbl);
+      resetNavigation(char1, retDbl);
       break;
 
     case 'N':
@@ -310,54 +310,76 @@ boolean interpretRouteLine(String ss) {
       break;
       
      case 'O':  // Orient
-      charX = stepString.charAt(0);
-      if (charX == 'W') {
-        isOrientWait = true;
+      char1 = stepString.charAt(0);
+      if (char1 == 'W') {
+        isRouteWait = true;
         stepString = stepString.substring(1);
       }
       else {
-        isOrientWait = false;
+        isRouteWait = false;
       }
       routeTargetLoc = readLoc();
       Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
       if (routeTargetLoc.y == STEP_ERROR) return false;
       standPos = tickPosition;
       break;
-  
+
+    case 'P':
+      isStepFall = isOldStepFall = false;
+      routeFps = 1.1;
+      jumpTarget = currentMapLoc.y + 2.3D; // Eventually stop if no jump.
+      break;
+      
     case 'R':
       routeStepPtr = (int) readNum();
       Serial.print(retInt);
       if ((routeStepPtr == STEP_ERROR) || (routeStepPtr >= (routeStepPtr - 2))) return false;
       break;
 
-    case 'S':  // Stand
-      charX = stepString.charAt(0);
-      if (charX == 'X')   axisC = 'X';
-      else if (charX == 'Y') axisC = 'Y';
-      else return false;
+    case 'S':  // Stop
+      char1 = stepString.charAt(0);
       stepString = stepString.substring(1);
+      char2 = stepString.charAt(0);
+      if (char2 == 'W') {
+        isRouteWait = true;
+        stepString = stepString.substring(1);
+      }
+      else {
+        isRouteWait = false;
+      }
       
       xyS = readNum();
       Serial.print(xyS); Serial.print("   ");
       if (xyS == STEP_ERROR) return false;
-
+      switch (char1) {
+        case 'X':
+          axisC = 'X';
+          routeTargetLoc.x = xyS;
+          break;
+        case 'x':
+          axisC = 'X';
+          routeTargetLoc.x = jumpFallXY + xyS;
+          break;
+        case 'Y':
+         axisC = 'Y';
+          routeTargetLoc.y = xyS;
+          break;
+        case 'y':
+          axisC = 'Y';
+          routeTargetLoc.y = jumpFallXY + xyS;
+          break;
+        default:
+          return false;
+      }
       if (axisC == 'X') {
-        routeTargetLoc.x = xyS;
-        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
+        if (phantomTargetLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
         else isRouteTargetIncreasing = false;
       }
       else {
-        routeTargetLoc.y = xyS;
         routeTargetXY = routeTargetLoc.y;
-        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
+        if (phantomTargetLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
         else isRouteTargetIncreasing = false;
       }
-
-      retDbl = readNum();
-      Serial.print(retDbl);
-       if (retDbl == STEP_ERROR) return false;
-      endStandTime = ((long) (retDbl * 1000.0D)) + timeMilliseconds;
-      routeStandFps = routeFps;  // keep it for reference.
       break;
 
     case 'T':  // Turn
@@ -374,7 +396,6 @@ boolean interpretRouteLine(String ss) {
       if (routeRadius < .5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0D ;
 
-      //      setTargetBearing();
       aDiff = routeTargetBearing - currentMapHeading;
       if (aDiff > 180.0) aDiff -= 360.0;
       else if (aDiff < -180.0) aDiff += 360.0;
@@ -383,9 +404,9 @@ boolean interpretRouteLine(String ss) {
       break;
       
     case 'W':  // dup of G
-      charX = stepString.charAt(0);
-      if (charX == 'X') axisC = 'X';
-      else if (charX == 'Y') axisC = 'Y';
+      char1 = stepString.charAt(0);
+      if (char1 == 'X') axisC = 'X';
+      else if (char1 == 'Y') axisC = 'Y';
       else return false;
       stepString = stepString.substring(1);
 
@@ -531,28 +552,31 @@ void doChartedObject() {
 }
 
 
-#define RAD_TURN 10.0
-#define RAD_TURN 2.0
+//#define RAD_TURN 10.0
+#define RAD_TURN 4.0
+#define END_STEER 0.5
 /************************************************************************
  *  steerHeading() Find the correct heading to the target and adjust the
  *               wheel speeds to turn toward the target.  As tp approaches
  *               the target, use the originalTargetBearing.
  ************************************************************************/
 void steerHeading() {
-  static double oldTb = 0.0;
-  double tb;  // Target bearing
-
-  // No turning when closer than X.X feet.
-  if (abs(routeTargetXYDistance) < 2.0)  tb = oldTb;
-  else oldTb = tb = routeTargetBearing;
-  if (routeFps < 0.0) tb += 180.0;
-
-  aDiff = tb - currentMapHeading;
+//  static double oldTb = 0.0;
+//  double tb;  // Target bearing
+//
+//  // No turning when closer than X.X feet.
+//  if (abs(routeTargetXYDistance) < END_STEER)  tb = oldTb;
+//  else oldTb = tb = routeTargetBearing;
+//  if (routeFps < 0.0) tb += 180.0;
+//
+//  aDiff = tb - currentMapHeading;
+//
+  double aDiff = phantomTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
   double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
-  speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
+  double speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
 
   // Reduce adjustment proportionally if less than X degrees.
   if (abs(aDiff) < 2.0) {
@@ -563,77 +587,49 @@ void steerHeading() {
   tp6FpsLeft = tp6Fps + speedAdjustment;
 }
 
-/************************************************************************
- *  steerStop() Steer while decelerating to a stop.
- *              Use the current routeTargetBearing.
- *              2.0 change produced 5 degrees of pitch.
- ************************************************************************/
-void steerStop() {
-  // This only has an effect on the next loop.
-//  if (!isDecelStopped == false) {
-//      if (startDecelSpeed > 0.0) {
-//        tp6TargetAngle = 20.0;
-//        if (tp6LpfCos < 0.1) isDecelStopped = true;
-//      }
-//      else {
-//        tp6TargetAngle = -20.0;
-//        if (tp6LpfCos > 0.1) isDecelStopped = true;
-//      }
-//      if (isDecelStopped) 
-//  }
-//  else { // Decel has stopped. Just seek to target.
-//    
-//  }
-//  
-//  aDiff = routeTargetBearing - currentMapHeading;
-//  if (aDiff > 180.0) aDiff -= 360.0;
-//  else if (aDiff < -180.0) aDiff += 360.0;
-//  double d = (aDiff > 0.0) ? 1.0 : -1.0;
-//
-//  speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
-//
-//  // Reduce adjustment proportionally if less than X degrees.
-//  if (abs(aDiff) < 2.0) {
-//    speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
-//  }
-//
-//  tp6FpsRight = tp6Fps - speedAdjustment;
-//  tp6FpsLeft = tp6Fps + speedAdjustment;
-}
 
 
 /************************************************************************
- *  stand() Decreasing speed as approaching target.
- *               Do not steer.
+ *  stopFix() Stop  and fix location on target X or Y.  
+ *  Return true if stabile or escape message received.
  ************************************************************************/
-void stand() {
-  static double oldTb = 0.0;
-  double tb;
+boolean stopFix() {
+  double speedAdjustment = 0.0;
+  routeFps = 0.0;
 
-  tb = routeTargetBearing;
-  if (routeFps < 0.0) tb += 180.0;
-
-
-  aDiff = tb - currentMapHeading;
-  if (aDiff > 180.0) aDiff -= 360.0;
-  else if (aDiff < -180.0) aDiff += 360.0;
-  double d = (aDiff > 0.0) ? 1.0 : -1.0;
-
-  speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
-
-  // Reduce adjustment proportionally if less than X degrees.
-  if (abs(aDiff) < 2.0) {
-    speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
-  }
-
+  // Adjust differential wheel speeds to point in correct direction
+  stopADiff = rangeAngle(phantomTargetBearing - currentMapHeading);
+  speedAdjustment = stopADiff * .1;
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
 
-  if (axisC == 'X') dDiff = routeTargetLoc.x - currentMapLoc.x;
-  else dDiff = routeTargetLoc.y - currentMapLoc.y;
+  // Adjust routeFps to set position.
+  if (axisC == 'X') {
+    stopDist = currentMapLoc.x - routeTargetLoc.x;
+  }
+  else {
+    stopDist = currentMapLoc.y - routeTargetLoc.y;
+  }
+  if (!isRouteTargetIncreasing) stopDist *= -1.0;  // P
+  double fps = tp6LpfCos;                      // D
+  routeFps = (stopDist * 4.0) - (fps * 2.3);    // P+D
 
-  routeFps = dDiff * 1.5; // Note: this only affect the next loop.
-  if (routeFps > routeStandFps) routeFps = routeStandFps;
+  // Check to see if we are stabile.
+  if (isRouteWait) {
+    if (isEsReceived) {
+      isEsReceived = false;
+      return true;
+    }
+    return false;
+  }
+  else {
+    if ((abs(gaPitch) < 1.0) &&
+        (abs(tp6LpfCos) < 0.1) &&
+        (abs(stopADiff) < 1.0) &&
+        (abs(wheelSpeedFps) < 0.3) &&
+        (abs(stopDist) < 0.25))  return true;
+      return false;
+  }
 }
 
 
@@ -642,88 +638,49 @@ void stand() {
  *  discombobulate()
  ************************************************************************/
 void discombobulate() {
-  aDiff = routeTargetBearing - currentMapHeading;
+  double aDiff = routeTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
-  speedAdjustment = aDiff * (S_LIM / A_LIM);
+  double speedAdjustment = aDiff * (S_LIM / A_LIM);
   speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
   tp6FpsLeft = tp6Fps + speedAdjustment;
   tp6FpsRight = tp6Fps - speedAdjustment;
 }
 
 
-/************************************************************************
- *  zeroMapHeading()
- ************************************************************************/
-//boolean zeroMapHeading() {
-//  boolean st = isRunReady;
-//  isRunReady = false;
-//  delay(200);
-//  readCompass();
-//  resetNavigationMag();
-//  isRunReady = st;
-//
-//  //  static unsigned int magTimeout = 0U;
-//  //  static double magSum = 0.0D;
-//  //  static int magCount = 0;
-//  //
-//  //  aDiff = routeMagTargetBearing - magHeading;
-//  //  if (aDiff > 180.0) aDiff -= 360.0;
-//  //  else if (aDiff < -180.0) aDiff += 360.0;
-//  //  speedAdjustment = aDiff * (S_LIM / A_LIM);
-//  //  speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
-//  //
-//  //  tp6FpsLeft = tp6Fps + speedAdjustment;
-//  //  tp6FpsRight = tp6Fps - speedAdjustment;
-//  //
-//  //  if (!isReachedMagHeading) {
-//  //    if (abs(aDiff) < 1.0) {
-//  //      isReachedMagHeading = true;
-//  //      magTimeout = timeMilliseconds + 2000;
-//  //      magSum = 0.0D;
-//  //      magCount = 0;
-//  //    }
-//  //  }
-//  //  else {
-//  //    magSum += magHeading;
-//  //    magCount++;
-//  //    if (timeMilliseconds > magTimeout) {
-//  //      double mh = magSum / ((double) magCount);
-//  //      resetNavigation(mh);
-//  //      return true;
-//  //    }
-//  //  }
-//  //  return false;
-//}
 
 /************************************************************************
- *  turnRadius()
+ *  turnRadius() Turn with a given radius.  If the radius is zero,
+ *               the speed give the rate of rotation.  Otherwise,
+ *               the speed gives the target fps during the turn;
  ************************************************************************/
 void turnRadius() {
-  //  turnTickProgress = tickPosition - routeStartTickTurn;
-  //  turnTargetBearing = (((double) turnTickProgress) * 0.01) / routeRadius;
-  //  aDiff = turnTargetBearing - currentMapHeading;
-  //  if (aDiff > 180.0) aDiff -= 360.0;
-  //  else if (aDiff < -180.0) aDiff += 360.0;
-  //  turnTrim = aDiff * 1.0;
-
-  aDiff = routeTargetBearing - currentMapHeading;
-  if (aDiff > 180.0) aDiff -= 360.0;
-  else if (aDiff < -180.0) aDiff += 360.0;
-  double d = (aDiff > 0.0) ? 1.0 : -1.0;
-
-  speedAdjustment = (wheelSpeedFps / routeRadius) * 0.64 * d;
-
+  double speedAdjustment = 0.0;
+  double aDiff  = 0.0;
+  if (routeRadius < 0.1) { // Turn in place?
+    
+  }
+  else { // Turn while moving 
+    aDiff = routeTargetBearing - currentMapHeading;
+    if (aDiff > 180.0) aDiff -= 360.0;
+    else if (aDiff < -180.0) aDiff += 360.0;
+    double d = (aDiff > 0.0) ? 1.0 : -1.0;
+  
+    speedAdjustment = (wheelSpeedFps / routeRadius) * 0.64 * d;
+  }
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
 }
+
+
 
 /************************************************************************
  *  orient() Orient to magnetic direction and hold position.
  ************************************************************************/
 void orient() {
+  double speedAdjustment = 0.0;
 
-  aDiff = routeTargetBearing - currentMapHeading;
+  double aDiff = routeTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
 
@@ -739,9 +696,10 @@ void orient() {
 
 
 /************************************************************************
- *  holdPosition() Keep position from base tickPosition        
+ *  adjustPosition() Allow position and bearing to be adjusted        
+ *                   from the joystick.
  ************************************************************************/
-void holdPosition() {
+void adjustPosition() {
   static boolean isOldOnGround = false;
   float speedAdjustment = 0.0;
   float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
@@ -756,27 +714,50 @@ void holdPosition() {
 
   // Change the targets
   if (abs(joyX) > 0.05) {
-    fixHeading = rangeHeading(fixHeading + (joyX * .2));
+    fixHeading = rangeAngle(fixHeading + (joyX * .2));
   }
   if (abs(joyY) > 0.05) {
     fixPosition = fixPosition + ((int) (joyY * 10.0));
   }
 
   
-  double aDiff = rangeHeading(fixHeading - tickHeading);
+  double aDiff = rangeAngle(fixHeading - tickHeading);
   speedAdjustment = aDiff * .2;
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
 
-  // Adjust routeFps to set position.
+  // Adjust routeFps to keep position.
   int dist = coTickPosition - fixPosition; // P
   double fps = tp6LpfCos;
-  routeFps = ((double) -(dist * .001)) - (fps * 0.5);
+  routeFps = ((double) -(dist * .004)) - (fps * 2.0);
+}
 
-//  static int lp = 0;
-//  if ((lp++ % 200) == 0) {
-//    sprintf(message, "tickHeading: %3.2f:    fixHeading: %3.2f", tickHeading, fixHeading); isNewMessage = true;
+
+
+/************************************************************************
+ *  jump()   Routine for going over ~8" jumps; stairs or ramp.
+ *             1. Set currenValSet.v to 5.0. Go to target at 2.2fps
+ *             2. At 1st !isOnGround, mark Y distance
+ *             3. At ~10" from drop, go to 0.0 fps.
+ *             4. At < 0.2 fps, go to next step (S?).
+ ************************************************************************/
+boolean jump() {
+  boolean ret = false;
+  if (isStepFall) {  // Fall has happened.
+    if (!isOldStepFall) { // The first time?
+      jumpFallXY = currentMapLoc.y;
+      jumpTarget = currentMapLoc.y + 0.7;  // ----------CRITICAL! --------------
+    }
+  }
+//  if (currentMapLoc.y > (jumpTarget - 0.2)) {
+//    (*currentValSet).v = 5.0;  // increase speed correction.
 //  }
+  if (currentMapLoc.y > jumpTarget) {
+    ret = true;
+  }
+  steerHeading();
+  isOldStepFall = isStepFall;
+  return ret;
 }
 
 
@@ -790,6 +771,27 @@ void setTargetBearing() {
   double x =  routeTargetLoc.x - currentMapLoc.x;
   double y = routeTargetLoc.y - currentMapLoc.y;
   routeTargetBearing = atan2(x, y) * RAD_TO_DEG;
+
+  // Set the bearing to the phantomTarget
+  x = phantomTargetLoc.x - currentMapLoc.x;
+  y = phantomTargetLoc.y - currentMapLoc.y;
+  phantomTargetBearing = atan2(x, y) * RAD_TO_DEG;
+}
+
+
+#define PHANTOM_DIST 15.0 // feet beyond actual target
+/************************************************************************
+ *  setPhantomTarget() This sets the phantom target which is X.X feet
+ *                     beyond the actual target.  This is to prevent
+ *                     rapid turning as tp approaches target.
+ ************************************************************************/
+void setPhantomTarget() {
+  double distX =  routeTargetLoc.x - currentMapLoc.x;
+  double distY = routeTargetLoc.y - currentMapLoc.y;
+  double rtb = atan2(distY, distX);
+  double pDist = sqrt((distX * distX) + (distY * distY)) + PHANTOM_DIST;
+  phantomTargetLoc.x = (cos(rtb) * pDist) + currentMapLoc.x;
+  phantomTargetLoc.y = (sin(rtb) * pDist) + currentMapLoc.y;
 }
 
 

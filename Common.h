@@ -32,15 +32,15 @@ const int RCV_Z            = 142;
 const int RCV_RESET_NAV    = 143;
 const int RCV_ROTATE       = 144;
 const int RCV_HOLD_HEADING = 145;
-const int RCV_HOLD_FPS     = 146;
-const int RCV_GYRO_STEER   = 147;
+const int RCV_SPIN         = 146;
+const int RCV_XXXXXXXXX1   = 147; // unused
 const int RCV_SET_ROUTE    = 148; // 0 to decrease, 1 to increase
 const int RCV_ROUTE_DATA   = 149; 
 const int RCV_XXXX_ROUTE   = 150;
 const int RCV_DELETE_ROUTE = 151;
 const int RCV_MODE         = 152;
 const int RCV_STAND        = 153;
-const int RCV_ZERO_GYRO    = 154;
+const int RCV_XXXXXXXX2    = 154; // unused
 
 const int SEND_RCV_TERM    =   0;
 

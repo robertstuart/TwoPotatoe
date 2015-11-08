@@ -143,7 +143,7 @@ void safeAngle() {
   static unsigned long tTime = 0UL; // time of last state change
   static boolean tState = false;  // Timed state. true = upright
 
-  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 35))); // Current real state
+  boolean cState = ((abs(gaFullPitch) < 45.0) && ((abs(gaRoll) < 45))); // Current real state
   if (cState != tState) {
     tTime = timeMilliseconds; // Start the timer for a state change.
     tState = cState;
@@ -157,95 +157,34 @@ void safeAngle() {
 
 
 /**************************************************************************.
- * liftJump() Set the isLift and isJump variables.
- *            isLift is true if onGround has been false XX seconds.
- *            isJump goes true once on initial jump. Not true on bounce.
- *      
+ * liftJump() Set the isLift  variable.
+ *            isLift is true if onGround has been false > XX seconds.
  **************************************************************************/
 void liftJump() {
   static unsigned long liftTimer = 0UL; // Zero if not set.
-  static boolean oldIsOnGround = false;
+  static boolean isOldOnGround = false;
   
   forceLeft = analogRead(L_FORCE_PIN);
   forceRight = analogRead(R_FORCE_PIN);
   isOnGround = (forceLeft < 800) && (forceRight < 950);
 
-  if (liftTimer == 0UL) {  // Timer not running?
-    if (!isOnGround && oldIsOnGround) {
-      // We are starting a jump.
-      liftTimer = timeMilliseconds + 350;
-      isJump = true;
-      // figure out average speed for last .2 seconds    
-      double sumRight = 0.0D;
-      double sumLeft = 0.0D;
-//      int end = (fpsRightBufPtr + FPS_BUF_SIZE - 40) % FPS_BUF_SIZE;
-//      int ptr = fpsRightBufPtr;
-//      while (fpsRightBufPtr++ != end) {
-//        
-//      }
-
-      for (int i = 0; i < FPS_BUF_SIZE; i++) {
-        sumRight += fpsRightBuf[i];
-        sumLeft += fpsLeftBuf[i];
-      }
-      tp6FpsRightJump = sumRight / ((double) FPS_BUF_SIZE) ;
-      tp6FpsLeftJump = sumLeft  / ((double) FPS_BUF_SIZE)  ;
-//      tp6FpsRightJump = tp6LpfCos;
-//      tp6FpsLeftJump = tp6LpfCos;
+  if (!isOnGround) {
+    // TP has just left the ground.
+    if (isOldOnGround) {  // Just left the ground?
+      isStepFall = true; // Used by jump().
+      liftTimer = timeMilliseconds + 400;  // .4 sec
     } 
-    else if (isOnGround) {     
-      isLifted = false;
-      isJump = false;
-    }
-  } 
-  else if (liftTimer < timeMilliseconds) {  // Timer expired?
-    liftTimer = 0UL;
-    isJump = false;
-    if (!isOnGround) {
-      isLifted = true;
-    }
-  } 
-  else { // Timer still running.
-    if (isJump && isOnGround) {
-      isJump = false;
+    else { // In the air.
+      if (timeMilliseconds > liftTimer) { // In air > .4 sec?
+        isLifted = true;
+      }
     }
   }
-  oldIsOnGround = isOnGround;
-  
-//  if (og) {
-//    groundTime = timeMilliseconds;
-//    isOnGround = true;
-//    isJump = false;
-//  }
-//  else { // in air
-//    if (isJumpTimerStarted) {
-//      jumpTime = timeMilliseconds - jumpStartTime;
-//      if (jumpTime < 300) {
-//        
-//      }
-//      
-//    }
-//    else if (isOnGround) { // State change.
-//      isJump = true;
-//      jumpTimerStarted = true;
-//      jump
-//
-//      // start timer to ignore bounces once it returns to ground.
-//
-//      // figure out average speed for last .2 seconds
-//      double sumRight = 0.0D;
-//      double sumLeft = 0.0D;
-//      for (int i = 0; i < FPS_BUF_SIZE; i++) {
-//        sumRight += fpsRightBuf[i];
-//        sumLeft += fpsLeftBuf[i];
-//      }
-//      tp6FpsRightJump = sumRight / ((double) FPS_BUF_SIZE) ;
-//      tp6FpsLeftJump = sumLeft  / ((double) FPS_BUF_SIZE)  ;
-//      
-//    }
-//    if (timeMilliseconds > (groundTime + 300)) isJump = false;
-//    isOnGround = false;
-//  }
+  else { // On the ground.    
+    isLifted = false;
+    liftTimer = 0UL;
+  }
+  isOldOnGround = isOnGround;
 }
 
 
@@ -269,23 +208,6 @@ void battery() {
     batteryTrigger += 1000;  // 1 per second
     battVolt = (1000 * analogRead(BATT_PIN)) / 451;
   }
-}
-
-
-/**************************************************************************.
- *
- * compass()  Read the compass
- *
- ***************************************************************/
-void myCompass() {
-
-}
-
-
-/**************************************************************************.
- * motorIdle() Power down if motor idle for period
- **************************************************************************/
-void motorIdle() {
 }
 
 
@@ -344,26 +266,26 @@ void setBlink(int led, byte* pattern) {
 
 
 void beep(int seq[]) {
-  beepPtr = 0;
-  beepSequence = seq;
-  Timer3.attachInterrupt(beepIsr);
-  setBeep();
+//  beepPtr = 0;
+//  beepSequence = seq;
+//  Timer3.attachInterrupt(beepIsr);
+//  setBeep();
 }
 
 void setBeep() {
-  int freq = beepSequence[beepPtr];
-  if (freq != 0) {
-    int halfCycle = (1000000 / 2) / freq;
-    int dur = beepSequence[beepPtr + 1];
-    beepCycleCount = (dur * 1000) / halfCycle;
-    Timer3.start(halfCycle);
-    beepPtr += 2;
-  }
-  else {
-    Timer3.stop();
-    Timer3.detachInterrupt();
-    digitalWrite(SPEAKER_PIN, LOW);
-  }
+//  int freq = beepSequence[beepPtr];
+//  if (freq != 0) {
+//    int halfCycle = (1000000 / 2) / freq;
+//    int dur = beepSequence[beepPtr + 1];
+//    beepCycleCount = (dur * 1000) / halfCycle;
+//    Timer3.start(halfCycle);
+//    beepPtr += 2;
+//  }
+//  else {
+//    Timer3.stop();
+//    Timer3.detachInterrupt();
+//    digitalWrite(SPEAKER_PIN, LOW);
+//  }
 }
 
 void beepIsr() {
@@ -461,9 +383,9 @@ void sonar() {
 
 
 /**************************************************************************.
- *  rangeHeading() Set heading value between -180 and +180
+ *  rangeAngle() Set angle value between -180 and +180
  **************************************************************************/
-double rangeHeading(double head) {
+double rangeAngle(double head) {
   if (head > 180.0) head -= 360.0;
   else if (head < -180.0) head += 360.0;
   return head;

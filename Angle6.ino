@@ -3,8 +3,6 @@
  ***********************************************************************/
 #define HC_ADDRESS 0x1E
 
-L3G gyro;
-LSM303 compass;
 
 // LSM303 compass
 //int xMin = -2621;  // -953;   // -1107; // -1060;
@@ -40,13 +38,13 @@ void angleInit6() {
   gyro.writeReg(L3G::CTRL1, 0xBF); // power, all axes, DR=400 Hz, BW=110
 
   // Set up HMC5883L magnetometer
-  Wire.beginTransmission(HC_ADDRESS);
-  Wire.write(0x02); //select mode register
-  Wire.write(0x00); //continuous measurement mode
-  Wire.endTransmission();
-
-  delay(100);
-  readCompass();  // Do this so we have a magHeading.
+//  Wire.beginTransmission(HC_ADDRESS);
+//  Wire.write(0x02); //select mode register
+//  Wire.write(0x00); //continuous measurement mode
+//  Wire.endTransmission();
+//
+//  delay(100);
+//  readCompass();  // Do this so we have a magHeading.
 }
 
 #define TG_PITCH_TC 0.90D
@@ -57,7 +55,8 @@ void angleInit6() {
 boolean readGyro() {
   static int temperatureLoop = 0;
 
-  static int oldX, oldY, oldZ;
+  static int oldX = 0, oldY = 0, oldZ = 0;
+  int t;
   gyro.read();  // 860 microseconds
   if ((gyro.g.x == oldX) && (gyro.g.y == oldY) && (gyro.g.z == oldZ)) return false;
   oldX = gyro.g.x;
@@ -65,29 +64,35 @@ boolean readGyro() {
   oldZ = gyro.g.z;
 
   // Pitch
-  double gyroPitchRaw = (double) (gyro.g.y - gyroTempCompY); // add in constant error
-  double gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
+  gyroPitchRaw = (double) (gyro.g.y - pitchDrift);
+//  gyroPitchRaw = (double) (gyro.g.y - gyroTempCompY); // add in constant error
+  gyroPitchRate = gyroPitchRaw * GYRO_SENS;  // Rate in degreesChange/sec
   gyroPitchDelta = (gyroPitchRate * 2500.0) / 1000000.0; // degrees changed during period
   gPitch = gPitch + gyroPitchDelta;   // Used by tgPitch & debugging
   gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
-
+  gaFullPitch = gyroPitchDelta + gaFullPitch;
+  
   // Roll
-  double gyroRollRaw = -(double) (gyro.g.x - gyroTempCompX);
-  double gyroRollRate = gyroRollRaw * GYRO_SENS;
+  gyroRollRaw = -(double) (gyro.g.x + rollDrift);
+//  gyroRollRaw = -(double) (gyro.g.x - gyroTempCompX);
+  gyroRollRate = gyroRollRaw * GYRO_SENS;
   double gyroRollDelta = (gyroRollRate * 2500.0) / 1000000.0;
-  gRoll = gRoll + gyroRollDelta;
-  gaRoll = gyroRollDelta + gaRoll;
+  gRoll = gRoll - gyroRollDelta;
+  gaRoll = gaRoll - gyroRollDelta;
 
   // Yaw
-  double gyroYawRaw = (double) (gyro.g.z - gyroTempCompZ);  // add in constant error
+  gyroYawRaw = (double) (gyro.g.z - yawDrift); 
+//  gyroYawRaw = (double) (gyro.g.z - gyroTempCompZ);  // subtract out constant error
 //  double gyroYawRaw = (double) (gyro.g.z - 250);  // add in constant error
   //    double gyroYawRaw = (double) (gyro.g.z - ((int) (*currentValSet).y));  // add in constant error
-  double gyroYawRate = gyroYawRaw * GYRO_SENS;  // Rate in degreesChange/sec
+  gyroYawRate = gyroYawRaw * GYRO_SENS;  // Rate in degreesChange/sec
   double gyroYawDelta = (gyroYawRate * 2500.0) / 1000000.0; // degrees changed during period
+  gYaw = gYaw + gyroYawDelta;
   gyroCumHeading = gyroCumHeading + gyroYawDelta;   //
   double tc = (gyroCumHeading > 0.0) ? 180.0 : -180.0;
   int rotations = (int) ((gyroCumHeading + tc) / 360.0);
   gyroHeading = gyroCumHeading - (((double) rotations) * 360.0);
+  isSpinExceed = (gyroYawRaw > 20000) ? true : false;
 
   // Rotation rate: complementary filtered gPitch and tPitch
   tPitch = (double) tickPosition / TICKS_PER_PITCH_DEGREE;
@@ -105,7 +110,7 @@ boolean readGyro() {
   sumX += oldX;
   sumY += oldY;
   sumZ += oldZ;
-  if ((++temperatureLoop % 400) == 0) {
+  if ((++temperatureLoop % 400) == 0) { // Read temp every second.
     meanX = sumX / 400;
     meanY = sumY / 400;
     meanZ = sumZ / 400;
@@ -131,14 +136,21 @@ boolean readGyro() {
 /***********************************************************************.
  *  readAccel()
  ***********************************************************************/
-boolean readAccel() {
+void readAccel() {
+//  if (isAccelOff) return; // If jump?
   compass.readAcc(); // 848 microseconds
 
   // Pitch
   double k8 = 45.5;  // for new MinImu
   //    aPitch =  (atan2(compass.a.x, -compass.a.z) * RAD_TO_DEG);
-  aPitch = ((atan2((compass.a.x - (k8 * 1000.0 * tp6LpfCosAccel)), -compass.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
-  gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT)); // Weigh factors
+  double accelX = compass.a.x - (k8 * 1000.0 * tp6LpfCosAccel);
+  aPitch = ((atan2(accelX, -compass.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
+  gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
+  if (          ((compass.a.z > -20000) && (compass.a.z < -10000))
+             && ((accelX > -7000) && (accelX < 7000))
+             && ((aPitch > -45.0) && (aPitch < 45.0))) {
+      gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
+  }
 
   // Roll
   aRoll =  (atan2(-compass.a.y, -compass.a.z) * RAD_TO_DEG);
@@ -254,8 +266,13 @@ void setNavigation() {
   else if (currentMapHeading < -180.0) currentMapHeading += 360.0;
   
   // Location
-  double dist = ((double) (tickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
-  navOldTickPosition = tickPosition;
+ // compute the Center of Oscillation Tick Position
+  coTickPosition = tickPosition - ((long) (sin(gaPitch * DEG_TO_RAD) * 4000.0));
+
+//  double dist = ((double) (tickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
+  double dist = ((double) (coTickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
+//  navOldTickPosition = tickPosition;
+  navOldTickPosition = coTickPosition;
   currentMapLoc.x += sin(currentMapHeading * DEG_TO_RAD) * dist;
   currentMapLoc.y += cos(currentMapHeading * DEG_TO_RAD) * dist;
 
@@ -301,7 +318,7 @@ void resetNavigation(char cmd, double mo) {
   tickHeading = gyroHeading = magHeading;
   magRotations = 0.0;
   tickHeadingOffset = (int) (magHeading * TICKS_PER_DEGREE_YAW);
-  tickPosition = tickPositionRight = tickPositionLeft = navOldTickPosition = 0;
+  tickPosition = tickPositionRight = tickPositionLeft = navOldTickPosition = coTickPosition = 0;
   oldTPitch = 0.0D;
   currentMapLoc.x = 0;
   currentMapLoc.y = 0;
