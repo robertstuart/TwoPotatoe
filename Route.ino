@@ -49,16 +49,16 @@ void route() {
       break;
 
     case 'A':  // Adjust position and bearing
-       if (isEndStand()) isNewRouteStep = true;
-       else adjustPosition();
-       break;
+      if (isEndStand()) isNewRouteStep = true;
+      else adjustPosition();
+      break;
 
     case 'D':  // Discombobulator, going south.
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
       if (routeTargetXYDistance >= 0.0) isNewRouteStep = true;
       discombobulate();
       break;
- 
+
     case 'K':  // Discombobulator, going north.
       routeTargetXYDistance = routeTargetXY - currentMapLoc.y;
       if (routeTargetXYDistance <= 0.0) isNewRouteStep = true;
@@ -82,7 +82,16 @@ void route() {
       break;
 
     case 'T': // Turn
-      if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewRouteStep = true;
+      if (isTurnDegrees) {
+        if (turnDir == 'R') {
+          if (currentMapCumHeading > turnTargetCumHeading) isNewRouteStep = true;
+        } else {
+          if (currentMapCumHeading < turnTargetCumHeading) isNewRouteStep = true;
+        }
+      }
+      else {
+        if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewRouteStep = true;
+      }
       turnRadius();
       break;
 
@@ -94,8 +103,7 @@ void route() {
           isNewRouteStep = true;
           doChartedObject();
         }
-      }
-      else {
+      } else {
         if (routeCoDistance >= 0.0) {
           isNewRouteStep = true;
           doChartedObject();
@@ -182,7 +190,7 @@ boolean interpretRouteLine(String ss) {
   (*currentValSet).v = 2.0;  // restore speed correction.
 
   switch (routeCurrentAction) {
-    
+
     case 'A': // Adjust position and bearing.
       fixPosition = tickPosition;
       fixHeading = tickHeading;
@@ -190,7 +198,7 @@ boolean interpretRouteLine(String ss) {
       routeTargetLoc.x = 0.0;
       setPhantomTarget();
       break;
-    
+
     case 'C': // Charted object
       char1 = stepString.charAt(0);
       if (char1 == 'X') routeCurrentAction = 'x';
@@ -229,7 +237,7 @@ boolean interpretRouteLine(String ss) {
         else break;
       }
       break;
-      
+
     case 'D':  // Discombobulator
     case 'K':  // Discombobulator
       routeTargetLoc = readLoc();
@@ -308,8 +316,8 @@ boolean interpretRouteLine(String ss) {
       stripWhite();
       routeTitle = stepString;
       break;
-      
-     case 'O':  // Orient
+
+    case 'O':  // Orient
       char1 = stepString.charAt(0);
       if (char1 == 'W') {
         isRouteWait = true;
@@ -329,7 +337,7 @@ boolean interpretRouteLine(String ss) {
       routeFps = 1.1;
       jumpTarget = currentMapLoc.y + 2.3D; // Eventually stop if no jump.
       break;
-      
+
     case 'R':
       routeStepPtr = (int) readNum();
       Serial.print(retInt);
@@ -347,7 +355,7 @@ boolean interpretRouteLine(String ss) {
       else {
         isRouteWait = false;
       }
-      
+
       xyS = readNum();
       Serial.print(xyS); Serial.print("   ");
       if (xyS == STEP_ERROR) return false;
@@ -361,7 +369,7 @@ boolean interpretRouteLine(String ss) {
           routeTargetLoc.x = jumpFallXY + xyS;
           break;
         case 'Y':
-         axisC = 'Y';
+          axisC = 'Y';
           routeTargetLoc.y = xyS;
           break;
         case 'y':
@@ -383,26 +391,36 @@ boolean interpretRouteLine(String ss) {
       break;
 
     case 'T':  // Turn
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-      if (routeTargetLoc.y == STEP_ERROR) return false;
-
+      char1 = stepString.charAt(0);
+      if ((char1 == 'R') || (char1 == 'L')) {
+        isTurnDegrees = true;
+        turnDir = char1;
+        stepString = stepString.substring(1);
+        retDbl = readNum();
+        Serial.print(retDbl); Serial.print("  ");
+        if (retDbl == STEP_ERROR) return false;
+        turnTargetCumHeading = currentMapCumHeading + retDbl;
+      }
+      else {
+        isTurnDegrees = false;
+        routeTargetLoc = readLoc();
+        Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
+        if (routeTargetLoc.y == STEP_ERROR) return false;
+        setTargetBearing();
+        aDiff = routeTargetBearing - currentMapHeading;
+        if (aDiff > 180.0) aDiff -= 360.0;
+        else if (aDiff < -180.0) aDiff += 360.0;
+        routeIsRightTurn = aDiff > 0.0;
+      }
       routeFps = readNum();
       Serial.print(routeFps);  Serial.print("   ");
       if (routeFps == STEP_ERROR) return false;
-
       routeRadius = readNum();
       Serial.print(routeRadius);  Serial.print("   ");
       if (routeRadius < .5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0D ;
-
-      aDiff = routeTargetBearing - currentMapHeading;
-      if (aDiff > 180.0) aDiff -= 360.0;
-      else if (aDiff < -180.0) aDiff += 360.0;
-      routeIsRightTurn = aDiff > 0.0;
-      routeStartTickTurn = tickPosition;
       break;
-      
+
     case 'W':  // dup of G
       char1 = stepString.charAt(0);
       if (char1 == 'X') axisC = 'X';
@@ -433,7 +451,7 @@ boolean interpretRouteLine(String ss) {
       if (routeRadius < .5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0;
       break;
- 
+
     default:
       Serial.println("Step Error.");
       return false;
@@ -471,7 +489,7 @@ void doChartedObject() {
   boolean isHeadingEast = true;
   boolean isGoodReading = true;
 
-//  routeLog(); // Before
+  //  routeLog(); // Before
 
   if ((sonarRight < routeSonarMin) || (sonarRight > routeSonarMax)) isGoodReading = false;
 
@@ -543,7 +561,7 @@ void doChartedObject() {
       gyroCumHeading += angleCorrection;
     }
   }
-//  routeLog(); // After
+  //  routeLog(); // After
 
   //  sprintf(message, "%5.2f %5.2f", sonarRight, routeSonarDist);
   //  sprintf(message, "%5.2f %5.2f %5.2f", sonarRight, routeSonarDist, angleCorrection);
@@ -561,16 +579,16 @@ void doChartedObject() {
  *               the target, use the originalTargetBearing.
  ************************************************************************/
 void steerHeading() {
-//  static double oldTb = 0.0;
-//  double tb;  // Target bearing
-//
-//  // No turning when closer than X.X feet.
-//  if (abs(routeTargetXYDistance) < END_STEER)  tb = oldTb;
-//  else oldTb = tb = routeTargetBearing;
-//  if (routeFps < 0.0) tb += 180.0;
-//
-//  aDiff = tb - currentMapHeading;
-//
+  //  static double oldTb = 0.0;
+  //  double tb;  // Target bearing
+  //
+  //  // No turning when closer than X.X feet.
+  //  if (abs(routeTargetXYDistance) < END_STEER)  tb = oldTb;
+  //  else oldTb = tb = routeTargetBearing;
+  //  if (routeFps < 0.0) tb += 180.0;
+  //
+  //  aDiff = tb - currentMapHeading;
+  //
   double aDiff = phantomTargetBearing - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
@@ -590,7 +608,7 @@ void steerHeading() {
 
 
 /************************************************************************
- *  stopFix() Stop  and fix location on target X or Y.  
+ *  stopFix() Stop  and fix location on target X or Y.
  *  Return true if stabile or escape message received.
  ************************************************************************/
 boolean stopFix() {
@@ -628,7 +646,7 @@ boolean stopFix() {
         (abs(stopADiff) < 1.0) &&
         (abs(wheelSpeedFps) < 0.3) &&
         (abs(stopDist) < 0.25))  return true;
-      return false;
+    return false;
   }
 }
 
@@ -650,24 +668,23 @@ void discombobulate() {
 
 
 /************************************************************************
- *  turnRadius() Turn with a given radius.  If the radius is zero,
- *               the speed give the rate of rotation.  Otherwise,
- *               the speed gives the target fps during the turn;
+ *  turnRadius() Turn with a given radius.
  ************************************************************************/
 void turnRadius() {
   double speedAdjustment = 0.0;
   double aDiff  = 0.0;
-  if (routeRadius < 0.1) { // Turn in place?
-    
+  double d;
+  if (isTurnDegrees) {
+    d = (turnDir == 'R') ? 1.0 : -1.0;
   }
-  else { // Turn while moving 
+  else { // Turn toward the routeTarget
     aDiff = routeTargetBearing - currentMapHeading;
     if (aDiff > 180.0) aDiff -= 360.0;
     else if (aDiff < -180.0) aDiff += 360.0;
-    double d = (aDiff > 0.0) ? 1.0 : -1.0;
-  
-    speedAdjustment = (wheelSpeedFps / routeRadius) * 0.64 * d;
+    d = (aDiff > 0.0) ? 1.0 : -1.0;
+
   }
+  speedAdjustment = (wheelSpeedFps / routeRadius) * 0.64 * d;
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
 }
@@ -696,7 +713,7 @@ void orient() {
 
 
 /************************************************************************
- *  adjustPosition() Allow position and bearing to be adjusted        
+ *  adjustPosition() Allow position and bearing to be adjusted
  *                   from the joystick.
  ************************************************************************/
 void adjustPosition() {
@@ -720,7 +737,7 @@ void adjustPosition() {
     fixPosition = fixPosition + ((int) (joyY * 10.0));
   }
 
-  
+
   double aDiff = rangeAngle(fixHeading - tickHeading);
   speedAdjustment = aDiff * .2;
   tp6FpsRight = tp6Fps - speedAdjustment;
@@ -729,7 +746,7 @@ void adjustPosition() {
   // Adjust routeFps to keep position.
   int dist = coTickPosition - fixPosition; // P
   double fps = tp6LpfCos;
-  routeFps = ((double) -(dist * .004)) - (fps * 2.0);
+  routeFps = ((double) - (dist * .004)) - (fps * 2.0);
 }
 
 
@@ -749,9 +766,9 @@ boolean jump() {
       jumpTarget = currentMapLoc.y + 0.7;  // ----------CRITICAL! --------------
     }
   }
-//  if (currentMapLoc.y > (jumpTarget - 0.2)) {
-//    (*currentValSet).v = 5.0;  // increase speed correction.
-//  }
+  //  if (currentMapLoc.y > (jumpTarget - 0.2)) {
+  //    (*currentValSet).v = 5.0;  // increase speed correction.
+  //  }
   if (currentMapLoc.y > jumpTarget) {
     ret = true;
   }

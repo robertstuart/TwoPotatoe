@@ -10,8 +10,10 @@ int *beepSequence;
 int beepPtr = 0;
 
 #define SONAR_BUF_SIZE 6
-int sonarBuf[SONAR_BUF_SIZE];
-int sonarBufPtr = 0;
+int sonarBufRight[SONAR_BUF_SIZE];
+int sonarBufPtrRight = 0;
+int sonarBufLeft[SONAR_BUF_SIZE];
+int sonarBufPtrLeft = 0;
 
 boolean flip = false;
 int warningCount = 0;
@@ -266,26 +268,26 @@ void setBlink(int led, byte* pattern) {
 
 
 void beep(int seq[]) {
-//  beepPtr = 0;
-//  beepSequence = seq;
-//  Timer3.attachInterrupt(beepIsr);
-//  setBeep();
+  beepPtr = 0;
+  beepSequence = seq;
+  Timer3.attachInterrupt(beepIsr);
+  setBeep();
 }
 
 void setBeep() {
-//  int freq = beepSequence[beepPtr];
-//  if (freq != 0) {
-//    int halfCycle = (1000000 / 2) / freq;
-//    int dur = beepSequence[beepPtr + 1];
-//    beepCycleCount = (dur * 1000) / halfCycle;
-//    Timer3.start(halfCycle);
-//    beepPtr += 2;
-//  }
-//  else {
-//    Timer3.stop();
-//    Timer3.detachInterrupt();
-//    digitalWrite(SPEAKER_PIN, LOW);
-//  }
+  int freq = beepSequence[beepPtr];
+  if (freq != 0) {
+    int halfCycle = (1000000 / 2) / freq;
+    int dur = beepSequence[beepPtr + 1];
+    beepCycleCount = (dur * 1000) / halfCycle;
+    Timer3.start(halfCycle);
+    beepPtr += 2;
+  }
+  else {
+    Timer3.stop();
+    Timer3.detachInterrupt();
+    digitalWrite(SPEAKER_PIN, LOW);
+  }
 }
 
 void beepIsr() {
@@ -365,21 +367,44 @@ double getControllerX() {
  **************************************************************************/
 void sonar() {
   static unsigned long sonarTrigger = 0;
+  static boolean isSonarToggle = false;
   int r;
   if (timeMilliseconds > sonarTrigger) {
-    sonarTrigger = timeMilliseconds + 50UL;
-    int r = analogRead(SONAR_RIGHT_AN);
-    //   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds);
-    sonarBuf[sonarBufPtr++] = r;
-    if (sonarBufPtr >= SONAR_BUF_SIZE) sonarBufPtr = 0;
-    int minS = 1000000;
-    for (int i = 0; i < SONAR_BUF_SIZE; i++) {
-      if (minS > sonarBuf[i]) minS = sonarBuf[i];
+    isSonarToggle = !isSonarToggle;
+    sonarTrigger = timeMilliseconds + 101UL;
+    if (isSonarToggle) {
+      int r = analogRead(SONAR_RIGHT_AN);
+      //   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds);
+      sonarBufRight[sonarBufPtrRight++] = r;
+      if (sonarBufPtrRight >= SONAR_BUF_SIZE) sonarBufPtrRight = 0;
+      int minS = 1000000;
+      for (int i = 0; i < SONAR_BUF_SIZE; i++) {
+        if (minS > sonarBufRight[i]) minS = sonarBufRight[i];
+      }
+      sonarRightMin = ((double) minS) * SONAR_SENS; // to feet
+      sonarRight = ((double) r) * SONAR_SENS;
+      digitalWrite(SONAR_LEFT_RX,HIGH);
+      delayMicroseconds(50);
+      digitalWrite(SONAR_LEFT_RX,LOW);
     }
-    sonarRightMin = ((double) minS) * SONAR_SENS; // to feet
-    sonarRight = ((double) r) * SONAR_SENS;
+    else {
+      r = analogRead(SONAR_LEFT_AN);
+      //   Serial.print(r); Serial.print("\t"); Serial.println(timeMilliseconds);
+      sonarBufLeft[sonarBufPtrLeft++] = r;
+      if (sonarBufPtrLeft >= SONAR_BUF_SIZE) sonarBufPtrLeft = 0;
+      int minS = 1000000;
+      for (int i = 0; i < SONAR_BUF_SIZE; i++) {
+        if (minS > sonarBufLeft[i]) minS = sonarBufLeft[i];
+      }
+      sonarLeftMin = ((double) minS) * SONAR_SENS; // to feet
+      sonarLeft = ((double) r) * SONAR_SENS;
+      digitalWrite(SONAR_RIGHT_RX,HIGH);
+      delayMicroseconds(50);
+      digitalWrite(SONAR_RIGHT_RX,LOW);
+    }
   }
 }
+
 
 
 /**************************************************************************.

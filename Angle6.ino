@@ -36,15 +36,16 @@ void angleInit6() {
   compass.writeAccReg(LSM303::CTRL1, 0x67); // Accel DR=100 HZ, all axis
   gyro.init(L3G::device_D20H, L3G::sa0_high); // Sets no parameters
   gyro.writeReg(L3G::CTRL1, 0xBF); // power, all axes, DR=400 Hz, BW=110
+  gyro.writeReg(L3G::CTRL4, 0x30); // FS - 2000dps
 
   // Set up HMC5883L magnetometer
-//  Wire.beginTransmission(HC_ADDRESS);
-//  Wire.write(0x02); //select mode register
-//  Wire.write(0x00); //continuous measurement mode
-//  Wire.endTransmission();
-//
-//  delay(100);
-//  readCompass();  // Do this so we have a magHeading.
+  Wire.beginTransmission(HC_ADDRESS);
+  Wire.write(0x02); //select mode register
+  Wire.write(0x00); //continuous measurement mode
+  Wire.endTransmission();
+
+  delay(100);
+  readCompass();  // Do this so we have a magHeading.
 }
 
 #define TG_PITCH_TC 0.90D
@@ -236,7 +237,7 @@ void readCompass() {
 
 /***********************************************************************.
  *  setNavigation() Set gmHeading, tmHeading, tickHeading, currentLoc
- *                  Called 400/sec or every read of gyro.
+ *                  Called 400/sec (every read of gyro).
  ***********************************************************************/
 void setNavigation() {
 
@@ -249,15 +250,19 @@ void setNavigation() {
   // Map heading
   switch (headingSource) {
     case HEADING_SOURCE_G: // gyro
+      currentMapCumHeading = gyroCumHeading;
       currentMapHeading = gyroHeading;
       break;
     case HEADING_SOURCE_T: // ticks
+      currentMapCumHeading = tickCumHeading;
       currentMapHeading = tickHeading;
       break;
     case HEADING_SOURCE_M: // mag
+      currentMapCumHeading = magCumHeading;
       currentMapHeading = magHeading;
       break;
     case HEADING_SOURCE_GM: // gyro & mag complementary filtered
+      currentMapCumHeading = gmCumHeading;
       currentMapHeading = gmHeading;
       break;
   }

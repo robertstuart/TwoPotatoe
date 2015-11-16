@@ -2,7 +2,7 @@
 
 #include "Common.h"
 #include "pwm01.h"
-//#include <DueTimer.h>
+#include <DueTimer.h>
 #include <Wire.h>
 //#include <Wire1.h>
 #include <L3G.h>
@@ -72,12 +72,12 @@ const int HEADING_SOURCE_GM = 3;
 #define R_CURRENT_PIN A3             // Right motor current
 #define L_CURRENT_PIN A4             // Left motor current
 
-#define SONAR_RIGHT_AN A3
+#define SONAR_RIGHT_AN A5
 #define SONAR_FRONT_AN A4
-#define SONAR_LEFT_AN A5
-#define SONAR_RIGHT_RX 41
+#define SONAR_LEFT_AN A3
+#define SONAR_RIGHT_RX 45
 #define SONAR_FRONT_RX 43
-#define SONAR_LEFT_RX 45
+#define SONAR_LEFT_RX 41
 
 #define A_LIM 10.0 // degrees at which the speedAdjustment starts reducing.
 #define S_LIM 1.0  // maximum speedAdjustment;
@@ -107,7 +107,8 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 // Decrease this value to get greater turn for a given angle
 //#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
 //#define GYRO_SENS 0.0085     // Multiplier to get degree. -0.075/8?
-#define GYRO_SENS 0.00834139     // Multiplier to get degree. subtract 1.8662%
+//#define GYRO_SENS 0.00834139     // Multiplier to get degree. subtract 1.8662%
+#define GYRO_SENS 0.0667     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
 
 #define INVALID_VAL -123456.78D
 
@@ -189,7 +190,7 @@ struct valSet tp6 = {
   0.18,    // w
   0.05,    // x
  130.0,   // y
-  -1.2}; // z accelerometer offset
+  -2.8}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -213,10 +214,9 @@ boolean decelStopped = false;
 int routeStepPtr = 0;
 String routeTitle = "No route";
 
-  int routeStartTickTurn = 0;
-  int turnTickProgress = 0;
-  double turnTargetBearing = 0.0;
-  double turnTrim = 0.0;
+boolean isTurnDegrees = false;
+char turnDir = ' ';
+double turnTargetCumHeading = 0.0;
 
 char routeCurrentAction = 0;
 double routeTargetBearing = 0.0;
@@ -234,6 +234,7 @@ double routeTargetXY = 0.0;
 double mapOrientation = 0.0;
 long navOldTickPosition = 0L;
 double currentMapHeading = 0.0;
+double currentMapCumHeading = 0.0;
 double routeTargetXYDistance = 0.0;
 double routeCoDistanceXY = 0.0;
 double routeSonarMin = 0.0;
@@ -365,8 +366,8 @@ unsigned int forceRight = 0; // force sensor value
 unsigned int forceLeft = 0; // force sensor value
 double sonarRight = 0.0;
 double sonarRightMin = 0.0;
-unsigned int sonarFront = 0;
-unsigned int sonarLeft = 0;
+double sonarLeft = 0.0;
+double sonarLeftMin = 0.0;
 
 unsigned int actualLoopTime; // Time since the last
 double hcX = 0.0;
@@ -536,9 +537,9 @@ void setup() {
   pinMode(SONAR_RIGHT_RX, OUTPUT);
   pinMode(SONAR_FRONT_RX, OUTPUT);
   pinMode(SONAR_LEFT_RX, OUTPUT);
-  digitalWrite(SONAR_RIGHT_RX,HIGH);
-  digitalWrite(SONAR_FRONT_RX,HIGH);
-  digitalWrite(SONAR_LEFT_RX,HIGH);
+  digitalWrite(SONAR_RIGHT_RX,LOW);
+  digitalWrite(SONAR_FRONT_RX,LOW);
+  digitalWrite(SONAR_LEFT_RX,LOW);
   
   pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
@@ -560,7 +561,6 @@ void setup() {
   motorInitTp();
   Serial.println("Motors initialized.");
   gyroTrigger = micros();
-  beep(BEEP_UP);
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
     aArray[i] = 42;
@@ -570,6 +570,7 @@ void setup() {
   }
   zeroGyro();
   Serial.println("Gyro zeroed out.");
+  beep(BEEP_UP);
   diagnostics();
   Serial.println("Diagnosits ignored.");
 } // end setup()
@@ -841,8 +842,9 @@ void diagnostics() {
     Serial.print("forceLeft: "); Serial.print(forceLeft); Serial.println();
 
     // Sonar
-    double rSonar = analogRead(SONAR_RIGHT_AN) * SONAR_SENS;
-    Serial.print("Sonar: "); Serial.print(rSonar); Serial.println();
+    double sonar = analogRead(SONAR_RIGHT_AN) * SONAR_SENS;
+    Serial.print("Right Sonar: "); Serial.print(sonar); Serial.print("\t");
+    Serial.print("Left Sonar: "); Serial.print(sonar); Serial.println();
 
     // Motors
     readSpeedRight();

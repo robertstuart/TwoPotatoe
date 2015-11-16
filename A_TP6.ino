@@ -38,7 +38,7 @@ void aTp6Run() {
       subCycle++;
       setControllerXY();
       readGyro();
-//      if ((subCycle % 16) == 3) readCompass();   // 25/sec
+      if ((subCycle % 16) == 3) readCompass();   // 25/sec
       setNavigation();
       if ((subCycle % 4)  == 1) readAccel();  // 100/sec
       aTp6(); 
@@ -148,22 +148,23 @@ void sendTp6Status() {
     isNewMessage = false;
   }
   else if ((loopc == 10) || (loopc == 30)) { // Logging & debugging 20/sec
-//    log20PerSec();
+    log20PerSec();
 //    if (isRouteInProgress) routeLog();
   }    
 //  if (loopd == 0) log1PerSec();
-  log400PerSec();
+//  log400PerSec();
 }
 
 void log20PerSec() {
+  if (!isRouteInProgress) return;
   addLog(
         (long) coTickPosition,
-        (short) (gaPitch * 100.0),
-        (short) (wheelSpeedFps),
-        (short) (0),
-        (short) (0),
-        (short) (0),
-        (short) (isOnGround)
+        (short) (currentMapCumHeading * 10.0),
+        (short) (turnTargetCumHeading * 10.0),
+        (short) (wheelSpeedFps * 100.0),
+        (short) (routeStepPtr),
+        (short) (currentMapLoc.x * 100.0),
+        (short) (currentMapLoc.y * 100.0)
    );
 }
 

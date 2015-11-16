@@ -244,7 +244,8 @@ void sendStatusBluePc() {
   sendBMsg(SEND_FPS, 2, wheelSpeedFps);
   sendBMsg(SEND_HEADING, 1, magHeading);
   sendBMsg(SEND_PITCH, 1, gaPitch);
-  sendBMsg(SEND_SONAR, 2, sonarRight);
+  sendBMsg(SEND_SONAR_R, 2, sonarRight);
+  sendBMsg(SEND_SONAR_L, 2, sonarLeft);
   sendBMsg(SEND_ROUTE_STEP, routeStepPtr); // integer
   sendBMsg(SEND_BATT, battVolt); // integer
   if (isNewMessage) {
@@ -256,7 +257,8 @@ void sendStatusBluePc() {
 void sendStatusXBeeHc() {
   sendXMsg(SEND_FPS, 2, wheelSpeedFps);
   sendXMsg(SEND_HEADING, 1, magHeading);
-  sendXMsg(SEND_SONAR, 2, sonarRight);
+  sendXMsg(SEND_SONAR_R, 2, sonarRight);
+  sendXMsg(SEND_SONAR_L, 2, sonarLeft);
   sendXMsg(SEND_ROUTE_STEP, routeStepPtr); // integer
   sendXMsg(SEND_BATT, battVolt); // integer
   sendXMsg(SEND_X, 2, currentMapLoc.x); // float

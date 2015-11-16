@@ -4,7 +4,7 @@ const int SEND_MESSAGE     = 129;
 const int SEND_FPS         = 130;
 const int SEND_PITCH       = 131;
 const int SEND_HEADING     = 132;
-const int SEND_SONAR       = 133;
+const int SEND_SONAR_R     = 133;
 const int SEND_ROUTE_STEP  = 134;
 const int SEND_DUMP_DATA   = 135;
 const int SEND_STATE       = 136;
@@ -14,6 +14,8 @@ const int SEND_VALSET      = 139;
 const int SEND_ROUTE_NAME  = 140;
 const int SEND_X           = 141;
 const int SEND_Y           = 142;
+const int SEND_SONAR_F     = 143;
+const int SEND_SONAR_L     = 144;
 
 const int RCV_JOYX         = 129;
 const int RCV_JOYY         = 130;
@@ -40,7 +42,9 @@ const int RCV_XXXX_ROUTE   = 150;
 const int RCV_DELETE_ROUTE = 151;
 const int RCV_MODE         = 152;
 const int RCV_STAND        = 153;
-const int RCV_XXXXXXXX2    = 154; // unused
+const int RCV_SONAR_R      = 154; // Right sonar on/off
+const int RCV_SONAR_F      = 155; 
+const int RCV_SONAR_L      = 156; 
 
 const int SEND_RCV_TERM    =   0;
 
@@ -66,25 +70,3 @@ const int MM_DRIVE_COAST = 1;
 const int VAL_SET_A           = 0;
 const int VAL_SET_B           = 1;
 const int VAL_SET_C           = 2;
-
-// Message\ sent by TP - byte position
-const int TP_SEND_FLAG =             0;  // 1-byte, Flag and packet type
-const int TP_SEND_VALUE =            1;  // 2-byte, value
-const int TP_SEND_SONAR =            3;  // Sonar distance
-const int TP_SEND_HEADING =          5;  // Yaw/Bearing
-const int TP_SEND_END =              7;  // offset after last value	
-
-// Messages received by TwoPotatoe
-const int TP_RCV_MSG_TYPE =        0;  // 1-byte message type or packet type
-const int TP_RCV_MSG_VAL =         1;  // 2-byte message value
-const int TP_RCV_X =               3;  // 1-byte x joystick
-const int TP_RCV_Y =               4;  // 1-byte y joystick
-const int TP_RCV_MAX =             5;
-
-// Block types.  Must be non-overlapping with TP_RCV_MSG_xxx
-const int TP_BLOCK_NULL     =    100;  // Must be greater than this
-const int TP_BLOCK_ROUTE    =    101;
-const int TP_BLOCK_PULSE    =    102;
-
-// Character definitions for route actions
-

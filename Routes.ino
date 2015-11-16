@@ -14,6 +14,17 @@ String stand1[] = {
   "F"
 };  
 
+String circle[] = {
+  "N Circle",
+  "TR 360 2 2,5",
+  "TR 360 4 2.5",
+  "TR 360 6 2.5",
+  "TR 360 6 1.5",
+  "TR 360 4 1.5",
+  "TR 360 2 1.5",
+  "F"
+};
+
 String singleStep[] = {
   "N Single Step",
   "A",
@@ -296,7 +307,7 @@ String rtA[] = {
 }; 
 
 String *routeTable[] = {
-  loadedRoute, singleStep, backSteps, stand1, smallSquare, runupJump,};
+  loadedRoute, circle, singleStep, backSteps, spSteps, stand1, smallSquare, runupJump,};
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
 
