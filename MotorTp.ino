@@ -61,12 +61,18 @@ void encoderIsrRight() {
     
   if (encA == encB) {
     tickPeriodRight = (long) tickTimeRight - (long) lastTickTime;
+//    tickNumRight = ++tickNumRight % 1024;
     tickPositionRight++;
   } 
   else {
     tickPeriodRight = (long) lastTickTime - (long) tickTimeRight;
+//    tickNumRight--;
+//    if (tickNumRight == -1) tickNumRight = 1023;
     tickPositionRight--;
   }
+//  if (zStateRight != oldZStateRight) {
+//    
+//  }
   wsMFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
   wsMFpsRightSum += wsMFpsRight;
   wsMFpsRightCount++;
@@ -498,5 +504,9 @@ void readSpeed() {
   mWheelSpeedFps = (mFpsRight + mFpsLeft) / 2.0D;
 }
 
-
+//
+//int tickComp(int tickNum, int tickVal) {
+//  int tComp = tCompVals[tickNum] + 1000; // +-12.8%
+//  return (tComp * tickVal) / 1000;
+//}
 

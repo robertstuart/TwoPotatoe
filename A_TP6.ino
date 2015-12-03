@@ -27,7 +27,7 @@ void aTp6Run() {
   setBlink(RED_LED_PIN, BLINK_SB);
   delay(200);
   readCompass();
-  resetNavigation('M', 0.0);
+  setHeading(0.0D);
   while(mode == MODE_TP6) { // main loop
     commonTasks();
     // Do the timed loop
@@ -47,8 +47,7 @@ void aTp6Run() {
       switches();
       checkMotorRight();
       checkMotorLeft();
-//      log6();
-    } // end timed loop
+    } // end timed 400/sec loop
   }
 }
 
@@ -148,7 +147,7 @@ void sendTp6Status() {
     isNewMessage = false;
   }
   else if ((loopc == 10) || (loopc == 30)) { // Logging & debugging 20/sec
-    log20PerSec();
+//    log20PerSec();
 //    if (isRouteInProgress) routeLog();
   }    
 //  if (loopd == 0) log1PerSec();
@@ -156,6 +155,9 @@ void sendTp6Status() {
 }
 
 void log20PerSec() {
+//  snprintf(pBuf, sizeof(pBuf), "%5d", (int) gyroCumHeading);
+//  sendBMsg(SEND_MESSAGE, pBuf); 
+
   if (!isRouteInProgress) return;
   addLog(
         (long) coTickPosition,
@@ -168,19 +170,6 @@ void log20PerSec() {
    );
 }
 
-//void log400PerSec() {
-////  if (!isRouteInProgress) return;
-//  addLog(
-//        (long) (gPitch * 100.0),
-//        (short) (gaPitch * 100.0),
-//        (short) (wheelSpeedFps * 100.0),
-//        (short) (tp6LpfCos * 100.0),
-//        (short) (tp6ControllerSpeed * 100.0),
-//        (short) (((double)(targetMFpsRight + targetMFpsRight)) / 20.0D),
-//        (short) (isOnGround)
-//   );
-//}
-
 void log400PerSec() {
 //  if (!isRouteInProgress) return;
   addLog(
@@ -192,24 +181,6 @@ void log400PerSec() {
         (short) (stopDist * 100.0),
         (short) (routeStepPtr)
    );
-
-
-//    int bounds = 0;
-//    if (abs(gaPitch) < 1.0) bounds++;
-//    if  (abs(tp6LpfCos) < 0.1)  bounds++;
-//    if  (abs(stopADiff) < 1.0)  bounds++;
-//    if  (abs(wheelSpeedFps) < 0.1)  bounds++;
-//    if  (abs(stopDist) < 0.05)   bounds++;
-//    
-//  addLog(
-//        (long) (bounds),
-//        (short) (gaPitch * 100.0),
-//        (short) (tp6LpfCos * 100.0),
-//        (short) (stopADiff * 100.0),
-//        (short) (wheelSpeedFps * 100.0),
-//        (short) (stopDist * 100.0),
-//        (short) (wheelSpeedFps * 100.0)
-//   );
 }
         
 void log1PerSec() {

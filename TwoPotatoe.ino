@@ -4,7 +4,6 @@
 #include "pwm01.h"
 #include <DueTimer.h>
 #include <Wire.h>
-//#include <Wire1.h>
 #include <L3G.h>
 #include <LSM303.h>
 
@@ -101,7 +100,7 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 //#define TICKS_PER_PITCH_DEGREE 20.0
 #define TICKS_PER_PITCH_DEGREE 54.0D
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
-#define DEFAULT_MAP_ORIENTATION 0.0
+#define DEFAULT_GRID_OFFSET 0.0
 #define SONAR_SENS 0.0385
 
 // Decrease this value to get greater turn for a given angle
@@ -136,7 +135,7 @@ int BEEP_WARBLE[] = {2400, 300, 2600, 300,
                   2400, 300, 2600, 300, 
                   2400, 300, 2600, 300, 
                   2400, 300, 2600, 300, 0};
-int BEEP_DOWN[] = {1000, 300, 1500, 300, 0};
+int BEEP_DOWN[] = {1000, 200, 666, 200, 0};
 
 // new flash sequences
 const byte END_MARKER = 42;
@@ -215,8 +214,8 @@ int routeStepPtr = 0;
 String routeTitle = "No route";
 
 boolean isTurnDegrees = false;
-char turnDir = ' ';
 double turnTargetCumHeading = 0.0;
+struct loc pivotLoc;
 
 char routeCurrentAction = 0;
 double routeTargetBearing = 0.0;
@@ -231,7 +230,6 @@ int routeWaitTime = 0L;
 boolean isEsReceived = false;
 boolean isRouteTargetIncreasing = false;
 double routeTargetXY = 0.0;
-double mapOrientation = 0.0;
 long navOldTickPosition = 0L;
 double currentMapHeading = 0.0;
 double currentMapCumHeading = 0.0;
@@ -246,12 +244,12 @@ int originalAction = 0;
 int gyroTempCompX = 200;
 int gyroTempCompY = 0;
 int gyroTempCompZ = 105;
-int sumX = 0;
-int sumY = 0;
-int sumZ = 0;
-int meanX = 0;
-int meanY = 0;
-int meanZ = 0;
+double sumX = 0.0D;
+double sumY = 0.0D;
+double sumZ = 0.0D;
+double meanX = 0.0D;
+double meanY = 0.0D;
+double meanZ = 0.0D;
 
 double gaPitch = 0.0;
 double gaFullPitch = 0.0;
@@ -261,9 +259,9 @@ double gaRoll = 0.0;
 double aPitch = 0.0;
 double aRoll = 0.0;
 
-int pitchDrift = 0;
-int rollDrift = 0;
-int yawDrift = 0;
+double pitchDrift = 0.0D;
+double rollDrift = 0.0D;
+double yawDrift = 0.0D;
 double gPitch = 0.0;
 double gRoll = 0.0;
 double gYaw = 0.0;
@@ -292,12 +290,14 @@ double headX, headY;
 
 int16_t mX, mY, mZ;
 
-double magHeading = 0.0; // In degrees.
-double magCumHeading = 0.0;
-double magRotations = 0.0;
-double tickHeading = 0.0; // In degrees.
-double tickCumHeading = 0.0; // In degrees.
-int tickHeadingOffset = 0;
+boolean isMagAdjust = true;
+double magHeading = 0.0;
+double gridOffset = 0.0;
+double gridHeading = 0.0;
+double gridCumHeading = 0.0;
+double gridRotations = 0.0;
+double tickHeading = 0.0;
+double tickCumHeading = 0.0;
 double tmHeading = 0.0;
 double tmCumHeading = 0.0;
 double gmHeading = 0.0;
@@ -379,22 +379,30 @@ double controllerY = 0.0;  // Y value set by message from controller
 boolean isNewMessage = false;
 char message[100] = "";
 
+int gyroFahrenheit = 0;
 double gyroPitchRaw;  // Vertical plane parallel to wheels
 double gyroPitchRate;
 long gyroPitchRawSum;
 double oldGaPitch = 0.0;
 double gyroPitchDelta = 0.0;
 double gyroPitch = 0.0; // not needed
+double temperatureDriftPitch = 0.0D;
+double timeDriftPitch = 0.0;
 
 double gyroRollRaw = 0;
 double gyroRollRate;
 double gyroRoll = 0.0f;
 double accelRoll = 0.0f;
+double temperatureDriftRoll = 0.0D;
+double timeDriftRoll = 0.0;
 
 double gyroYawRaw = 0.0f;
 double gyroYawRate = 0.0f;
 double gyroYawAngle = 0.0f;
 double gyroYawRawSum = 0.0;
+double temperatureDriftYaw = 0.0D;
+double timeDriftYaw = 0.0;
+
 int gyroErrorX = 0;
 int gyroErrorY = 0;
 int gyroErrorZ = 0;
@@ -495,7 +503,7 @@ unsigned int stopTimeRight = UNSIGNED_LONG_MAX;
 unsigned int stopTimeLeft = UNSIGNED_LONG_MAX;
 
 int motorRightAction;
-int headingSource = HEADING_SOURCE_GM;
+int headingSource = HEADING_SOURCE_G;
 boolean isRouteWait = false;
 long standPos = 0;
 int msgCmdX = 0;
@@ -507,6 +515,8 @@ double tp6ControllerSpeed = 0;
 double jumpTarget;
 double jumpFallXY;
 
+double routeTargetMagHeading = 0.0;
+char pBuf[100];
 /*********************************************************
  *
  * setup()
@@ -570,7 +580,6 @@ void setup() {
   }
   zeroGyro();
   Serial.println("Gyro zeroed out.");
-  beep(BEEP_UP);
   diagnostics();
   Serial.println("Diagnosits ignored.");
 } // end setup()
@@ -733,65 +742,6 @@ void aPulseSequence() {
       }
     } 
   }
-}
-
-
-/**************************************************************************.
- * zeroGyro()
- **************************************************************************/
-void zeroGyro() {
-  int loopCount = 400;
-  double sumPitch = 0;
-  double sumRoll = 0;
-  double sumYaw = 0;
-  double gyroPitchMin, gyroPitchMax;
-  double gyroRollMin, gyroRollMax;
-  double gyroYawMin, gyroYawMax;
-  unsigned long endTime = millis() + 2000;
-  readGyro();
-  gyroPitchMin = gyroPitchMax = gyroPitchRaw;
-  gyroRollMin = gyroRollMax = gyroRollRaw;
-  gyroYawMin = gyroYawMax = gyroYawRaw;
-  while(true) {
-    if (readGyro()) {
-      sumPitch += gyroPitchRaw;
-      if (gyroPitchRaw > gyroPitchMax) gyroPitchMax = gyroPitchRaw;
-      if (gyroPitchRaw < gyroPitchMin) gyroPitchMin = gyroPitchRaw;
-      sumRoll += gyroRollRaw;
-      if (gyroRollRaw > gyroRollMax) gyroRollMax = gyroRollRaw;
-      if (gyroRollRaw < gyroRollMin) gyroRollMin = gyroRollRaw;
-      sumYaw += gyroYawRaw;
-      if (gyroYawRaw > gyroYawMax) gyroYawMax = gyroYawRaw;
-      if (gyroYawRaw < gyroYawMin) gyroYawMin = gyroYawRaw;
-      if (--loopCount <= 0) {
-        pitchDrift = (int) (sumPitch / 400.0);
-        rollDrift = (int) (sumRoll / 400.0);
-        yawDrift = (int) (sumYaw / 400.0);
-        break;
-      }
-      if (millis() > endTime) break;
-    }
-  }
-  Serial.println();
-  Serial.print("pitchDrift: "); Serial.print(pitchDrift); Serial.print("\t");
-  Serial.print("rollDrift: "); Serial.print(rollDrift); Serial.print("\t");
-  Serial.print("yawDrift: "); Serial.print(yawDrift); Serial.println();
-  
-  Serial.print("Pitch min: "); Serial.print(gyroPitchMin,0); Serial.print("\t");
-  Serial.print("Pitch Max: "); Serial.print(gyroPitchMax,0); Serial.print("\t");
-  Serial.print("Pitch Range: "); Serial.print(gyroPitchMax - gyroPitchMin,0); Serial.println();
-  
-  Serial.print("Roll min: "); Serial.print(gyroRollMin,0); Serial.print("\t");
-  Serial.print("Roll Max: "); Serial.print(gyroRollMax,0); Serial.print("\t");
-  Serial.print("Roll Range: "); Serial.print(gyroRollMax - gyroPitchMin,0); Serial.println();
-  
-  Serial.print("Yaw min: "); Serial.print(gyroYawMin,0); Serial.print("\t");
-  Serial.print("Yaw Max: "); Serial.print(gyroYawMax,0); Serial.print("\t");
-  Serial.print("Yaw Range: "); Serial.print(gyroYawMax - gyroYawMin,0); Serial.println();
-  
-  gPitch = 0.0;
-  gRoll = 0.0;
-  gYaw = 0.0;
 }
 
 

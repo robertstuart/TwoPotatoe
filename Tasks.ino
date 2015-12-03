@@ -22,8 +22,6 @@ int addFlip = 0;
 boolean redLedState = false;
 boolean greenLedState = false;
 unsigned long taskMilliseconds = 0L;
-unsigned long batteryTrigger = 0L;
-unsigned long blinkTrigger = 0L;
 unsigned long gravityTrigger = 0L;
 //unsigned long audioTrigger = 0L;
 unsigned long errorTrigger = 0L;
@@ -67,6 +65,7 @@ void commonTasks() {
   liftJump();
   setRunningState();
   sonar();
+  gyroTemperature();
 }
 
 
@@ -206,9 +205,26 @@ void controllerConnected() {
  * battery()
  ***************************************************************/
 void battery() {
+  static unsigned long batteryTrigger = 0L;
   if (timeMilliseconds > batteryTrigger) {
-    batteryTrigger += 1000;  // 1 per second
+    batteryTrigger = timeMilliseconds + 1000;  // 1 per second
     battVolt = (1000 * analogRead(BATT_PIN)) / 451;
+  }
+}
+
+
+
+/**************************************************************************.
+ * gyroTemperature() Not used. Doesn't improve drift over small 
+ *                   temperature ranges.
+ **************************************************************************/
+void gyroTemperature() {
+  static unsigned long gyroTemperatureTrigger = 0UL;
+  if (timeMilliseconds > gyroTemperatureTrigger) {
+    gyroTemperatureTrigger = timeMilliseconds + 1000;  // 1 per second
+    int t = gyro.readReg(L3G::OUT_TEMP);
+    if (t > 127) t -= 256;
+    gyroFahrenheit = (((33 - t) * 9) / 5) + 32;
   }
 }
 
@@ -217,8 +233,9 @@ void battery() {
  *  led() Call at least 10/sec
  **************************************************************************/
 void led() {
+  static unsigned long blinkTrigger = 0L;
   if (timeMilliseconds > blinkTrigger) {
-    blinkTrigger += 100;  // 10 per second
+    blinkTrigger = timeMilliseconds + 100;  // 10 per second
 
     int b = (patternBlue[blinkPtrBlue++] == 1) ? HIGH : LOW;
     if (patternBlue[blinkPtrBlue] == END_MARKER) blinkPtrBlue = 0;
@@ -411,8 +428,8 @@ void sonar() {
  *  rangeAngle() Set angle value between -180 and +180
  **************************************************************************/
 double rangeAngle(double head) {
-  if (head > 180.0) head -= 360.0;
-  else if (head < -180.0) head += 360.0;
+  while (head > 180.0D) head -= 360.0D;
+  while (head <= -180.0D) head += 360.0D;
   return head;
 }
 

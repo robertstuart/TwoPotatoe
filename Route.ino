@@ -40,7 +40,6 @@ void route() {
   // See of we need to move to the next route step.
   switch (routeCurrentAction) {
     case 'N':
-    case 'M':
     case 'Z':
     case 'E':
     case 'W':
@@ -49,7 +48,11 @@ void route() {
       break;
 
     case 'A':  // Adjust position and bearing
-      if (isEndStand()) isNewRouteStep = true;
+      if (isEndStand()) {
+        isNewRouteStep = true;
+        setHeading(0.0D);
+        setLoc(0.0D, 0.0D);
+      }
       else adjustPosition();
       break;
 
@@ -83,7 +86,7 @@ void route() {
 
     case 'T': // Turn
       if (isTurnDegrees) {
-        if (turnDir == 'R') {
+        if (routeIsRightTurn) {
           if (currentMapCumHeading > turnTargetCumHeading) isNewRouteStep = true;
         } else {
           if (currentMapCumHeading < turnTargetCumHeading) isNewRouteStep = true;
@@ -173,11 +176,9 @@ void route() {
  *      Read the new route step and set the values.
  ************************************************************************/
 boolean interpretRouteLine(String ss) {
-  double retDbl;
+  double pivotDir, dblVal, aDiff;
   int retInt;
   char char1, char2;
-  double xyS;
-  double aDiff;
 
   stepString = ss;
   isSaveOrientation = isSavePosition = isFixOrientation = false;
@@ -192,6 +193,15 @@ boolean interpretRouteLine(String ss) {
   switch (routeCurrentAction) {
 
     case 'A': // Adjust position and bearing.
+      isMagAdjust = false;
+      char1 = stepString.charAt(0);
+      if (char1 == 'M') {
+        isMagAdjust = true;
+        stepString = stepString.substring(1);
+        gridOffset = readNum();
+        Serial.print(routeCoDistanceXY); Serial.print("   ");
+        if ((gridOffset < -180.0D) || (gridOffset > 180.0)) return false;
+      }
       fixPosition = tickPosition;
       fixHeading = tickHeading;
       routeTargetLoc.y = 100.0; // For following command.
@@ -290,26 +300,17 @@ boolean interpretRouteLine(String ss) {
       break;
 
     case 'H':
-      char1 = stepString.charAt(0);
-      if (char1 == 'G') {
-        headingSource = HEADING_SOURCE_G;
-        gyroCumHeading = magCumHeading;
+      if (headingSource == HEADING_SOURCE_M) {
+        gyroCumHeading = gyroHeading = gridHeading;
+        tickCumHeading = tickHeading = gridHeading;
+        gmCumHeading = gmHeading = gridHeading;
+        tmCumHeading = tmHeading = gridHeading;
       }
+      char1 = stepString.charAt(0);
+      if      (char1 == 'G')  headingSource = HEADING_SOURCE_G;
       else if (char1 == 'M') headingSource = HEADING_SOURCE_M;
       else if (char1 == 'T') headingSource = HEADING_SOURCE_T;
       else if (char1 == 'H') headingSource = HEADING_SOURCE_GM;
-      break;
-
-    case 'M':
-      char1 = stepString.charAt(0);
-      stepString = stepString.substring(1);
-      if ((char1 != 'G') && (char1 != 'T') && (char1 != 'M')) return false;
-      if (char1 == 'M') {
-        retDbl = readNum();
-        Serial.print(retDbl);
-        if (retDbl == STEP_ERROR) return false;
-      }
-      resetNavigation(char1, retDbl);
       break;
 
     case 'N':
@@ -326,9 +327,9 @@ boolean interpretRouteLine(String ss) {
       else {
         isRouteWait = false;
       }
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-      if (routeTargetLoc.y == STEP_ERROR) return false;
+      routeTargetMagHeading = readNum();
+      Serial.print(routeTargetMagHeading); Serial.print("  "); 
+      if (routeTargetMagHeading == STEP_ERROR) return false;
       standPos = tickPosition;
       break;
 
@@ -356,25 +357,25 @@ boolean interpretRouteLine(String ss) {
         isRouteWait = false;
       }
 
-      xyS = readNum();
-      Serial.print(xyS); Serial.print("   ");
-      if (xyS == STEP_ERROR) return false;
+      dblVal = readNum();
+      Serial.print(dblVal); Serial.print("   ");
+      if (dblVal == STEP_ERROR) return false;
       switch (char1) {
         case 'X':
           axisC = 'X';
-          routeTargetLoc.x = xyS;
+          routeTargetLoc.x = dblVal;
           break;
         case 'x':
           axisC = 'X';
-          routeTargetLoc.x = jumpFallXY + xyS;
+          routeTargetLoc.x = jumpFallXY + dblVal;
           break;
         case 'Y':
           axisC = 'Y';
-          routeTargetLoc.y = xyS;
+          routeTargetLoc.y = dblVal;
           break;
         case 'y':
           axisC = 'Y';
-          routeTargetLoc.y = jumpFallXY + xyS;
+          routeTargetLoc.y = jumpFallXY + dblVal;
           break;
         default:
           return false;
@@ -394,12 +395,12 @@ boolean interpretRouteLine(String ss) {
       char1 = stepString.charAt(0);
       if ((char1 == 'R') || (char1 == 'L')) {
         isTurnDegrees = true;
-        turnDir = char1;
+        routeIsRightTurn = (char1 == 'R') ? true : false;
         stepString = stepString.substring(1);
-        retDbl = readNum();
-        Serial.print(retDbl); Serial.print("  ");
-        if (retDbl == STEP_ERROR) return false;
-        turnTargetCumHeading = currentMapCumHeading + retDbl;
+        dblVal = readNum();
+        Serial.print(dblVal); Serial.print("  ");
+        if (dblVal == STEP_ERROR) return false;
+        turnTargetCumHeading = currentMapCumHeading + dblVal;
       }
       else {
         isTurnDegrees = false;
@@ -417,8 +418,15 @@ boolean interpretRouteLine(String ss) {
       if (routeFps == STEP_ERROR) return false;
       routeRadius = readNum();
       Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius < .5) routeRadius = 0.5;
+      if (routeRadius < 0.5) routeRadius = 0.5;
       if (routeRadius == STEP_ERROR) routeRadius = 2.0D ;
+      pivotDir = routeIsRightTurn ? (currentMapHeading + 90.0) : (currentMapHeading - 90.0);
+      pivotDir = rangeAngle(pivotDir);
+      pivotLoc.x = (sin(pivotDir * DEG_TO_RAD) * routeRadius) +  currentMapLoc.x;
+      pivotLoc.y = (cos(pivotDir * DEG_TO_RAD) * routeRadius) +  currentMapLoc.y;
+      sprintf(message, "pivotLoc.x: %5.2f     pivotLoc.y: %5.2f", pivotLoc.x, pivotLoc.y);
+      sendBMsg(SEND_MESSAGE, message);
+      Serial.println(); 
       break;
 
     case 'W':  // dup of G
@@ -675,15 +683,20 @@ void turnRadius() {
   double aDiff  = 0.0;
   double d;
   if (isTurnDegrees) {
-    d = (turnDir == 'R') ? 1.0 : -1.0;
+    d = routeIsRightTurn ? 1.0 : -1.0;
   }
   else { // Turn toward the routeTarget
-    aDiff = routeTargetBearing - currentMapHeading;
+    aDiff = routeTargetBearing - magHeading;
     if (aDiff > 180.0) aDiff -= 360.0;
     else if (aDiff < -180.0) aDiff += 360.0;
     d = (aDiff > 0.0) ? 1.0 : -1.0;
-
   }
+//  double xDist = currentMapLoc.x - pivotLoc.x;
+//  double yDist = currentMapLoc.y - pivotLoc.y;
+//  double dDiff = sqrt((xDist * xDist) + (yDist * yDist)) - routeRadius;
+//  double targetAngle = (atan2(xDist, yDist) * RAD_TO_DEG) + 90.0;
+//  targetAngle = rangeAngle(targetAngle);
+//  aDiff = rangeAngle(targetAngle - currentMapHeading);
   speedAdjustment = (wheelSpeedFps / routeRadius) * 0.64 * d;
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
@@ -697,7 +710,7 @@ void turnRadius() {
 void orient() {
   double speedAdjustment = 0.0;
 
-  double aDiff = routeTargetBearing - currentMapHeading;
+  double aDiff = routeTargetMagHeading - currentMapHeading;
   if (aDiff > 180.0) aDiff -= 360.0;
   else if (aDiff < -180.0) aDiff += 360.0;
 
@@ -719,34 +732,32 @@ void orient() {
 void adjustPosition() {
   static boolean isOldOnGround = false;
   float speedAdjustment = 0.0;
-  float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
-  float joyY = (abs(pcY) > abs(hcY)) ? pcY : hcY;
   routeFps = 0.0;
+  double aDiff;
 
-  if (isOnGround && !isOldOnGround) {
-    fixPosition = tickPosition;
-    fixHeading = tickHeading;
-  }
-  isOldOnGround = isOnGround;
-
-  // Change the targets
-  if (abs(joyX) > 0.05) {
-    fixHeading = rangeAngle(fixHeading + (joyX * .2));
-  }
+  // Adjust the position
+  float joyY = (abs(pcY) > abs(hcY)) ? pcY : hcY;
   if (abs(joyY) > 0.05) {
     fixPosition = fixPosition + ((int) (joyY * 10.0));
   }
-
-
-  double aDiff = rangeAngle(fixHeading - tickHeading);
-  speedAdjustment = aDiff * .2;
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  tp6FpsLeft = tp6Fps + speedAdjustment;
-
-  // Adjust routeFps to keep position.
   int dist = coTickPosition - fixPosition; // P
-  double fps = tp6LpfCos;
+  double fps = tp6LpfCos;                  // D
   routeFps = ((double) - (dist * .004)) - (fps * 2.0);
+
+  // Adjust the heading.
+  if (isMagAdjust) {
+    speedAdjustment = gridHeading * (S_LIM / A_LIM);
+    speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
+  } else {
+    float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
+    if (abs(joyX) > 0.05) {
+      fixHeading = rangeAngle(fixHeading + (joyX * .2));
+    }
+    aDiff = rangeAngle(fixHeading - tickHeading);
+    speedAdjustment = aDiff * .2;
+  }
+  tp6FpsRight = tp6Fps - speedAdjustment;
+  tp6FpsLeft = tp6Fps + speedAdjustment;   
 }
 
 

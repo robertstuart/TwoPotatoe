@@ -14,14 +14,26 @@ String stand1[] = {
   "F"
 };  
 
+String radiusSpeed[] = {
+  "N Radius Speed",
+  "A",
+  "MG",
+  "GY  0,32.5   3",
+  "T   20,37.5  3   5",
+  "GX  20,37.5  3",
+  "T   30,17.5  3  10",
+  "GY  30,17.5  3",
+  "T  2.5,-2.5  3  20",
+  "GX 2.5,-2.5  3",
+  "T    0,32.5  3",
+  "F"
+};
+
 String circle[] = {
   "N Circle",
-  "TR 360 2 2,5",
+  "TR 360 2 2.5",
   "TR 360 4 2.5",
   "TR 360 6 2.5",
-  "TR 360 6 1.5",
-  "TR 360 4 1.5",
-  "TR 360 2 1.5",
   "F"
 };
 
@@ -306,8 +318,14 @@ String rtA[] = {
   "F"    
 }; 
 
+String house1[] = {
+  "N House 1"
+  
+};
+
 String *routeTable[] = {
-  loadedRoute, circle, singleStep, backSteps, spSteps, stand1, smallSquare, runupJump,};
+  loadedRoute, radiusSpeed, circle,  stand1, smallSquare};
+
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
 
@@ -362,7 +380,9 @@ void startRoute() {
   routeStepPtr = 0;
   interpretRouteLine(getNextStepString()); // Load the first line.
   isRouteInProgress = true;
-  resetNavigation('M', 0);
+  
+  setHeading(0.0D);
+  setLoc(0.0D, 0.0D);
 }
 
 
