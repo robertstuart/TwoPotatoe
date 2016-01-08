@@ -13,7 +13,8 @@
 //#define TICKS_PER_FOOT 3017.0D  // For G-made inflatable
 //#define TICKS_PER_FOOT 3342.0D // For Pro-Line Masher 2.8" PRO1192-12
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
-#define TICKS_PER_CIRCLE_YAW  11900.0  // Larger number increases degrees turn
+//#define TICKS_PER_CIRCLE_YAW  11900.0  // For Pro-Line Masher 2.8" PRO1192-12
+#define TICKS_PER_CIRCLE_YAW  7816.0  // For Losi DB XL 1/5 scale
 
 L3G gyro;
 LSM303 compass;
@@ -36,6 +37,7 @@ const int MOT_LEFT_PWMH =    7;
 
 const double SPEED_MULTIPLIER = 12.0;
 const unsigned int TP_PWM_FREQUENCY = 10000;
+//const unsigned int TP_PWM_FREQUENCY = 1000;
 
 const int HEADING_SOURCE_G =  0;
 const int HEADING_SOURCE_M =  1;
@@ -49,6 +51,11 @@ const int HEADING_SOURCE_GM = 3;
 #define STOP -2  // for target direction
 #define MOTOR_RIGHT 1
 #define MOTOR_LEFT 2
+
+#define SONAR_NONE 0
+#define SONAR_RIGHT 1
+#define SONAR_LEFT 2
+#define SONAR_BOTH 3
 
 #define LED_PIN 13 // LED connected to digital pin 13
 #define BLUE_LED_PIN 13 // LED in switch, same as status above
@@ -78,7 +85,7 @@ const int HEADING_SOURCE_GM = 3;
 #define SONAR_FRONT_RX 43
 #define SONAR_LEFT_RX 41
 
-#define A_LIM 10.0 // degrees at which the speedAdjustment starts reducing.
+#define A_LIM 20.0 // degrees at which the speedAdjustment starts reducing.
 #define S_LIM 1.0  // maximum speedAdjustment;
 
 //Encoder factor
@@ -107,13 +114,15 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 //#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
 //#define GYRO_SENS 0.0085     // Multiplier to get degree. -0.075/8?
 //#define GYRO_SENS 0.00834139     // Multiplier to get degree. subtract 1.8662%
-#define GYRO_SENS 0.0667     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+//#define GYRO_SENS 0.0667     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+//#define GYRO_SENS 0.0669     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+#define GYRO_SENS 0.0662     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
 
 #define INVALID_VAL -123456.78D
 
 // Due has 96 kbytes sram
 #define DATA_ARRAY_SIZE 2500
-
+//#define DATA_ARRAY_SIZE 20
 // Arrays to save data to be dumped in blocks.
 long  aArray[ DATA_ARRAY_SIZE];
 short bArray[ DATA_ARRAY_SIZE];
@@ -122,8 +131,13 @@ short dArray[ DATA_ARRAY_SIZE];
 short eArray[ DATA_ARRAY_SIZE];
 short fArray[ DATA_ARRAY_SIZE];
 short gArray[ DATA_ARRAY_SIZE];
-int dataArrayPtr = 0;
-boolean isSerialEmpty = true;
+unsigned int dataArrayPtr = 0;
+
+//#define TICK_ARRAY_SIZE 10300
+#define TICK_ARRAY_SIZE 1030
+short tArray[TICK_ARRAY_SIZE]; // Period in usec
+short uArray[TICK_ARRAY_SIZE]; // State of rotation tick
+unsigned int tickArrayPtr = 0;
 
 unsigned int mode = MODE_TP6;
 boolean motorMode = MM_DRIVE_BRAKE;  // Can also be MM_DRIVE_COAST
@@ -189,7 +203,7 @@ struct valSet tp6 = {
   0.18,    // w
   0.05,    // x
  130.0,   // y
-  -2.8}; // z accelerometer offset
+  -1.5}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -203,12 +217,38 @@ struct loc {
 
 struct loc currentMapLoc;
 struct loc routeTargetLoc;
-struct loc phantomTargetLoc;
-struct loc currentAccelSelfLoc;
-struct loc currentAccelMapLoc;
-
+//boolean isFixLoc = false;
+struct loc coSetLoc;
+boolean isFixHeading = false;
 boolean isAngleControl = false;
 boolean decelStopped = false;
+
+struct chartedObject {
+  boolean isRightSonar;
+  char type;
+  double trigger;
+  double min;
+  double max;
+  double dist;
+};
+
+#define SONAR_ARRAY_SIZE 20
+double sonarArray[SONAR_ARRAY_SIZE];
+int sonarArrayPtr = 0;
+
+#define CO_SIZE 10
+struct chartedObject chartedObjects[CO_SIZE];
+int coPtr = 0;
+int coEnd = 0;
+
+#define LS_ARRAY_SIZE 1000
+unsigned int lsPtr = 0;
+float lsXArray[LS_ARRAY_SIZE] = {5,7,9,12,15};
+float lsYLArray[LS_ARRAY_SIZE] = {2,2.2,2.5,2.6,3};
+float lsYSArray[LS_ARRAY_SIZE] = {1.9,2.1,2.6,2.7,3.2};
+double lsDistanceExpected = 0;
+double surveyDistance = 0.0D;
+double surveyBearing = 0.0D;
 
 int routeStepPtr = 0;
 String routeTitle = "No route";
@@ -219,26 +259,24 @@ struct loc pivotLoc;
 
 char routeCurrentAction = 0;
 double routeTargetBearing = 0.0;
-double phantomTargetBearing = 0.0;
+//double phantomTargetBearing = 0.0;
 double routeMagTargetBearing = 0.0;
 boolean isReachedMagHeading = false;
 boolean routeIsRightTurn = true;
 long routeTargetTickPosition = 0L;
+double targetDistance = 0.0D;
+double pirouetteFps = 0.0;
 double routeFps = 0.0;
 double routeRadius = 0.0;
 int routeWaitTime = 0L;
 boolean isEsReceived = false;
 boolean isRouteTargetIncreasing = false;
+boolean isGXAxis = false;
 double routeTargetXY = 0.0;
 long navOldTickPosition = 0L;
 double currentMapHeading = 0.0;
 double currentMapCumHeading = 0.0;
 double routeTargetXYDistance = 0.0;
-double routeCoDistanceXY = 0.0;
-double routeSonarMin = 0.0;
-double routeSonarMax = 0.0;
-double routeSonarDist = 0.0;
-double routeCoDistance = 0.0;
 int originalAction = 0;
 
 int gyroTempCompX = 200;
@@ -290,6 +328,7 @@ double headX, headY;
 
 int16_t mX, mY, mZ;
 
+double xVec, yVec, zVec;
 boolean isMagAdjust = true;
 double magHeading = 0.0;
 double gridOffset = 0.0;
@@ -298,6 +337,7 @@ double gridCumHeading = 0.0;
 double gridRotations = 0.0;
 double tickHeading = 0.0;
 double tickCumHeading = 0.0;
+int tickOffset = 0;
 double tmHeading = 0.0;
 double tmCumHeading = 0.0;
 double gmHeading = 0.0;
@@ -328,8 +368,9 @@ boolean isRouteInProgress  = false; // Route in progress
 boolean isDumpingData = false; // Dumping data
 boolean isHoldHeading = false; // 
 boolean isSpin = false; // 
-boolean isSpinExceed = false; // Spinning exeeds max rate?
 boolean isStand = false; // 
+
+boolean isDumpingTicks = false;
 
 int standTPRight = 0;
 int standTPLeft = 0;
@@ -368,6 +409,7 @@ double sonarRight = 0.0;
 double sonarRightMin = 0.0;
 double sonarLeft = 0.0;
 double sonarLeftMin = 0.0;
+int sonarMode = SONAR_LEFT;
 
 unsigned int actualLoopTime; // Time since the last
 double hcX = 0.0;
@@ -547,14 +589,19 @@ void setup() {
   pinMode(SONAR_RIGHT_RX, OUTPUT);
   pinMode(SONAR_FRONT_RX, OUTPUT);
   pinMode(SONAR_LEFT_RX, OUTPUT);
-  digitalWrite(SONAR_RIGHT_RX,LOW);
-  digitalWrite(SONAR_FRONT_RX,LOW);
-  digitalWrite(SONAR_LEFT_RX,LOW);
+  setSonarMode(SONAR_BOTH);
   
   pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
   pinMode(RE_SW_PIN, INPUT_PULLUP);
   pinMode(GN_SW_PIN, INPUT_PULLUP);
+
+  pinMode(MOT_RIGHT_ENCA, INPUT);
+  pinMode(MOT_RIGHT_ENCB, INPUT);
+  pinMode(MOT_RIGHT_ENCZ, INPUT);
+  pinMode(MOT_LEFT_ENCA, INPUT);
+  pinMode(MOT_LEFT_ENCB, INPUT);
+  pinMode(MOT_LEFT_ENCZ, INPUT);
 
   digitalWrite(LED_PIN, HIGH);
   digitalWrite(RED_LED_PIN, LOW);
@@ -581,7 +628,8 @@ void setup() {
   zeroGyro();
   Serial.println("Gyro zeroed out.");
   diagnostics();
-  Serial.println("Diagnosits ignored.");
+  Serial.println("Diagnostics ignored.");
+  lsPtr = 5; leastSquares(); // 3.975 0.385 0.515 0.984 0.095 1.546 0.977 0.127 1.285
 } // end setup()
 
 
@@ -641,10 +689,10 @@ void aPwmSpeed() {
       if (uVal > 0) action = FWD;
       else action = BKWD;
       setMotor(MOTOR_LEFT, action, abs(uVal));
-      readSpeed();  
-          
+      readSpeed();           
       sendStatusXBeeHc(); 
       sendStatusBluePc();
+      if (isDumpingTicks) dumpTicks();
     } // end timed loop 
   } // while
 } // aPwmSpeed()

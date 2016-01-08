@@ -3,6 +3,134 @@ String loadedRoute[200] = {
   "MG",
   "GY  0,2   3",
   "F"
+}; 
+
+// Basement speed run
+String basement1[] = {
+  "N Basement 1",
+  "OL",
+//  "AM 29",
+//  "AM 39",
+//  "AM 49",
+  "AM 40",
+  "HG",
+//  "CLS 0    .5 4 2.0",
+//  "CLH 14.8 .5 4 2.0",  
+  "GY 0,15 3",
+  "TR 61 3 5.9",
+//  "GX 3.0,17 3",
+  "TL -61 3 5.9",
+  "GY 5.5,36 3",
+  "GY 5.0,44 3",
+  "TL -250 3 2.5",
+  "GY 5.5,36 3",
+  "GY 5.5,26 3",
+  "TR 45 3 5",
+  "GY 0.8,15 3,"
+  "TL 45 3 5",
+  "GY 0,11 3",
+  "TR 180 3 7",
+  "GY -13,18 3",
+  "T  -4,21 3 4",
+  "GX -4,21 3",
+  "T 0,0 3 4",
+  "GY 0,0 3",
+//  "TL -90 4 5",
+//  "GX -10,12 4",
+//  "TL -90 4 5",
+//  "GY -15,0 5",
+//  "TL -150 6 5.8",
+//  "GY 5.4,11 6",
+//  "GY 6.3,25 6",
+  "F"
+};
+
+// Into living room
+String house3[] = {
+  "N House 3",
+  "AM -52",
+  "HG",
+  "TR 45 3    2",
+  "GX  3,4    3",
+  "T  99,5    3 3.1",
+//  "CL 10.0 1.2 3.2 2.20",
+  "GX   13,5   3",     // 7
+  "T   14,-3 3 1.3",   // 8
+//  "CR  2.0 3.0 5.6 4.4",
+//  "CR  -1.5 3.0 5.0 4.15",
+  "GY  14,-3 3",       // 9
+  "TR 180 3 1.3",
+  "CL -1.0 1.0 2.5 1.7",
+//  "CR 1.7 2.0 5.0 3.6",
+  "GY  11,3.2 3",      // 11
+  "T  4.7,5 3 2",
+//  "CL 5.0 0.5 2.2 1.3",
+  "GX 4.7,5 3",        // 13
+  "GY 0,0 3",
+  "F"
+};
+
+// Test survey
+String survey[] = {
+  "N Survey",
+  "AM -52.5",
+  "HG",
+  "TR 45 3    2",
+  "GX  3,4    3",
+  "T  99,5    3 3.1",
+  "GX   8,5   3",
+  "VXL  17.5 90  3  2",
+  "GX   35,0.5 3",
+  "L  2.0",
+  "F"
+};  
+
+
+// Test LS, angle to fridge
+String house1[] = {
+  "N House 1",
+  "AM -52.5",
+  "HG",
+  "TR 45 3    2",
+  "GX  3,4    3",
+  "T  99,5    3 3.1",
+  "GX   8,5   3",
+  "GXL   17.5,5    3",
+  "L  2.0",
+  "GX   35,0.5 3",
+  "F"
+};  
+
+// Full house loop using ls and sonar.
+String house2[] = {
+  "N House 2",
+  "AM -52",
+  "HG",
+  "TR 45 3    2",
+  "GX  3,4    3",
+  "T  99,5    3 3.1",
+  "GX   8,5   3",
+  "GXL   17.5,5    3",
+  "L  2.0",
+  "B",
+  "GX   19.5,5    3",
+  "GX   24,2.8    3",
+  "GXL   31,2.6    3",
+  "CL 31.4 0.5 4 2.5",
+  "GX   35,4.7    3",
+  "GX   40.6,5.2    3",
+  "TR 180 3 3.0",
+  "GX 36,-0.3 3",
+  "TR 45 3 2.8",
+  "TL 45 3 2.6",
+  "GX 26,2.4 3",
+  "GX 18,4.5 3",
+  "CR 15 0.5 5  2.7",
+  "GX  5,5.5 3",
+  "GY  0,0 3",
+//  "SX 18",
+//  "P 540 2",
+  "F"
 };  
 
 String stand1[] = {
@@ -37,41 +165,13 @@ String circle[] = {
   "F"
 };
 
-String singleStep[] = {
-  "N Single Step",
-  "A",
-  "MG",
-  "GY 0,99  0.0",
-  "P",
-  "Sy 1.0",
-  "F"
-};  
-
-
-String backSteps[] = {
-  "N Back Steps",
-  "A",
-  "MG",
-  "GY 0,99  0.0",
-  "P",
-  "Sy 0.8",
-  "P",
-  "Sy 0.8",
-  "F"
-};  
-
-
-String spSteps[] = {
-  "N Skatepark Steps",
-  "A",
-  "MG",
-  "GY 0,99  0.0",
-  "P",
-  "Sy 0.8",
-  "P",
-  "Sy 0.8",
-  "P",
-  "GY 0,10 5.0",
+String outNBack[] = {
+  "N Out and Back",
+  "AM 90",
+  "HG",
+  "GY 0,4  3",
+  "SY 5.0",
+  "P 540 2",
   "F"
 };  
 
@@ -88,7 +188,7 @@ String runupJump[] = {
 String smallSquare[] = {
   "N Small Square",
   "A",
-  "MG",
+  "HG",
   "GY  0,2   2.5",
   "T   4,4   2.5   2.2",
   "GX  4,4   2.5",
@@ -318,13 +418,9 @@ String rtA[] = {
   "F"    
 }; 
 
-String house1[] = {
-  "N House 1"
-  
-};
 
 String *routeTable[] = {
-  loadedRoute, radiusSpeed, circle,  stand1, smallSquare};
+  basement1, survey, house2, house3, house1, circle,  outNBack,  smallSquare};
 
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
@@ -380,9 +476,14 @@ void startRoute() {
   routeStepPtr = 0;
   interpretRouteLine(getNextStepString()); // Load the first line.
   isRouteInProgress = true;
+  coPtr = coEnd = 0;
   
   setHeading(0.0D);
-  setLoc(0.0D, 0.0D);
+  resetTicks();
+  currentMapLoc.x = 0.0D;
+  currentMapLoc.y = 0.0D;
+  coSetLoc = currentMapLoc;
+  setSonarMode(SONAR_LEFT);
 }
 
 

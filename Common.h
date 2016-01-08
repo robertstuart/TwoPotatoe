@@ -16,6 +16,7 @@ const int SEND_X           = 141;
 const int SEND_Y           = 142;
 const int SEND_SONAR_F     = 143;
 const int SEND_SONAR_L     = 144;
+const int SEND_DUMP_TICKS  = 145;
 
 const int RCV_JOYX         = 129;
 const int RCV_JOYY         = 130;
@@ -45,6 +46,7 @@ const int RCV_STAND        = 153;
 const int RCV_SONAR_R      = 154; // Right sonar on/off
 const int RCV_SONAR_F      = 155; 
 const int RCV_SONAR_L      = 156; 
+const int RCV_DUMP_TICKS   = 157; 
 
 const int SEND_RCV_TERM    =   0;
 

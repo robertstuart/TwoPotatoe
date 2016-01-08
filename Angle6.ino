@@ -14,12 +14,12 @@
 //
 
 //HMC5883L compass
-int xMin = -630;
-int xMax = 667;
-int yMin = -791;
-int yMax = 509;
-int zMin = -43;
-int zMax = 1148;
+const int xMin = -630;
+const int xMax = 667;
+const int yMin = -791;
+const int yMax = 509;
+const int zMin = -43;
+const int zMax = 1148;
 
 
 /***********************************************************************.
@@ -81,15 +81,19 @@ boolean readGyro() {
 
   // Yaw
   gyroYawRaw = ((double) gyro.g.z) - timeDriftYaw; 
-//  gyroYawRaw = ((double) gyro.g.z - temperatureDriftYaw) - timeDriftYaw; 
   gyroYawRate = ((double) gyroYawRaw) * GYRO_SENS;  // Rate in degreesChange/sec
   double gyroYawDelta = (gyroYawRate * 2500.0) / 1000000.0; // degrees changed during period
-  gYaw = gYaw + gyroYawDelta;
-  gyroCumHeading = gyroCumHeading + gyroYawDelta;   //
+  gYaw += gyroYawDelta;
+  gyroCumHeading += gyroYawDelta;   //
   double tc = (gyroCumHeading > 0.0) ? 180.0 : -180.0;
   int rotations = (int) ((gyroCumHeading + tc) / 360.0);
   gyroHeading = gyroCumHeading - (((double) rotations) * 360.0);
-  isSpinExceed = (gyroYawRaw > 20000) ? true : false;
+
+  // Yaw for gmHeading
+  gmCumHeading += gyroYawDelta;
+  tc = (gmCumHeading > 0.0) ? 180 : - 180;
+  rotations = (int) ((gmCumHeading + tc) / 360.0);
+  gmHeading = gmCumHeading - (((double) rotations) * 360.0);
 
   // Rotation rate: complementary filtered gPitch and tPitch
   tPitch = (double) tickPosition / TICKS_PER_PITCH_DEGREE;
@@ -103,42 +107,6 @@ boolean readGyro() {
   // tgaPitch:
   q = tgaPitch + qDiff;
   tgaPitch = (q * TG_PITCH_TC) + (gaPitch * (1.0D - TG_PITCH_TC));
-
-  sumX += gyroRollRaw;
-  sumY += gyroPitchRaw;
-  sumZ += gyroYawRaw;
-  if ((++temperatureLoop % 400) == 0) { // Read temp every second.
-    meanX = sumX / 400.0D;
-    meanY = sumY / 400.0D;
-    meanZ = sumZ / 400.0D;
-    int t = gyro.readReg(L3G::OUT_TEMP);
-    if (t > 127) t -= 256;
-    t = (((33 - t) * 9) / 5) + 32;
-//    gyroTempCompX = 176 + ((int) (1.5 * temperature));
-//    gyroTempCompY = 27 + ((int) (-1.0 * temperature));
-//    gyroTempCompZ = 82 + ((int) (6.6 * temperature)); // 82 is normal value
-    //      Serial.print(temperature); Serial.print("\t");
-    //      Serial.print(gPitch); Serial.print("\t");
-    //      Serial.print(gRoll); Serial.print("\t");
-    //      Serial.print(gyroCumHeading); Serial.print("\t");
-    //      Serial.print(meanX); Serial.print("\t");
-    //      Serial.print(meanY); Serial.print("\t");
-    //      Serial.print(meanZ); Serial.println();
-    sprintf(message, "temp: %3d  gPitchRaw: %5.2f  gRollRaw: %5.2f gYawRaw: %5.2f", t, meanY, meanX, meanZ);
-//    sprintf(message, "temp: %3d  tgPitch: %5.2f  gRoll: %5.2f gYaw: %5.2f", t, gPitch, gRoll, gYaw);
-//    sprintf(message, "pitchRate: %5.3f %5.3f  rollRate: %5.3f %5.3f   yawRate %5.3f %5.3f", meanY, pitchDrift, meanX, rollDrift, meanZ, yawDrift);
-    sendBMsg(SEND_MESSAGE, message); 
-  addLog(
-        (long) (gYaw * 100.0),
-        (short) (meanY * 10.0),
-        (short) (meanX * 10.0),
-        (short) (meanZ * 10.0),
-        (short) (temperatureDriftYaw),
-        (short) (timeMilliseconds/100),
-        (short) t
-   );
-    sumX = sumY = sumZ = 0.0D;
-  }
 
   return true;
 }
@@ -160,7 +128,7 @@ void readAccel() {
              && ((accelX > -7000) && (accelX < 7000))
              && ((aPitch > -45.0) && (aPitch < 45.0))) {
       gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
-  }
+    }
 
   // Roll
   aRoll =  (atan2(-compass.a.y, -compass.a.z) * RAD_TO_DEG);
@@ -168,9 +136,9 @@ void readAccel() {
 }
 
 
-#define GM_HEADING_TC 0.95D
-//#define GM_HEADING_TC 0.995D
-#define TM_HEADING_TC 0.995D
+//#define GM_HEADING_TC 0.95D
+#define GM_HEADING_TC 0.98D
+#define TM_HEADING_TC 0.999D
 
 int magX, magY, magZ;
 
@@ -178,7 +146,7 @@ int magX, magY, magZ;
  *  readCompass()
  ***********************************************************************/
 void readCompass() {
-  double xVec, yVec, zVec;
+//  double xVec, yVec, zVec;
   //  compass.readMag();
   if (readHMC()) {
     //  if ((compass.m.x != mX) || (compass.m.y != mY) || (compass.m.z != mZ)) {
@@ -223,20 +191,10 @@ void readCompass() {
     // Since this is 15/sec, we do all of our complementary filtering here
 
     // gmHeading. Complementary filter gyro and mag headings.
-    double q = gmCumHeading + gyroCumHeading - oldGyroCumHeading;
-    oldGyroCumHeading = gyroCumHeading;
-    gmCumHeading = (q * GM_HEADING_TC) + (gridCumHeading * (1.0 - GM_HEADING_TC));
+    gmCumHeading = (gmCumHeading * GM_HEADING_TC) + (gridCumHeading * (1.0 - GM_HEADING_TC));
     double c = (gmCumHeading > 0.0) ? 180.0 : -180.0;
     double rotations = (int) ((gmCumHeading + c) / 360.0);
     gmHeading = gmCumHeading - (((double) rotations) * 360.0);
-
-    // tmHeading.  Complementary filter tick and mag headings.
-    q = tmCumHeading + tickCumHeading - oldTickCumHeading;
-    oldTickCumHeading = tickCumHeading;
-    tmCumHeading = (q * TM_HEADING_TC) + (gridCumHeading * (1.0 - TM_HEADING_TC));
-    c = (tmCumHeading > 0.0) ? 180.0 : -180.0;
-    rotations = (int) ((tmCumHeading + c) / 360.0);
-    tmHeading = tmCumHeading - (((double) rotations) * 360.0);
   }
 }
 
@@ -247,10 +205,18 @@ void readCompass() {
 void setNavigation() {
 
   // Tick heading.
-  tickCumHeading =  ((double) (tickPositionLeft - tickPositionRight)) / TICKS_PER_DEGREE_YAW;
+  tickCumHeading =  ((double) (tickOffset + tickPositionLeft - tickPositionRight)) / TICKS_PER_DEGREE_YAW;
   double c = (tickCumHeading > 0.0) ? 180.0 : -180.0;
-  int rotations = (int) ((tickCumHeading + c) / 360.0);
+  int rotations = (int) ((tickCumHeading + c) / 360.0); 
   tickHeading = tickCumHeading - (((double) rotations) * 360.0);
+  
+  // tmHeading.  Complementary filter tick and mag headings.
+  tmCumHeading += tickCumHeading - oldTickCumHeading;
+  oldTickCumHeading = tickCumHeading;
+  tmCumHeading = (tmCumHeading * TM_HEADING_TC) + (gridCumHeading * (1.0 - TM_HEADING_TC));
+  c = (tmCumHeading > 0.0) ? 180.0 : -180.0;
+  rotations = (int) ((tmCumHeading + c) / 360.0);
+  tmHeading = tmCumHeading - (((double) rotations) * 360.0);
 
   // Map heading
   switch (headingSource) {
@@ -282,6 +248,8 @@ void setNavigation() {
   currentMapLoc.y += cos(currentMapHeading * DEG_TO_RAD) * dist;
 
   currentAccelLoc();
+
+  
 }
 
 
@@ -299,8 +267,8 @@ const double A_FACTOR = .000001D;
  *  setAccelLoc() Set currentAccelLoc
  ***********************************************************************/
 void currentAccelLoc() {
-  currentAccelMapLoc.y += ((double) compass.a.y) * A_FACTOR;
-  currentAccelMapLoc.x += ((double) compass.a.x) * A_FACTOR;
+//  currentAccelMapLoc.y += ((double) compass.a.y) * A_FACTOR;
+//  currentAccelMapLoc.x += ((double) compass.a.x) * A_FACTOR;
   //  currentAccelMapLoc.x += accelFpsSelfX * .0025;
   //  currentAccelMapLoc.y += accelFpsSelfY * .0025;
   //  accelFpsMapX = (sin(currentMapHeading * DEG_TO_RAD) * accelFpsSelfX) + (cos(currentMapHeading * DEG_TO_RAD) * accelFpsSelfY);
@@ -319,17 +287,15 @@ void currentAccelLoc() {
  **************************************************************************/
 void setHeading(double newHeading) {
   gmCumHeading = tmCumHeading = gyroCumHeading = tickCumHeading = gridCumHeading = newHeading;
+  tickOffset = newHeading * TICKS_PER_DEGREE_YAW;
   oldGyroCumHeading = oldTickCumHeading = newHeading;
   tickHeading = gyroHeading = newHeading;
   gridRotations = 0.0;
-  tickPosition = tickPositionRight = tickPositionLeft = navOldTickPosition = coTickPosition = 0;
-  oldTPitch = 0.0D;
 }
 
-
-void setLoc(double x, double y) {
-  currentMapLoc.x = x;
-  currentMapLoc.y = y;
+void resetTicks() {
+  tickPosition = tickPositionRight = tickPositionLeft = navOldTickPosition = coTickPosition = 0;
+  oldTPitch = 0.0D;
 }
 
 

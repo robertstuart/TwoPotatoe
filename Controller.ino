@@ -126,6 +126,9 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
     case RCV_DUMP_START:
       sendDumpData();
       break;
+     case RCV_DUMP_TICKS:
+      sendDumpTicks();
+      break;
     case RCV_HOLD_HEADING:
       if (sscanf(msgStr, "%d", &x) > 0) {
         isHoldHeading = (x == 0) ? false : true;
@@ -236,6 +239,7 @@ int transmitBufferLength = 0;
 int transmitBufferPtr = 0;
 unsigned long transmitNextWriteTime = 0UL;
 int dumpPtr, dumpEnd;
+int tickDumpPtr, tickDumpEnd;
 
 /*********************************************************
  * SendStatus??() 
@@ -297,6 +301,14 @@ void sendDumpData() {
   isDumpingData = true;
 }
 
+/*********************************************************
+ * dumpTicks() Set up to start a tick dump.
+ *********************************************************/
+void sendDumpTicks() {
+  tickDumpEnd = tickDumpPtr =  tickArrayPtr;
+  isDumpingTicks = true;
+}
+
 
 
 /*********************************************************
@@ -317,6 +329,25 @@ void dumpData() {
   else {
     BLUE_SER.print("12345678");
     isDumpingData = false;
+  }
+  BLUE_SER.write((byte) 0);
+}
+
+
+
+/*********************************************************
+ * dumpTicks()
+ *********************************************************/
+void dumpTicks() {
+  BLUE_SER.write(SEND_DUMP_TICKS);
+  tickDumpPtr = (tickDumpPtr + 1) %  TICK_ARRAY_SIZE;
+  if (tickDumpPtr != tickDumpEnd) {
+    BLUE_SER.print(tArray[tickDumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(uArray[tickDumpPtr]);
+  }
+  else {
+    BLUE_SER.print("12345678");
+    isDumpingTicks = false;
   }
   BLUE_SER.write((byte) 0);
 }

@@ -1,4 +1,3 @@
-int lastMWsFpsRight = 0;
 int lastMWsFpsLeft = 0;
 int rejectCountRight = 0;
 int rejectCountLeft = 0;
@@ -20,8 +19,10 @@ void motorInitTp() {
   pinMode(MOT_RIGHT_DIR, OUTPUT);
   pinMode(MOT_LEFT_DIR, OUTPUT);
 
-  setMotor(MOTOR_RIGHT, BRAKE, 0);
-  setMotor(MOTOR_LEFT, BRAKE, 0);
+//  setMotor(MOTOR_RIGHT, BRAKE, 0);
+//  setMotor(MOTOR_LEFT, BRAKE, 0);
+  setMotor(MOTOR_RIGHT, COAST, 0);
+  setMotor(MOTOR_LEFT, COAST, 0);
 
   setTargetSpeedRight(0.0);
   setTargetSpeedLeft(0.0);
@@ -61,18 +62,18 @@ void encoderIsrRight() {
     
   if (encA == encB) {
     tickPeriodRight = (long) tickTimeRight - (long) lastTickTime;
-//    tickNumRight = ++tickNumRight % 1024;
     tickPositionRight++;
   } 
   else {
     tickPeriodRight = (long) lastTickTime - (long) tickTimeRight;
-//    tickNumRight--;
-//    if (tickNumRight == -1) tickNumRight = 1023;
     tickPositionRight--;
   }
-//  if (zStateRight != oldZStateRight) {
-//    
-//  }
+  
+  boolean encZ = (!!(g_APinDescription[MOT_RIGHT_ENCZ].pPort -> PIO_PDSR & g_APinDescription[MOT_RIGHT_ENCZ].ulPin)) ? true : false;
+  tArray[tickArrayPtr] = tickPeriodRight;
+  uArray[tickArrayPtr] = encZ;
+  tickArrayPtr = ++tickArrayPtr % TICK_ARRAY_SIZE;
+
   wsMFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
   wsMFpsRightSum += wsMFpsRight;
   wsMFpsRightCount++;

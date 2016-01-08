@@ -28,6 +28,7 @@ void aTp6Run() {
   delay(200);
   readCompass();
   setHeading(0.0D);
+  resetTicks();
   while(mode == MODE_TP6) { // main loop
     commonTasks();
     // Do the timed loop
@@ -141,6 +142,9 @@ void sendTp6Status() {
   if (isDumpingData) {
     if ((loopc % 4) == 0)  dumpData();
   }
+  if (isDumpingTicks) {
+    if ((loopc % 4) == 0)  dumpTicks();
+  }
   if ((loopc == 0)  || (loopc == 20))  { // Status 20/sec
     sendStatusXBeeHc(); 
     sendStatusBluePc();
@@ -148,7 +152,11 @@ void sendTp6Status() {
   }
   else if ((loopc == 10) || (loopc == 30)) { // Logging & debugging 20/sec
 //    log20PerSec();
-//    if (isRouteInProgress) routeLog();
+//  sprintf(message,"%7.3f %7.3f %7.3f %7.3f %7d %7.3f", 
+//          xVec, yVec, zVec, tmCumHeading, mY, magHeading);
+//   sendBMsg(SEND_MESSAGE, message);
+    if (isRouteInProgress) routeLog();
+//    routeLog();
   }    
 //  if (loopd == 0) log1PerSec();
 //  log400PerSec();
@@ -186,12 +194,10 @@ void log400PerSec() {
 void log1PerSec() {
   static unsigned long t;
   unsigned long t2 = millis();
-  
-  Serial.print("T: "); Serial.print(t2 - t); Serial.print("\t");
-  t = t2;
-  Serial.print("Pitch: "); Serial.print(gPitch, 1); Serial.print("\t");
-  Serial.print("Roll: "); Serial.print(gRoll, 1); Serial.print("\t");
-  Serial.print("Yaw: "); Serial.print(gYaw, 1); Serial.println();
+  int tickDiff = tickPositionLeft - tickPositionRight;
+  double tickA = ((double) tickDiff) / TICKS_PER_DEGREE_YAW;
+  sprintf(message, "tickDiff:%5d     tickAngle:%6.2f", tickDiff , tickA);
+  sendBMsg(SEND_MESSAGE, message); 
 }
 
 /***********************************************************************.
