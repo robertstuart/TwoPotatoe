@@ -92,7 +92,7 @@ const int HEADING_SOURCE_GM = 3;
 //const double ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
 //const long ENC_FACTOR_M = 1329000L;  // Change pulse width to milli-fps speed, 1/29 gear
 const double ENC_FACTOR = 650.0f;  // Change pulse width to fps speed, 1/29 gear
-const long ENC_FACTOR_M = 650000L;  // Change pulse width to milli-fps speed, 1/29 gear
+const long ENC_FACTOR_M = 650000L;  // Change pulse width to milli-fps speed
 const double FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
 const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
@@ -111,12 +111,10 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define SONAR_SENS 0.0385
 
 // Decrease this value to get greater turn for a given angle
-//#define GYRO_SENS 0.009375     // Multiplier to get degree. -0.075/8?
-//#define GYRO_SENS 0.0085     // Multiplier to get degree. -0.075/8?
-//#define GYRO_SENS 0.00834139     // Multiplier to get degree. subtract 1.8662%
-//#define GYRO_SENS 0.0667     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
-//#define GYRO_SENS 0.0669     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
-#define GYRO_SENS 0.0662     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+//#define GYRO_SENS 0.0660     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+#define GYRO_SENS 0.0664     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+//#define GYRO_SENS 0.0665     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+//#define GYRO_SENS 0.0670     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
 
 #define INVALID_VAL -123456.78D
 
@@ -225,16 +223,16 @@ boolean decelStopped = false;
 
 struct chartedObject {
   boolean isRightSonar;
-  char type;
+  char type;            // 'S', 'H', or ' ',
   double trigger;
-  double min;
-  double max;
-  double dist;
+  double surface;
 };
 
 #define SONAR_ARRAY_SIZE 20
-double sonarArray[SONAR_ARRAY_SIZE];
-int sonarArrayPtr = 0;
+double sonarRightArray[SONAR_ARRAY_SIZE];
+double sonarLeftArray[SONAR_ARRAY_SIZE];
+int sonarRightArrayPtr = 0;
+int sonarLeftArrayPtr = 0;
 
 #define CO_SIZE 10
 struct chartedObject chartedObjects[CO_SIZE];
@@ -245,10 +243,13 @@ int coEnd = 0;
 unsigned int lsPtr = 0;
 float lsXArray[LS_ARRAY_SIZE] = {5,7,9,12,15};
 float lsYLArray[LS_ARRAY_SIZE] = {2,2.2,2.5,2.6,3};
-float lsYSArray[LS_ARRAY_SIZE] = {1.9,2.1,2.6,2.7,3.2};
-double lsDistanceExpected = 0;
-double surveyDistance = 0.0D;
-double surveyBearing = 0.0D;
+float lsSArray[LS_ARRAY_SIZE] = {1.9,2.1,2.6,2.7,3.2};
+double lsXYSurface = 0;
+double hugXYRhumb = 0.0D;
+double hugXYSurface = 0.0D;
+double hugSonarDistance = 0.0D;
+double hugBearing = 0.0D;
+boolean isHug = false;
 
 int routeStepPtr = 0;
 String routeTitle = "No route";
@@ -409,7 +410,9 @@ double sonarRight = 0.0;
 double sonarRightMin = 0.0;
 double sonarLeft = 0.0;
 double sonarLeftMin = 0.0;
-int sonarMode = SONAR_LEFT;
+boolean isRightSonar = false;
+double sonarMin = 0.0D;
+double sonarMax = 100.0D;
 
 unsigned int actualLoopTime; // Time since the last
 double hcX = 0.0;
@@ -589,7 +592,6 @@ void setup() {
   pinMode(SONAR_RIGHT_RX, OUTPUT);
   pinMode(SONAR_FRONT_RX, OUTPUT);
   pinMode(SONAR_LEFT_RX, OUTPUT);
-  setSonarMode(SONAR_BOTH);
   
   pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);

@@ -383,67 +383,56 @@ double getControllerX() {
  * sonar() 
  **************************************************************************/
 void sonar() {
-  static unsigned long sonarTrigger = 0;
+  static unsigned long sonarTrigger = 0L;
+  static unsigned long sonarPulseTrigger = 0L;
   static boolean isBeepRight = false;
+  static int writePin;
   double sonar;
-
+  unsigned long t = micros();
+  
+  if ((sonarPulseTrigger != 0L) && (t > sonarPulseTrigger)) {
+    digitalWrite(writePin, LOW);
+    sonarPulseTrigger = 0L;
+  }
+  
   if (timeMilliseconds > sonarTrigger) {
-    sonarTrigger = timeMilliseconds + 45UL;  
+    sonarTrigger = timeMilliseconds + 50UL;  
     
-    if (sonarMode == SONAR_RIGHT) {
-      sonarRight = analogRead(SONAR_RIGHT_AN) * SONAR_SENS;
-      sonar = sonarRight;
+    if (isBeepRight) {
+       sonar = sonarLeft = (analogRead(SONAR_LEFT_AN) * SONAR_SENS) + 0.33;
+      writePin = SONAR_RIGHT_RX;
+    } else {
+      sonar = sonarRight = (analogRead(SONAR_RIGHT_AN) * SONAR_SENS) + 0.33;
+      writePin = SONAR_LEFT_RX;
     }
-    else if (sonarMode == SONAR_LEFT) {
-      sonarLeft = analogRead(SONAR_LEFT_AN) * SONAR_SENS;
-      sonar = sonarLeft;
-    }
-    else {
-      int rxPin = isBeepRight ? SONAR_RIGHT_RX : SONAR_LEFT_RX;
-      digitalWrite(rxPin, HIGH);
-      delayMicroseconds(50);
-      digitalWrite(rxPin, LOW);
-      if (isBeepRight) sonarLeft = analogRead(SONAR_LEFT_AN) * SONAR_SENS;
-      else sonarRight = analogRead(SONAR_RIGHT_AN) * SONAR_SENS;   
-      isBeepRight = !isBeepRight;   
+    digitalWrite(writePin, HIGH);
+    sonarPulseTrigger = micros() + 50L;
+    
+    // Collect data for least squares calculation.
+    if ((!isRightSonar && isBeepRight) || (isRightSonar && !isBeepRight)) {
+      if (isGXAxis) {
+        lsXArray[lsPtr] = (float) currentMapLoc.x;
+        lsYLArray[lsPtr] = (float) currentMapLoc.y;
+      } else {
+        lsXArray[lsPtr] = (float) currentMapLoc.y;
+        lsYLArray[lsPtr] = (float) currentMapLoc.x;
+      }
+      lsSArray[lsPtr] = (float) sonar;
+      if (lsPtr < (LS_ARRAY_SIZE - 1)) lsPtr++;
     }
 
-    // Collect data for least squarres calculation.
-    lsXArray[lsPtr] = (float) currentMapLoc.x;
-    lsYLArray[lsPtr] = (float) currentMapLoc.y;
-    lsYSArray[lsPtr] = (float) sonar;
-    if (lsPtr < LS_ARRAY_SIZE) lsPtr++;
-      
-    sonarArray[sonarArrayPtr] = sonar;
-    sonarArrayPtr = ++sonarArrayPtr % SONAR_ARRAY_SIZE;
+    // Collect data for Charted Object measurements. 
+    if (isBeepRight) {     
+      sonarLeftArray[sonarLeftArrayPtr] = sonarLeft;
+      sonarLeftArrayPtr = ++sonarLeftArrayPtr % SONAR_ARRAY_SIZE;
+    } else {
+      sonarRightArray[sonarRightArrayPtr] = sonarRight;
+      sonarRightArrayPtr = ++sonarRightArrayPtr % SONAR_ARRAY_SIZE;
+    }
+
+    isBeepRight = !isBeepRight;
+  if (isRouteInProgress) routeLog();
   }
-}
-
-
-
-/**************************************************************************.
- *  setSonarMode()
- **************************************************************************/
-void setSonarMode(int mode) {
-  sonarMode = mode;
-  int r, l;
-  switch (mode) {
-    case SONAR_RIGHT:
-      r = HIGH;
-      l = LOW;
-      break;
-    case SONAR_LEFT:
-      r = LOW;
-      l = HIGH;
-      break;
-    case SONAR_BOTH:
-    case SONAR_NONE:
-    default:
-      r = LOW;
-      l = LOW;
-  }
-  digitalWrite(SONAR_RIGHT_RX, r);
-  digitalWrite(SONAR_LEFT_RX, l);
 }
 
 

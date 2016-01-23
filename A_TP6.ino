@@ -155,7 +155,7 @@ void sendTp6Status() {
 //  sprintf(message,"%7.3f %7.3f %7.3f %7.3f %7d %7.3f", 
 //          xVec, yVec, zVec, tmCumHeading, mY, magHeading);
 //   sendBMsg(SEND_MESSAGE, message);
-    if (isRouteInProgress) routeLog();
+//    if (isRouteInProgress) routeLog();
 //    routeLog();
   }    
 //  if (loopd == 0) log1PerSec();

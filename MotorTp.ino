@@ -47,6 +47,7 @@ void motorInitTp() {
  *
  *********************************************************/
 void encoderIsrRight() {
+  static int lastTickPeriodRight = 0;
   static boolean encAStat;
   int action = BRAKE;
   int pw = 0;
@@ -75,6 +76,13 @@ void encoderIsrRight() {
   tickArrayPtr = ++tickArrayPtr % TICK_ARRAY_SIZE;
 
   wsMFpsRight = (ENC_FACTOR_M / tickPeriodRight); // speed in milli-fps
+
+  // Comment out this block to not average fps over two ticks.
+//  if (wsMFpsRight > 500 ) {
+//    wsMFpsRight = ENC_FACTOR_M / ((lastTickPeriodRight + tickPeriodRight) / 2);
+//    lastTickPeriodRight = tickPeriodRight;
+//  }
+  
   wsMFpsRightSum += wsMFpsRight;
   wsMFpsRightCount++;
   
@@ -138,6 +146,7 @@ motorRightAction = action;
  *  encoderIsrLeft() 
  ************************************************************************/
 void encoderIsrLeft() {
+  static int lastTickPeriodLeft = 0;
   static boolean encAStat;
   int action = BRAKE;
   int pw = 0;
@@ -160,6 +169,13 @@ void encoderIsrLeft() {
     tickPositionLeft++;
   }
   int wsMFpsLeft = (ENC_FACTOR_M / tickPeriodLeft); // speed in milli-fps
+
+  // Comment out this block to not average fps over two ticks.
+//  if (wsMFpsLeft > 500 ) {
+//    wsMFpsLeft = ENC_FACTOR_M / ((lastTickPeriodLeft + tickPeriodLeft) / 2);
+//    lastTickPeriodLeft = tickPeriodLeft;
+//  }
+
   wsMFpsLeftSum += wsMFpsLeft;
   wsMFpsLeftCount++;  
   

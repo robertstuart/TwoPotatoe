@@ -1,103 +1,17 @@
-String loadedRoute[200] = {
-  "N Place holder",
-  "MG",
-  "GY  0,2   3",
-  "F"
-}; 
-
-// Basement speed run
-String basement1[] = {
-  "N Basement 1",
-  "OL",
-//  "AM 29",
-//  "AM 39",
-//  "AM 49",
-  "AM 40",
-  "HG",
-//  "CLS 0    .5 4 2.0",
-//  "CLH 14.8 .5 4 2.0",  
-  "GY 0,15 3",
-  "TR 61 3 5.9",
-//  "GX 3.0,17 3",
-  "TL -61 3 5.9",
-  "GY 5.5,36 3",
-  "GY 5.0,44 3",
-  "TL -250 3 2.5",
-  "GY 5.5,36 3",
-  "GY 5.5,26 3",
-  "TR 45 3 5",
-  "GY 0.8,15 3,"
-  "TL 45 3 5",
-  "GY 0,11 3",
-  "TR 180 3 7",
-  "GY -13,18 3",
-  "T  -4,21 3 4",
-  "GX -4,21 3",
-  "T 0,0 3 4",
-  "GY 0,0 3",
-//  "TL -90 4 5",
-//  "GX -10,12 4",
-//  "TL -90 4 5",
-//  "GY -15,0 5",
-//  "TL -150 6 5.8",
-//  "GY 5.4,11 6",
-//  "GY 6.3,25 6",
-  "F"
-};
-
-// Into living room
-String house3[] = {
-  "N House 3",
-  "AM -52",
-  "HG",
-  "TR 45 3    2",
-  "GX  3,4    3",
-  "T  99,5    3 3.1",
-//  "CL 10.0 1.2 3.2 2.20",
-  "GX   13,5   3",     // 7
-  "T   14,-3 3 1.3",   // 8
-//  "CR  2.0 3.0 5.6 4.4",
-//  "CR  -1.5 3.0 5.0 4.15",
-  "GY  14,-3 3",       // 9
-  "TR 180 3 1.3",
-  "CL -1.0 1.0 2.5 1.7",
-//  "CR 1.7 2.0 5.0 3.6",
-  "GY  11,3.2 3",      // 11
-  "T  4.7,5 3 2",
-//  "CL 5.0 0.5 2.2 1.3",
-  "GX 4.7,5 3",        // 13
-  "GY 0,0 3",
-  "F"
-};
-
-// Test survey
-String survey[] = {
-  "N Survey",
-  "AM -52.5",
-  "HG",
-  "TR 45 3    2",
-  "GX  3,4    3",
-  "T  99,5    3 3.1",
-  "GX   8,5   3",
-  "VXL  17.5 90  3  2",
-  "GX   35,0.5 3",
-  "L  2.0",
-  "F"
-};  
-
 
 // Test LS, angle to fridge
 String house1[] = {
   "N House 1",
-  "AM -52.5",
+//  "AM -52.5",
+  "A",
   "HG",
   "TR 45 3    2",
   "GX  3,4    3",
   "T  99,5    3 3.1",
   "GX   8,5   3",
   "GXL   17.5,5    3",
-  "L  2.0",
-  "GX   35,0.5 3",
+  "L  7.0",
+  "GX   35,-0.7 3",
   "F"
 };  
 
@@ -111,7 +25,7 @@ String house2[] = {
   "T  99,5    3 3.1",
   "GX   8,5   3",
   "GXL   17.5,5    3",
-  "L  2.0",
+  "L  7.0",
   "B",
   "GX   19.5,5    3",
   "GX   24,2.8    3",
@@ -132,6 +46,280 @@ String house2[] = {
 //  "P 540 2",
   "F"
 };  
+
+// House 3, C test through living room
+String house3f[] = {
+  "N House 3full",
+  "A",
+  "HG",
+  "TR 45 3    2.5",
+  "GX  3,4    3",
+  "T  99,5    3 2.5",
+    "CL 10.0 7.5",
+    "CR 10.1 3.4",
+  "GX   12,5   3",
+  "T    14.2,-3  3 2.2",
+    "CR  2.0  9.7",
+    "CR  -1.5 9.7",
+    "CL  -1.6 15.4",
+  "GY   14.2,-3  3",
+  "TR 180 3 1.6",
+    "CL -2.2 9.7",
+    "CL 1.2  9.7",
+    "CR 1.3  15.4",
+  "GY   11.2,3 3",
+  "T  4,5      3 2",
+    "CL 7.0   3.4",
+    "CR 6.9   7.5",
+  "GX 4,5 3",
+  "TL -45 3 2",
+  "GY 0,0 3", 
+  "F"
+}; 
+
+// House 3, C test through living room
+String house3h[] = {
+  "N House 3orig",
+  "A",
+  "HG",
+  "TR 45 3    2.5",
+  "GX  3,4    3",
+  "T  99,5    3 2.5",
+    "CLH 10.0 7.5",
+//    "CR 10.1 3.4",
+  "GX   12,5   3",
+  "T    14.2,-3  3 2.2",
+    "CR  2.0  9.7",
+//    "CR  -1.5 9.7",
+//    "CL  -1.6 15.4",
+  "GY   14.2,-3  3",
+  "TR 180 3 1.6",
+//    "CL -2.2 9.7",
+//    "CL 1.2  9.7",
+//    "CR 1.3  15.4",
+  "GY   11.2,3 3",
+  "T  4,5      3 2",
+//    "CL 7.0   3.4",
+//    "CR 6.9   7.5",
+  "GX 4,5 3",
+  "TL -45 3 2",
+  "GY 0,0 3", 
+  "F"
+}; 
+
+String loadedRoute[200] = {
+  "N Place holder",
+  "MG",
+  "GY  0,2   3",
+  "F"
+}; 
+
+// Big fast turn
+String bigTurn1[] = {
+  "N Big Turn 1",
+  "AM -145",
+  "GY 0,9 4",
+  "TR 90 5 12",
+  "F"
+};
+
+// Big fast turn
+String bigTurn2[] = {
+  "N Big Turn 2",
+  "AM -145",
+  "GY 0,9 6",
+  "TR 90 7 12",
+  "F"
+};
+
+// Big fast turn
+String bigTurn3[] = {
+  "N Big Turn 3",
+  "AM -145",
+  "GY 0,9 8",
+  "TR 90 9 12",
+  "F"
+};
+
+// S loop to check turns
+String sLoop[] = {
+  "N S Loop",
+  "OR",
+  "AM 40",
+  "HG",
+  "GY 0,1 3.5",
+  "TR 180 3.5 1.5",
+  "GY 3,0 3.5",
+  "TL -180 3.5 1.5",
+  "F"
+};
+
+
+
+// heading North, Sonar on Right.
+String NR[] = {
+  "N North Right",
+  "A",
+  "HG",
+  "UNR 7 3.0 0.0 2.0",
+  "L 2.0",
+  "GY 0,13 3",
+  "F"
+};
+// heading North, Sonar on Left.  --OK--
+String NL[] = {
+  "N North Left",
+  "A",
+  "HG",
+  "UNL 7.0 3.0 0.0 -2.0",
+  "L -2.0",
+  "GY 0,13 3",
+  "F"
+};
+
+// heading East, Sonar on Left.
+String EL[] = {
+  "N East Left",
+  "OL",
+  "A",
+  "HG",
+  "GY 0,1 3",
+  "TR 90 3 2",
+  "VXL 9 90 3.0 2.0 3.0",
+  "L 2.0",
+  "GX 16,3 3",
+  "F"
+};
+
+// heading South, Sonar on Right.
+String SR[] = {
+  "N South Right",
+  "OR",
+  "A",
+  "HG",
+  "GY 0,1 3",
+  "TL -180 3 1.6",
+  "VYR -6 180 3.0 2.0 -3.0",
+  "L 2.0",
+  "GY -3.0,-12.5 3",
+  "F"
+};
+// heading South, Sonar on Left.
+String SL[] = {
+  "N South Left",
+  "OL",
+  "A",
+  "HG",
+  "GY 0,1 3",
+  "TR 180 3 1.6",
+  "VYL -6 180 3.0 2.0 -3.0",
+  "L 2.0",
+  "GY 3.0,-12.5 3",
+  "F"
+};
+
+// heading West, Sonar on Left.
+String WL[] = {
+  "N West Left",
+  "OL",
+  "A",
+  "HG",
+  "TR 270 3 1.6",
+  "VXL -6 -90 3.0 2.0 -2.0",
+  "L 2.0",
+  "GX -12,-2 3",
+  "F"
+};
+
+
+
+// Basement speed run
+String basement1[] = {
+  "N Basement 1",
+  "OL",
+  "AM 40",
+  "HG",
+  "CLS 0    .5 4 2.33",
+  "CLH 14.8 .5 4 2.33",  
+  "GY 0,15 3",          // Run past bookcase
+//  "TR 61 3 5.8",
+//  "TL -61 3 5.8",
+  "GY 5.0,25 3",        // Enter workshop
+  "GY 5.5,35 3",
+  "GY 4.8,44 3",
+  "TL -255 3 2.5",      // Loop in workshop
+  "OR",
+  "GY 5.5,35 4",
+  "GY 5.5,25 4",        // Exit workshop
+  "TR 45 4 5",
+  "GY 1.6,16 4",
+  "GY 0.6,11 4",          // Run along bookcase
+  "TR 180 5 6.0",
+  "GY -11.5,18.5 4",        // Run by refrigerator
+  "T  -4,21.5 4 4",       
+  "GX -4,21.5 4",       // Run past fern  
+  "T 0,0 4 5.1",
+  "VYR 11 180 7 2.0 0.0",   // YVR------------------------------
+  "L 2.0",
+  "TR 180 6 5.2",
+  "GY -11.5,18.5 6",        // Run by refrigerator
+  "T  -4,21.5 5 3.5",       
+  "GX -4,21.5 5",       // Run past fern  
+  "T 0,0 5 5.1",
+  "VYR 11 180 7 2.0 0.0",   // YVR------------------------------
+  "L 2.0",
+  "TR 180 6 5.2",
+  "GY -11.5,18.5 6",        // Run by refrigerator
+  "T  -4,21.5 5 3.5",       
+  "GX -4,21.5 5",       // Run past fern  
+  "T 0,0 5 5.1",
+  "VYR 11 180 7 2.0 0.0",   // YVR------------------------------
+  "L 2.0",
+  "TR 180 6 5.2",
+  "GY -11.5,18.5 6",        // Run by refrigerator
+  "T  -4,21.5 5 3.5",       
+  "GX -4,21.5 5",       // Run past fern  
+  "T 0,0 5 5.1",
+  "VYR 11 180 7 2.0 0.0",   // YVR------------------------------
+  "L 2.0",
+  "TR 180 6 5.2",
+  "GY -11.5,18.5 6",        // Run by refrigerator
+  "T  -4,21.5 5 3.5",       
+  "GX -4,21.5 5",       // Run past fern  
+  "T 0,0 5 5.1",
+  "VYR 11 180 7 2.0 0.0",   // YVR------------------------------
+  "L 2.0",
+  "TR 180 6 5.2",
+  "GY -11.5,18.5 6",        // Run by refrigerator
+  "T  -4,21.5 5 3.5",       
+  "GX -4,21.5 5",       // Run past fern  
+  "T 0,0 5 5.1",
+  "VYR 11 180 7 2.0 0.0",   // YVR------------------------------
+  "L 2.0",
+  "TR 180 6 5.2",
+  "GY -11.5,18.5 6",        // Run by refrigerator
+  "T  -4,21.5 5 3.5",       
+  "GX -4,21.5 5",       // Run past fern  
+  "T 0,0 5 5.1",
+  "GY 0,0 3",           // Run by bookcase
+  "F"
+};
+
+// Test survey
+String survey[] = {
+  "N Survey",
+  "AM -52.5",
+  "HG",
+  "TR 45 3    2",
+  "GX  3,4    3",
+  "T  99,5    3 3.1",
+  "GX   8,5   3",
+  "VXL  17.5 90  3  2",
+  "GX   35,0.5 3",
+  "L  2.0",
+  "F"
+};  
+
 
 String stand1[] = {
   "N Stand30",
@@ -420,7 +608,7 @@ String rtA[] = {
 
 
 String *routeTable[] = {
-  basement1, survey, house2, house3, house1, circle,  outNBack,  smallSquare};
+  NR, NL, house3f, house3h, house2, basement1, survey, smallSquare};
 
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
@@ -483,7 +671,7 @@ void startRoute() {
   currentMapLoc.x = 0.0D;
   currentMapLoc.y = 0.0D;
   coSetLoc = currentMapLoc;
-  setSonarMode(SONAR_LEFT);
+  isRightSonar = false;
 }
 
 

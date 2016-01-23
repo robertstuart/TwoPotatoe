@@ -14,6 +14,13 @@ double routeStandFps = 0.0D;
 char axisC = ' ';
 double dDiff = 0.0D;
 
+double degreesPerTick;
+double turnStartBearing;
+int startTurnTick;
+//double reFactor = 1.0;  // From tests at 3.5fps, 1.5 radius
+//double reFactor = 2.0;  // From hous3
+double reFactor = 0.0;  // From hous3
+
 void routeLog() {
   addLog(
     (long) (timeMilliseconds),
@@ -44,7 +51,6 @@ void route() {
     case 'H':
     case 'L':
     case 'N':
-    case 'O':
     case 'W':
     case 'Z':
       isNewRouteStep = true;
@@ -107,9 +113,9 @@ void route() {
       turnRadius();
       break;
 
-    case 'V': // Survey
+    case 'U': // Hug
       if (isReachedTrigger(routeTargetXY)) isNewRouteStep = true;
-      steerSurvey();
+      steerHug();
       break;
 
     default:
@@ -184,15 +190,9 @@ boolean interpretRouteLine(String ss) {
       co.trigger = readNum();
       Serial.print(co.trigger); Serial.print("   ");
       if (co.trigger == STEP_ERROR) return false;
-      co.min = readNum();
-      Serial.print(co.min); Serial.print("   ");
-      if (co.min == STEP_ERROR) return false;
-      co.max = readNum();
-      Serial.print(co.max); Serial.print("   ");
-      if (co.max == STEP_ERROR) return false;
-      co.dist = readNum();
-      Serial.print(co.dist); Serial.print("   ");
-      if (co.dist == STEP_ERROR) return false;
+      co.surface = readNum();
+      Serial.print(co.surface); Serial.print("   ");
+      if (co.surface == STEP_ERROR) return false;
       chartedObjects[coEnd++] = co;
       break;
 
@@ -213,10 +213,12 @@ boolean interpretRouteLine(String ss) {
 
     case 'F':
       isRouteInProgress = false;
+      //reFactor += .2;
       break;
 
     case 'G':
       lsPtr = 0;
+      isHug = false;
       char1 = stepString.charAt(0);
       if (char1 == 'X') isGXAxis = true;
       else if (char1 == 'Y') isGXAxis = false;
@@ -224,8 +226,8 @@ boolean interpretRouteLine(String ss) {
       stepString = stepString.substring(1);
       char2 = stepString.charAt(0);
       if (!isspace(char2)) {
-        if (char2 == 'R') sonarMode = SONAR_RIGHT;
-        else if (char2 == 'L') sonarMode = SONAR_LEFT;
+        if (char2 == 'R') isRightSonar = true;
+        else if (char2 == 'L') isRightSonar = false;
         else return false;
         stepString = stepString.substring(1);
       }
@@ -272,24 +274,15 @@ boolean interpretRouteLine(String ss) {
       //      lsBearing = readNum();
       //      Serial.print(lsBearing);  Serial.print("   ");
       //      if (lsBearing == STEP_ERROR) return false;
-      lsDistanceExpected = readNum();
-      Serial.print(lsDistanceExpected);  Serial.print("   ");
-      if (lsDistanceExpected == STEP_ERROR) return false;
+      lsXYSurface = readNum();
+      Serial.print(lsXYSurface);  Serial.print("   ");
+      if (lsXYSurface == STEP_ERROR) return false;
       leastSquares();
       break;
 
     case 'N':
       stripWhite();
       routeTitle = stepString;
-      break;
-
-    case 'O':
-      char1 = stepString.charAt(0);
-      if (char1 == 'B') setSonarMode(SONAR_BOTH);
-      else if (char1 == 'L') setSonarMode(SONAR_LEFT);
-      else if (char1 == 'R') setSonarMode(SONAR_RIGHT);
-      else if (char1 == 'N') setSonarMode(SONAR_NONE);
-      else return false;
       break;
 
     case 'P':
@@ -392,18 +385,25 @@ boolean interpretRouteLine(String ss) {
       pivotLoc.y = (cos(pivotDir * DEG_TO_RAD) * routeRadius) +  currentMapLoc.y;
       //      sprintf(message, "pivotLoc.x: %5.2f     pivotLoc.y: %5.2f", pivotLoc.x, pivotLoc.y);
       //      sendBMsg(SEND_MESSAGE, message);
+      degreesPerTick = 180.0D / (TICKS_PER_FOOT * PI * routeRadius);
+      if (!routeIsRightTurn) degreesPerTick = -degreesPerTick;
+      turnStartBearing = currentMapHeading; // Need to fix this..........
+      startTurnTick = tickPosition;
       break;
 
-    case 'V':
+    case 'U':
       lsPtr = 0;
+      isHug = true;
       char1 = stepString.charAt(0);
-      if (char1 == 'X') isGXAxis = true;
-      else if (char1 == 'Y') isGXAxis = false;
+      if (char1 == 'N') hugBearing = 0.0D;
+      else if (char1 == 'E') hugBearing = 90.0D;
+      else if (char1 == 'S') hugBearing = 180.0D;
+      else if (char1 == 'W') hugBearing = -90.0D;
       else return false;
       stepString = stepString.substring(1);
       char2 = stepString.charAt(0);
-      if (char2 == 'R') sonarMode = SONAR_RIGHT;
-      else if (char2 == 'L') sonarMode = SONAR_LEFT;
+      if (char2 == 'R') isRightSonar = true;
+      else if (char2 == 'L') isRightSonar = false;
       else return false;
       stepString = stepString.substring(1);
       routeTargetXY = readNum();
@@ -417,16 +417,16 @@ boolean interpretRouteLine(String ss) {
         if (currentMapLoc.y < routeTargetXY) isRouteTargetIncreasing = true;
         else isRouteTargetIncreasing = false;
       }
-
-      surveyBearing = readNum();
-      Serial.print(surveyBearing);  Serial.print("   ");
-      if (surveyBearing == STEP_ERROR) return false;
       routeFps = readNum();
       Serial.print(routeFps);  Serial.print("   ");
       if (routeFps == STEP_ERROR) return false;
-      surveyDistance = readNum();
-      Serial.print(surveyDistance);  Serial.print("   ");
-      if (surveyDistance == STEP_ERROR) return false;
+      hugXYRhumb = readNum();
+      Serial.print(hugXYRhumb);  Serial.print("   ");
+      if (hugXYRhumb == STEP_ERROR) return false;
+      hugXYSurface = readNum();
+      Serial.print(hugXYSurface);  Serial.print("   ");
+      if (hugXYSurface == STEP_ERROR) return false;
+//      hugSonarDistance = abs(hugXYRhumb - hugXYSurface);
       break;
 
     default:
@@ -458,42 +458,65 @@ boolean isEndStand() {
  *  doChartedObject()
  ************************************************************************/
 void doChartedObject() {
-  loc beforeLoc = currentMapLoc;
   struct chartedObject co = chartedObjects[coPtr];
-  if (co.isRightSonar) sonarMode = SONAR_RIGHT;
-  else sonarMode = SONAR_LEFT;
   if (!isReachedTrigger(co.trigger)) return;
 
+  double xyVal;
+  loc beforeLoc = currentMapLoc;
+
   // Compute min value of last  2 feet
-  int n = ((int) (40.0D / routeFps)) + 1; // 2 feet of measurement.
+  int n = ((int) (20.0D / routeFps)) + 1; // 2 feet of measurement.
   double minVal = 20.0D;
-  for (int i = 0; i < n; i++) {
-    int index = sonarArrayPtr - i - 1;
-    if (index < 0) index += SONAR_ARRAY_SIZE; //% is not modulus!
-    double val = sonarArray[index];
-    if (val < minVal) minVal = val;
+  if (co.isRightSonar) {
+    for (int i = 0; i < n; i++) {
+      int index = sonarRightArrayPtr - i - 1;
+      if (index < 0) index += SONAR_ARRAY_SIZE; //% is not modulus!
+      double val = sonarRightArray[index];
+      if (val < minVal) minVal = val;
+    }
+  } else {
+    for (int i = 0; i < n; i++) {
+      int index = sonarLeftArrayPtr - i - 1;
+      if (index < 0) index += SONAR_ARRAY_SIZE; //% is not modulus!
+      double val = sonarLeftArray[index];
+      if (val < minVal) minVal = val;
+    }
   }
-  double diff = minVal - co.dist; // Negative if too close.
-  //sprintf(message, "%2d \t%2d \t%5.2f \t%5.2f \t%5.2f",
-  //isGXAxis, co.isRightSonar, minVal, currentMapLoc.x, currentMapLoc.y);
-  //sendBMsg(SEND_MESSAGE, message);
-  if ((minVal > co.min) && (minVal < co.max)) {
+//sprintf(message, "Sonar samples: %2d", n);
+//sendBMsg(SEND_MESSAGE, message);
+// 7 samples at 3fps
+  if (!co.isRightSonar) {
     if (isGXAxis) {
-      if ((co.isRightSonar && isRouteTargetIncreasing)
-          || ((!co.isRightSonar) && (!isRouteTargetIncreasing))) {
-        currentMapLoc.y += diff;
+      // Left sonar.
+      if (isRouteTargetIncreasing) {
+        currentMapLoc.y = co.surface - minVal;
       } else {
-        currentMapLoc.y -= diff;
+        currentMapLoc.y = co.surface + minVal;
       }
     } else {
-      if ((co.isRightSonar && isRouteTargetIncreasing)
-          || ((!co.isRightSonar) && (!isRouteTargetIncreasing))) {
-        currentMapLoc.x -= diff;
+      if (isRouteTargetIncreasing) {
+        currentMapLoc.x = co.surface + minVal;
       } else {
-        currentMapLoc.x += diff;
+        currentMapLoc.x = co.surface - minVal;
+      }
+    }
+  } else {
+    // Right sonar.
+    if (isGXAxis) {
+      if (isRouteTargetIncreasing) {
+        currentMapLoc.y = co.surface + minVal;
+      } else {
+        currentMapLoc.y = co.surface - minVal;
+      }
+    } else {
+      if (isRouteTargetIncreasing) {
+        currentMapLoc.x = co.surface - minVal;
+      } else {
+        currentMapLoc.x = co.surface + minVal;
       }
     }
   }
+  
   if (co.type == 'S') {
     coSetLoc = currentMapLoc;
   } else if (co.type == 'H') { // fix heading
@@ -505,6 +528,10 @@ void doChartedObject() {
     sendBMsg(SEND_MESSAGE, message);
   }
   coPtr++;
+  sprintf(message, "minVal: %5.2f\t  oldX: %5.2f\t oldY: %5.2f\t newX: %5.2f\t newY: %5.2f", 
+  minVal, beforeLoc.x, beforeLoc.y, currentMapLoc.x, currentMapLoc.y);
+  sendBMsg(SEND_MESSAGE, message);
+//  currentMapLoc = beforeLoc;
 }
 
 
@@ -518,7 +545,7 @@ void doChartedObject() {
  ************************************************************************/
 void steerHeading() {
   double speedAdjustment;
-  if (targetDistance < 2.0) {
+  if (targetDistance < 1.0) {
     speedAdjustment = 0.0;
   } else {
     double aDiff = routeTargetBearing - currentMapHeading;
@@ -538,40 +565,55 @@ void steerHeading() {
 }
 
 /************************************************************************
- *  steerSurvey() Find the correct heading to the target and adjust the
- *               wheel speeds to turn toward the target.  As tp approaches
- *               the target, use the originalTargetBearing.
+ *  steerHug() Follow along a wall at the specified distance.
+ *             Do not steer beyong 20 degrees from the specified angle.
  ************************************************************************/
-void steerSurvey() {
-  double distanceError;
-  distanceError = (sonarMode == SONAR_RIGHT) ? (surveyDistance - sonarRight) : (sonarLeft - surveyDistance);
-  double angleCorrection = distanceError * 20.0D;
-  if (angleCorrection > 20) angleCorrection = 20.0D;
+void steerHug() {
+  double hugTargetDistance, angleError;
 
-  double aDiff = surveyBearing - angleCorrection - currentMapHeading;
-  if (aDiff > 180.0) aDiff -= 360.0;
-  else if (aDiff < -180.0) aDiff += 360.0;
-  double d = (aDiff > 0.0) ? 1.0 : -1.0;
-
-  double speedAdjustment = (wheelSpeedFps / (RAD_TURN * 3.0)) * 0.64 * d;
-
-  // Reduce adjustment proportionally if less than X degrees.
-  if (abs(aDiff) < 2.0) {
-    speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
+  if (isRightSonar) {
+    hugTargetDistance = hugXYSurface - hugXYRhumb;
+    angleError = (sonarRight - hugTargetDistance) * 20.0;  // positive values to right 
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing + angleError; 
+  } else {
+    hugTargetDistance = hugXYRhumb - hugXYSurface;
+    angleError = (sonarLeft - hugTargetDistance) * 20.0;  // positive values to right 
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing - angleError; 
   }
-
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  tp6FpsLeft = tp6Fps + speedAdjustment;
-  addLog(
-    (long) timeMicroseconds,
-    (short) (currentMapHeading * 100.0),
-    (short) (speedAdjustment * 100.0),
-    (short) (sonarLeft * 100.0),
-    (short) (aDiff * 100.0),
-    (short) (currentMapLoc.x * 100.0),
-    (short) (currentMapLoc.y * 100.0)
-  );
-
+  steerHeading();
+  
+//  
+//  double distanceError;
+//  distanceError = isRightSonar ? (hugSonarDistance - sonarRight) : (sonarLeft - hugSonarDistance);
+//  double angleCorrection = distanceError * 20.0D;
+//  if (angleCorrection > 20) angleCorrection = 20.0D;
+//
+//  double aDiff = hugBearing - angleCorrection - currentMapHeading;
+//  if (aDiff > 180.0) aDiff -= 360.0;
+//  else if (aDiff < -180.0) aDiff += 360.0;
+//  double d = (aDiff > 0.0) ? 1.0 : -1.0;
+//
+//  double speedAdjustment = (wheelSpeedFps / (RAD_TURN * 3.0)) * 0.64 * d;
+//
+//  // Reduce adjustment proportionally if less than X degrees.
+//  if (abs(aDiff) < 2.0) {
+//    speedAdjustment = (abs(aDiff) / 2.0) * speedAdjustment;
+//  }
+//
+//  tp6FpsRight = tp6Fps - speedAdjustment;
+//  tp6FpsLeft = tp6Fps + speedAdjustment;
+//  //  addLog(
+//  //    (long) timeMicroseconds,
+//  //    (short) (currentMapHeading * 100.0),
+//  //    (short) (speedAdjustment * 100.0),
+//  //    (short) (sonarLeft * 100.0),
+//  //    (short) (aDiff * 100.0),
+//  //    (short) (currentMapLoc.x * 100.0),
+//  //    (short) (currentMapLoc.y * 100.0)
+//  //  );
+//  //
 }
 
 
@@ -638,11 +680,16 @@ void discombobulate() {
 
 /************************************************************************
  *  turnRadius() Turn with a given radius.
+ *  reFactor += .4;
+
  ************************************************************************/
 void turnRadius() {
   double speedAdjustment = 0.0;
   double aDiff  = 0.0;
   double d;
+  double radiusError = 0.0D;
+  double  headingError = 0.0D;
+
   if (isTurnDegrees) {
     d = routeIsRightTurn ? 1.0 : -1.0;
   }
@@ -652,7 +699,29 @@ void turnRadius() {
     else if (aDiff < -180.0) aDiff += 360.0;
     d = (aDiff > 0.0) ? 1.0 : -1.0;
   }
-  speedAdjustment = (wheelSpeedFps / routeRadius) * 0.64 * d;
+  double rsa = (wheelSpeedFps / routeRadius) * 0.64 * d;
+
+  double xDist = (pivotLoc.x - currentMapLoc.x);
+  double yDist = (pivotLoc.y - currentMapLoc.y);
+  radiusError = sqrt((xDist * xDist) + (yDist * yDist)) - routeRadius;
+  int turnTicks = tickPosition - startTurnTick;
+  headingError = (turnTicks * degreesPerTick) - currentMapHeading;
+  double errorAdjustment = radiusError * reFactor * d;
+  speedAdjustment = rsa + errorAdjustment;
+
+  //  static int loopR = 0;
+  //  if ((++loopR % 10) == 0) {
+  //   addLog(
+  //    (long) (errorAdjustment * 100.0),
+  //    (short) (currentMapLoc.x * 100.0),
+  //    (short) (currentMapLoc.y * 100.0),
+  //    (short) (radiusError * 1000.0),
+  //    (short) (rsa * 100.0),
+  //    (short) (speedAdjustment * 100.0),
+  //    (short) routeStepPtr
+  //  );
+  //  }
+
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
 }
@@ -753,10 +822,11 @@ void leastSquares() {
   float meanX, meanYL, meanYS;
   float diffX, diffYL, diffYS, sigmaX, sigmaYL, sigmaYS;
   float rL, rS, slopeL, slopeS, interceptL, interceptS;
+  double angleCorrection;
 
   for (int i = 0; i < lsPtr; i++) sumX += lsXArray[i];
   for (int i = 0; i < lsPtr; i++) sumYL += lsYLArray[i];
-  for (int i = 0; i < lsPtr; i++) sumYS += lsYSArray[i];
+  for (int i = 0; i < lsPtr; i++) sumYS += lsSArray[i];
   meanX = sumX / ((float) lsPtr);
   meanYL = sumYL / ((float) lsPtr);
   meanYS = sumYS / ((float) lsPtr);
@@ -765,7 +835,7 @@ void leastSquares() {
     sumSqX += diffX * diffX;
     diffYL = meanYL - lsYLArray[i];
     sumSqYL += diffYL * diffYL;
-    diffYS = meanYS - lsYSArray[i];
+    diffYS = meanYS - lsSArray[i];
     sumSqYS += diffYS * diffYS;
     sumXYL += (diffX * diffYL);
     sumXYS += (diffX * diffYS);
@@ -775,19 +845,83 @@ void leastSquares() {
   sigmaYS = sqrt(sumSqYS / df);
   rL = (sumXYL / (sigmaYL * sigmaX)) / df;
   slopeL = rL * (sigmaYL / sigmaX);
+  double bearingL = asin(slopeL) * RAD_TO_DEG;
   interceptL = meanYL - (slopeL * meanX);
   rS = (sumXYS / (sigmaYS * sigmaX)) / df;
   slopeS = rS * (sigmaYS / sigmaX);
+  double bearingS = asin(slopeS) * RAD_TO_DEG;
   interceptS = meanYS - (slopeS * meanX);
-  sprintf(message, "%5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f",
-          sigmaX, sigmaYL, sigmaYS, rL, slopeL, interceptL, rS, slopeS, interceptS);
+
+  if (isHug) { // Following V command. Use last sonar for xy value;
+    if (!isRightSonar) {
+      if (isGXAxis) {
+        if (isRouteTargetIncreasing) {
+          sendBMsg(SEND_MESSAGE, "Left, !XAxis, increasing: East");
+          currentMapLoc.y = lsXYSurface - sonarLeft;
+          angleCorrection = bearingL + bearingS;
+          setHeading(currentMapHeading + angleCorrection);
+        } else {
+          sendBMsg(SEND_MESSAGE, "Left, XAxis, !increasing: West");
+          currentMapLoc.y = lsXYSurface + sonarLeft;
+          angleCorrection = bearingL - bearingS;
+          setHeading(currentMapHeading + angleCorrection);
+        }
+      } else {
+        if (isRouteTargetIncreasing) {
+          // Correct from some testing.
+          sendBMsg(SEND_MESSAGE, "Left, !XAxis, increasing: North");
+          currentMapLoc.x = lsXYSurface + sonarLeft;
+          angleCorrection = bearingL - bearingS;
+          setHeading(currentMapHeading - angleCorrection);
+        } else {
+          sendBMsg(SEND_MESSAGE, "Left, !XAxis, !increasing: South");
+          currentMapLoc.x = lsXYSurface - sonarLeft;
+          angleCorrection = bearingL + bearingS;
+          setHeading(currentMapHeading - angleCorrection);
+        }
+      }
+    } else {
+      // Right sonar.
+      if (isGXAxis) {
+        if (isRouteTargetIncreasing) {
+           sendBMsg(SEND_MESSAGE, "Right, !XAxis, increasing: East");
+          currentMapLoc.y = lsXYSurface + sonarRight;
+          angleCorrection = bearingL - bearingS;
+          setHeading(currentMapHeading + angleCorrection);
+        } else {
+          sendBMsg(SEND_MESSAGE, "Right, XAxis, !increasing: West");
+          currentMapLoc.y = lsXYSurface - sonarRight;
+          angleCorrection = bearingL + bearingS;
+          setHeading(currentMapHeading + angleCorrection);
+        }
+      } else {
+        if (isRouteTargetIncreasing) {
+          sendBMsg(SEND_MESSAGE, "Right, !XAxis, increasing: North");
+          currentMapLoc.x = lsXYSurface - sonarRight;
+          angleCorrection = bearingL + bearingS;
+          setHeading(currentMapHeading - angleCorrection);
+        } else {
+          sendBMsg(SEND_MESSAGE, "Right, !XAxis, !increasing: South");
+          currentMapLoc.x = lsXYSurface + sonarRight;
+          angleCorrection = bearingL - bearingS;
+          setHeading(currentMapHeading - angleCorrection);
+        }
+      }
+    }
+  } else { // Following G command.
+    // This situation only used for testing and callibration.  It only tests
+    // traveling East with the left sonar.
+    currentMapLoc.y = lsXYSurface - sonarLeft;
+    angleCorrection = bearingL + bearingS;
+    setHeading(currentMapHeading + angleCorrection);
+    //    sprintf(message, "Dist. correction:%2.2f",  (lsDistanceMeasured - lsDistanceExpected));
+    //    sendBMsg(SEND_MESSAGE, message);
+  }
+  //  sprintf(message, "%5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f",
+  //          sigmaX, sigmaYL, sigmaYS, rL, bearingL, interceptL, rS, bearingS, interceptS);
+  //  sendBMsg(SEND_MESSAGE, message);
+  sprintf(message, "bearingL: %5.2f\tbearingS: %5.2f", bearingL, bearingS);
   sendBMsg(SEND_MESSAGE, message);
-  float lsDistanceMeasured = interceptS + (slopeS * currentMapLoc.y);
-  currentMapLoc.y -= (lsDistanceMeasured - lsDistanceExpected);
-  sprintf(message, "Dist. correction:%2.2f",  (lsDistanceMeasured - lsDistanceExpected));
-  sendBMsg(SEND_MESSAGE, message);
-  double angleCorrection = (asin(slopeL) - asin(slopeS)) * RAD_TO_DEG;
-  setHeading(currentMapHeading - angleCorrection);
   sprintf(message, "Angle correction:%2.2f",  angleCorrection);
   sendBMsg(SEND_MESSAGE, message);
 }
