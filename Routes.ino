@@ -1,3 +1,23 @@
+// Test chain-link fence
+String fenceRight[] = {
+  "N Fence right",
+  "A",
+  "HG",
+  "UNR 140.0 3.0 0.0 3.5",
+//  "T 23.5,23.5 3.0 3.5",
+//  "UER 23.0 3.0 23.5 20",
+  "F"
+};
+String fenceLeft[] = {
+  "N Fence left",
+  "A",
+  "HG",
+  "UNL 20.0 3.0 0.0 3.5",
+  "T 23.5,23.5 3.0 3..5",
+  "UWR -23.0 3.0 23 20",
+  "F"
+};
+
 
 // Test LS, angle to fridge
 String house1[] = {
@@ -166,7 +186,8 @@ String NR[] = {
   "GY 0,13 3",
   "F"
 };
-// heading North, Sonar on Left.  --OK--
+
+// heading North, Sonar on Left.
 String NL[] = {
   "N North Left",
   "A",
@@ -177,57 +198,81 @@ String NL[] = {
   "F"
 };
 
-// heading East, Sonar on Left.
-String EL[] = {
-  "N East Left",
-  "OL",
-  "A",
-  "HG",
-  "GY 0,1 3",
-  "TR 90 3 2",
-  "VXL 9 90 3.0 2.0 3.0",
-  "L 2.0",
-  "GX 16,3 3",
-  "F"
-};
-
 // heading South, Sonar on Right.
 String SR[] = {
   "N South Right",
-  "OR",
   "A",
   "HG",
   "GY 0,1 3",
   "TL -180 3 1.6",
-  "VYR -6 180 3.0 2.0 -3.0",
-  "L 2.0",
+  "USR -6 3.0 -3.0 -5.0",
+  "L -5.0",
   "GY -3.0,-12.5 3",
   "F"
 };
+
 // heading South, Sonar on Left.
 String SL[] = {
   "N South Left",
-  "OL",
   "A",
   "HG",
   "GY 0,1 3",
   "TR 180 3 1.6",
-  "VYL -6 180 3.0 2.0 -3.0",
-  "L 2.0",
+  "USL -6 3.0 3.0 5.0",
+  "L 5.0",
   "GY 3.0,-12.5 3",
+  "F"
+};
+
+// heading East, Sonar on Right
+String ER[] = {
+  "N East Right",
+  "A",
+  "HG",
+  "GY 0,4 3",
+  "TR 90 3 2.0",
+  "UER 9 3.0 6.0 4.0",
+  "L 4.0",
+  "GX 16,6 3.0",
+  "F"
+};
+
+// heading East, Sonar on Left.
+String EL[] = {
+  "N East Left",
+  "A",
+  "HG",
+  "GY 0,1 3",
+  "TR 90 3 2",
+  "UEL 9 3.0 3.0 5.0",
+  "L 5.0",
+  "GX 16,3 3",
+  "F"
+};
+
+// heading West, Sonar on Right.
+String WR[] = {
+  "N West Right",
+  "A",
+  "HG",
+  "GY 0,1 3",
+  "TL -90 3 2",
+  "UWR -8 3.0 3.0 5.0",
+  "L 5.0",
+  "GX -14,3 3",
   "F"
 };
 
 // heading West, Sonar on Left.
 String WL[] = {
   "N West Left",
-  "OL",
   "A",
   "HG",
-  "TR 270 3 1.6",
-  "VXL -6 -90 3.0 2.0 -2.0",
-  "L 2.0",
-  "GX -12,-2 3",
+  "GY 0,1 3",
+  "TL -90 3 2",
+  "UWL -8 3.0 3.0 1.0",
+  "L 1.0",
+  "GX -14,3 3",
   "F"
 };
 
@@ -608,7 +653,7 @@ String rtA[] = {
 
 
 String *routeTable[] = {
-  NR, NL, house3f, house3h, house2, basement1, survey, smallSquare};
+  WR, WL, house3f, house3h, house2, basement1, survey, smallSquare};
 
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
@@ -671,7 +716,6 @@ void startRoute() {
   currentMapLoc.x = 0.0D;
   currentMapLoc.y = 0.0D;
   coSetLoc = currentMapLoc;
-  isRightSonar = false;
 }
 
 

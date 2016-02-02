@@ -45,11 +45,11 @@ void route() {
   setTargetBearing();
   // See of we need to move to the next route step.
   switch (routeCurrentAction) {
-    case 'B':
     case 'C':
     case 'E':
     case 'H':
     case 'L':
+    case 'M':
     case 'N':
     case 'W':
     case 'Z':
@@ -226,8 +226,8 @@ boolean interpretRouteLine(String ss) {
       stepString = stepString.substring(1);
       char2 = stepString.charAt(0);
       if (!isspace(char2)) {
-        if (char2 == 'R') isRightSonar = true;
-        else if (char2 == 'L') isRightSonar = false;
+        if (char2 == 'R') setSonar(SONAR_RIGHT);
+        else if (char2 == 'L') setSonar(SONAR_LEFT);
         else return false;
         stepString = stepString.substring(1);
       }
@@ -278,6 +278,15 @@ boolean interpretRouteLine(String ss) {
       Serial.print(lsXYSurface);  Serial.print("   ");
       if (lsXYSurface == STEP_ERROR) return false;
       leastSquares();
+      break;
+
+    case 'M':
+      char1 = stepString.charAt(0);
+      if      (char1 == 'R') setSonar(SONAR_RIGHT);
+      else if (char1 == 'L') setSonar(SONAR_LEFT);
+      else if (char1 == 'B') setSonar(SONAR_BOTH);
+      else if (char1 == 'N') setSonar(SONAR_NONE);
+      else return false;
       break;
 
     case 'N':
@@ -394,16 +403,28 @@ boolean interpretRouteLine(String ss) {
     case 'U':
       lsPtr = 0;
       isHug = true;
-      char1 = stepString.charAt(0);
-      if (char1 == 'N') hugBearing = 0.0D;
-      else if (char1 == 'E') hugBearing = 90.0D;
-      else if (char1 == 'S') hugBearing = 180.0D;
-      else if (char1 == 'W') hugBearing = -90.0D;
+      hugDirection = stepString.charAt(0);
+      if (hugDirection == 'N') {
+        hugBearing = 0.0D;
+        isGXAxis = false;
+      }
+      else if (hugDirection == 'E') {
+        hugBearing = 90.0D;
+        isGXAxis = true;
+      }
+      else if (hugDirection == 'S') {
+        hugBearing = 180.0D;
+        isGXAxis = false;
+      }
+      else if (hugDirection == 'W') {
+        hugBearing = -90.0D;
+        isGXAxis = true;
+      }
       else return false;
       stepString = stepString.substring(1);
       char2 = stepString.charAt(0);
-      if (char2 == 'R') isRightSonar = true;
-      else if (char2 == 'L') isRightSonar = false;
+      if (char2 == 'R') setSonar(SONAR_RIGHT);
+      else if (char2 == 'L') setSonar(SONAR_LEFT);
       else return false;
       stepString = stepString.substring(1);
       routeTargetXY = readNum();
@@ -571,14 +592,44 @@ void steerHeading() {
 void steerHug() {
   double hugTargetDistance, angleError;
 
-  if (isRightSonar) {
+  if ((hugDirection == 'N') && (sonarMode == SONAR_RIGHT)) {
     hugTargetDistance = hugXYSurface - hugXYRhumb;
-    angleError = (sonarRight - hugTargetDistance) * 20.0;  // positive values to right 
+    angleError = (sonarRight - hugTargetDistance) * 20.0;
     angleError = constrain(angleError, -20.0, 20.0);
     routeTargetBearing = hugBearing + angleError; 
-  } else {
+  } else if ((hugDirection == 'N') && (sonarMode == SONAR_LEFT)) {
     hugTargetDistance = hugXYRhumb - hugXYSurface;
-    angleError = (sonarLeft - hugTargetDistance) * 20.0;  // positive values to right 
+    angleError = (sonarLeft - hugTargetDistance) * 20.0;
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing - angleError; 
+  } else if ((hugDirection == 'S') && (sonarMode == SONAR_RIGHT)) {
+    hugTargetDistance = hugXYRhumb - hugXYSurface;
+    angleError = (sonarRight - hugTargetDistance) * 20.0; 
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing + angleError; 
+  } else if ((hugDirection == 'S') && (sonarMode == SONAR_LEFT)) {
+    hugTargetDistance = hugXYSurface - hugXYRhumb;
+    angleError = (sonarLeft - hugTargetDistance) * 20.0;
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing - angleError; 
+  } else if ((hugDirection == 'E') && (sonarMode == SONAR_RIGHT)) {
+    hugTargetDistance = hugXYRhumb - hugXYSurface;
+    angleError = (sonarRight - hugTargetDistance) * 20.0;
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing + angleError; 
+  } else if ((hugDirection == 'E') && (sonarMode == SONAR_LEFT)) {
+    hugTargetDistance = hugXYSurface - hugXYRhumb;
+    angleError = (sonarLeft - hugTargetDistance) * 20.0;
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing - angleError; 
+  } else if ((hugDirection == 'W') && (sonarMode == SONAR_RIGHT)) {
+    hugTargetDistance = hugXYSurface - hugXYRhumb;
+    angleError = (sonarRight - hugTargetDistance) * 20.0;
+    angleError = constrain(angleError, -20.0, 20.0);
+    routeTargetBearing = hugBearing + angleError; 
+  } else if ((hugDirection == 'W') && (sonarMode == SONAR_LEFT)) {
+    hugTargetDistance = hugXYRhumb - hugXYSurface ;
+    angleError = (sonarLeft - hugTargetDistance) * 20.0;
     angleError = constrain(angleError, -20.0, 20.0);
     routeTargetBearing = hugBearing - angleError; 
   }
@@ -604,15 +655,15 @@ void steerHug() {
 //
 //  tp6FpsRight = tp6Fps - speedAdjustment;
 //  tp6FpsLeft = tp6Fps + speedAdjustment;
-//  //  addLog(
-//  //    (long) timeMicroseconds,
-//  //    (short) (currentMapHeading * 100.0),
-//  //    (short) (speedAdjustment * 100.0),
-//  //    (short) (sonarLeft * 100.0),
-//  //    (short) (aDiff * 100.0),
-//  //    (short) (currentMapLoc.x * 100.0),
-//  //    (short) (currentMapLoc.y * 100.0)
-//  //  );
+//  addLog(
+//    (long) timeMicroseconds,
+//    (short) (currentMapHeading * 100.0),
+//    (short) (speedAdjustment * 100.0),
+//    (short) (sonarLeft * 100.0),
+//    (short) (aDiff * 100.0),
+//    (short) (currentMapLoc.x * 100.0),
+//    (short) (currentMapLoc.y * 100.0)
+//  );
 //  //
 }
 
@@ -852,10 +903,10 @@ void leastSquares() {
   double bearingS = asin(slopeS) * RAD_TO_DEG;
   interceptS = meanYS - (slopeS * meanX);
 
-  if (isHug) { // Following V command. Use last sonar for xy value;
-    if (!isRightSonar) {
+  if (isHug) { // Following U command. Use last sonar for xy value;
+    if (sonarMode == SONAR_LEFT) {
       if (isGXAxis) {
-        if (isRouteTargetIncreasing) {
+        if (isRouteTargetIncreasing) {                                  // OK
           sendBMsg(SEND_MESSAGE, "Left, !XAxis, increasing: East");
           currentMapLoc.y = lsXYSurface - sonarLeft;
           angleCorrection = bearingL + bearingS;
@@ -867,13 +918,13 @@ void leastSquares() {
           setHeading(currentMapHeading + angleCorrection);
         }
       } else {
-        if (isRouteTargetIncreasing) {
+        if (isRouteTargetIncreasing) {                                   // OK
           // Correct from some testing.
           sendBMsg(SEND_MESSAGE, "Left, !XAxis, increasing: North");
           currentMapLoc.x = lsXYSurface + sonarLeft;
           angleCorrection = bearingL - bearingS;
           setHeading(currentMapHeading - angleCorrection);
-        } else {
+        } else {                                                         // OK
           sendBMsg(SEND_MESSAGE, "Left, !XAxis, !increasing: South");
           currentMapLoc.x = lsXYSurface - sonarLeft;
           angleCorrection = bearingL + bearingS;
@@ -882,7 +933,7 @@ void leastSquares() {
       }
     } else {
       // Right sonar.
-      if (isGXAxis) {
+      if (isGXAxis) {                                                  // OK
         if (isRouteTargetIncreasing) {
            sendBMsg(SEND_MESSAGE, "Right, !XAxis, increasing: East");
           currentMapLoc.y = lsXYSurface + sonarRight;
@@ -895,12 +946,12 @@ void leastSquares() {
           setHeading(currentMapHeading + angleCorrection);
         }
       } else {
-        if (isRouteTargetIncreasing) {
+        if (isRouteTargetIncreasing) {                                  // OK
           sendBMsg(SEND_MESSAGE, "Right, !XAxis, increasing: North");
           currentMapLoc.x = lsXYSurface - sonarRight;
           angleCorrection = bearingL + bearingS;
           setHeading(currentMapHeading - angleCorrection);
-        } else {
+        } else {                                                         // OK
           sendBMsg(SEND_MESSAGE, "Right, !XAxis, !increasing: South");
           currentMapLoc.x = lsXYSurface + sonarRight;
           angleCorrection = bearingL - bearingS;

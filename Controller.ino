@@ -115,6 +115,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         }
         else {
           isRouteInProgress = false;
+          setSonar(SONAR_BOTH);
         }
       }
       break;

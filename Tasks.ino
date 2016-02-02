@@ -58,13 +58,13 @@ void commonTasks() {
   timeMilliseconds = timeMicroseconds / 1000;
   readXBee();  // Read commands from PC or Hand Controller
   readBluetooth();
+  readSonar();
   //  motorIdle();
   led();
   battery();
   controllerConnected();
   liftJump();
   setRunningState();
-  sonar();
   gyroTemperature();
 }
 
@@ -240,6 +240,7 @@ void led() {
     int b = (patternBlue[blinkPtrBlue++] == 1) ? HIGH : LOW;
     if (patternBlue[blinkPtrBlue] == END_MARKER) blinkPtrBlue = 0;
     digitalWrite(BLUE_LED_PIN, b);
+digitalWrite(GREEN_LED_PIN, b);
     b = (patternYellow[blinkPtrYellow++] == 1) ? HIGH : LOW;
     if (patternYellow[blinkPtrYellow] == END_MARKER) blinkPtrYellow = 0;
     digitalWrite(YELLOW_LED_PIN, b);
@@ -380,62 +381,95 @@ double getControllerX() {
 
 
 /**************************************************************************.
- * sonar() 
+ * readSonar() 
  **************************************************************************/
-void sonar() {
-  static unsigned long sonarTrigger = 0L;
-  static unsigned long sonarPulseTrigger = 0L;
-  static boolean isBeepRight = false;
-  static int writePin;
-  double sonar;
-  unsigned long t = micros();
+void readSonar() {
+  const int S_BUFFER_SIZE = 20;
+  static char msgStr[S_BUFFER_SIZE + 1];
+  static boolean isMsgInProgress = false;
+  static int msgPtr = 0;
+  static boolean isRight = false;
   
-  if ((sonarPulseTrigger != 0L) && (t > sonarPulseTrigger)) {
-    digitalWrite(writePin, LOW);
-    sonarPulseTrigger = 0L;
-  }
-  
-  if (timeMilliseconds > sonarTrigger) {
-    sonarTrigger = timeMilliseconds + 50UL;  
-    
-    if (isBeepRight) {
-       sonar = sonarLeft = (analogRead(SONAR_LEFT_AN) * SONAR_SENS) + 0.33;
-      writePin = SONAR_RIGHT_RX;
-    } else {
-      sonar = sonarRight = (analogRead(SONAR_RIGHT_AN) * SONAR_SENS) + 0.33;
-      writePin = SONAR_LEFT_RX;
-    }
-    digitalWrite(writePin, HIGH);
-    sonarPulseTrigger = micros() + 50L;
-    
-    // Collect data for least squares calculation.
-    if ((!isRightSonar && isBeepRight) || (isRightSonar && !isBeepRight)) {
-      if (isGXAxis) {
-        lsXArray[lsPtr] = (float) currentMapLoc.x;
-        lsYLArray[lsPtr] = (float) currentMapLoc.y;
-      } else {
-        lsXArray[lsPtr] = (float) currentMapLoc.y;
-        lsYLArray[lsPtr] = (float) currentMapLoc.x;
+  float distance = 0.0;
+ 
+  while (SONAR_SER.available()) {
+    byte b = SONAR_SER.read();
+    if (isMsgInProgress) {
+      if (b == 13) {
+        msgStr[msgPtr] = 0;
+        int e = sscanf(msgStr, "%f", &distance);
+        if ((e > 0) && (distance < 30.0)) {
+          doSonar(distance, isRight);
+        }
+        isMsgInProgress = false;
       }
-      lsSArray[lsPtr] = (float) sonar;
-      if (lsPtr < (LS_ARRAY_SIZE - 1)) lsPtr++;
-    }
-
-    // Collect data for Charted Object measurements. 
-    if (isBeepRight) {     
-      sonarLeftArray[sonarLeftArrayPtr] = sonarLeft;
-      sonarLeftArrayPtr = ++sonarLeftArrayPtr % SONAR_ARRAY_SIZE;
+      else if (msgPtr >= S_BUFFER_SIZE) {
+        isMsgInProgress = false;
+      } else {
+        msgStr[msgPtr++] = b;
+      }
     } else {
-      sonarRightArray[sonarRightArrayPtr] = sonarRight;
-      sonarRightArrayPtr = ++sonarRightArrayPtr % SONAR_ARRAY_SIZE;
+      if (b == 'R') isRight = true;
+      else if (b == 'L') isRight = false;
+      else continue; 
+      msgPtr = 0;
+      isMsgInProgress = true;         
     }
-
-    isBeepRight = !isBeepRight;
-  if (isRouteInProgress) routeLog();
   }
 }
 
 
+
+/**************************************************************************.
+ * doSonar() Process received distance from sonar.
+ *           Called for every sonar reading.
+ **************************************************************************/
+void doSonar(float distance, int isRight) {
+    
+  // Collect data for least squares calculation.
+  if (isGXAxis) {
+    lsXArray[lsPtr] = (float) currentMapLoc.x;
+    lsYLArray[lsPtr] = (float) currentMapLoc.y;
+  } else {
+    lsXArray[lsPtr] = (float) currentMapLoc.y;
+    lsYLArray[lsPtr] = (float) currentMapLoc.x;
+  }
+  lsSArray[lsPtr] = (float) distance;
+  if (lsPtr < (LS_ARRAY_SIZE - 1)) lsPtr++;
+
+  // Collect data for Charted Object measurements. 
+  if (isRight) {     
+    sonarRightArray[sonarRightArrayPtr] = sonarRight;
+    sonarRightArrayPtr = ++sonarRightArrayPtr % SONAR_ARRAY_SIZE;
+    sonarRight = distance;
+  } else {
+    sonarLeftArray[sonarLeftArrayPtr] = sonarLeft;
+    sonarLeftArrayPtr = ++sonarLeftArrayPtr % SONAR_ARRAY_SIZE;
+    sonarLeft = distance;
+  }
+
+  if (isRouteInProgress) routeLog();
+}
+
+void setSonar(int mode) {
+  int r, l;
+  sonarMode = mode;
+  if (mode == SONAR_RIGHT) {
+    r = HIGH;
+    l = LOW;
+  } else if (mode == SONAR_LEFT) {
+    r = LOW;
+    l = HIGH;
+  } else if (mode == SONAR_BOTH) {
+    r = HIGH;
+    l = HIGH;
+  } else {
+    r = LOW;
+    l = LOW;
+  }
+  digitalWrite(SONAR_RIGHT_PIN, r);
+  digitalWrite(SONAR_LEFT_PIN, l);
+}
 
 /**************************************************************************.
  *  rangeAngle() Set angle value between -180 and +180

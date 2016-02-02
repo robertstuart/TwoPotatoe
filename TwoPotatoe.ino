@@ -9,6 +9,7 @@
 
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
+#define SONAR_SER Serial2
 
 //#define TICKS_PER_FOOT 3017.0D  // For G-made inflatable
 //#define TICKS_PER_FOOT 3342.0D // For Pro-Line Masher 2.8" PRO1192-12
@@ -75,15 +76,11 @@ const int HEADING_SOURCE_GM = 3;
 #define BATT_PIN A0
 #define R_FORCE_PIN A1             // Force sensor
 #define L_FORCE_PIN A2             // Force sensor
-#define R_CURRENT_PIN A3             // Right motor current
-#define L_CURRENT_PIN A4             // Left motor current
+//#define R_CURRENT_PIN A3             // Right motor current
+//#define L_CURRENT_PIN A4             // Left motor current
 
-#define SONAR_RIGHT_AN A5
-#define SONAR_FRONT_AN A4
-#define SONAR_LEFT_AN A3
-#define SONAR_RIGHT_RX 45
-#define SONAR_FRONT_RX 43
-#define SONAR_LEFT_RX 41
+#define SONAR_RIGHT_PIN 43
+#define SONAR_LEFT_PIN 45
 
 #define A_LIM 20.0 // degrees at which the speedAdjustment starts reducing.
 #define S_LIM 1.0  // maximum speedAdjustment;
@@ -249,6 +246,7 @@ double hugXYRhumb = 0.0D;
 double hugXYSurface = 0.0D;
 double hugSonarDistance = 0.0D;
 double hugBearing = 0.0D;
+char hugDirection = 'N';
 boolean isHug = false;
 
 int routeStepPtr = 0;
@@ -410,7 +408,7 @@ double sonarRight = 0.0;
 double sonarRightMin = 0.0;
 double sonarLeft = 0.0;
 double sonarLeftMin = 0.0;
-boolean isRightSonar = false;
+int sonarMode = SONAR_BOTH;
 double sonarMin = 0.0D;
 double sonarMax = 100.0D;
 
@@ -572,6 +570,7 @@ char pBuf[100];
 void setup() {
   XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
   BLUE_SER.begin(115200);  // Bluetooth 
+  SONAR_SER.begin(9600);   // Mini-pro sonar controller
   Serial.begin(115200); // for debugging output
    
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
@@ -585,13 +584,12 @@ void setup() {
   pinMode(SPEAKER_PIN, OUTPUT);
   
   pinMode(BATT_PIN, INPUT);
-  
-  pinMode(SONAR_RIGHT_AN, INPUT);
-  pinMode(SONAR_FRONT_AN, INPUT);
-  pinMode(SONAR_LEFT_AN, INPUT);
-  pinMode(SONAR_RIGHT_RX, OUTPUT);
-  pinMode(SONAR_FRONT_RX, OUTPUT);
-  pinMode(SONAR_LEFT_RX, OUTPUT);
+
+  pinMode(R_FORCE_PIN, INPUT);
+  pinMode(L_FORCE_PIN, INPUT);
+
+  pinMode(SONAR_RIGHT_PIN, OUTPUT);
+  pinMode(SONAR_LEFT_PIN, OUTPUT);
   
   pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
@@ -614,6 +612,8 @@ void setup() {
   digitalWrite(YELLOW_LED_PIN, LOW);
   digitalWrite(GREEN_LED_PIN, HIGH);
 
+  setSonar(SONAR_BOTH);
+  
   Serial.println("Serial & pins initialized.");
   angleInit6();
   Serial.println("Navigation initialized");
@@ -631,7 +631,6 @@ void setup() {
   Serial.println("Gyro zeroed out.");
   diagnostics();
   Serial.println("Diagnostics ignored.");
-  lsPtr = 5; leastSquares(); // 3.975 0.385 0.515 0.984 0.095 1.546 0.977 0.127 1.285
 } // end setup()
 
 
@@ -842,9 +841,9 @@ void diagnostics() {
     Serial.print("forceLeft: "); Serial.print(forceLeft); Serial.println();
 
     // Sonar
-    double sonar = analogRead(SONAR_RIGHT_AN) * SONAR_SENS;
-    Serial.print("Right Sonar: "); Serial.print(sonar); Serial.print("\t");
-    Serial.print("Left Sonar: "); Serial.print(sonar); Serial.println();
+//    double sonar = analogRead(SONAR_RIGHT_AN) * SONAR_SENS;
+//    Serial.print("Right Sonar: "); Serial.print(sonar); Serial.print("\t");
+//    Serial.print("Left Sonar: "); Serial.print(sonar); Serial.println();
 
     // Motors
     readSpeedRight();
