@@ -1,3 +1,22 @@
+// Street out and back to test magnetomenter accuracy and reliability
+String street1[] = {
+  "N Street 1",
+  "A",
+  "HG",
+  "GY 0,100 4",  // Street to west
+  "TR 90 4 5",   // Right toward Mesple
+  "GX 15,105 4", // to Mesple
+  "TR 90 4 5",   // Right back east
+  "GY 20,80 4",  // Back a little
+  "TR 90 4 5",   // Right toward Mensch
+  "GX 5,75 4",   // to Mensch
+  "TL -90 4 5",  // Left toward home
+  "GY 0,0 4",    // to origin
+  "F"
+};
+
+
+
 // Test chain-link fence
 String fenceRight[] = {
   "N Fence right",
@@ -99,7 +118,7 @@ String house3f[] = {
 
 // House 3, C test through living room
 String house3h[] = {
-  "N House 3orig",
+  "N House 3original",
   "A",
   "HG",
   "TR 45 3    2.5",
@@ -160,21 +179,6 @@ String bigTurn3[] = {
   "TR 90 9 12",
   "F"
 };
-
-// S loop to check turns
-String sLoop[] = {
-  "N S Loop",
-  "OR",
-  "AM 40",
-  "HG",
-  "GY 0,1 3.5",
-  "TR 180 3.5 1.5",
-  "GY 3,0 3.5",
-  "TL -180 3.5 1.5",
-  "F"
-};
-
-
 
 // heading North, Sonar on Right.
 String NR[] = {
@@ -350,22 +354,6 @@ String basement1[] = {
   "F"
 };
 
-// Test survey
-String survey[] = {
-  "N Survey",
-  "AM -52.5",
-  "HG",
-  "TR 45 3    2",
-  "GX  3,4    3",
-  "T  99,5    3 3.1",
-  "GX   8,5   3",
-  "VXL  17.5 90  3  2",
-  "GX   35,0.5 3",
-  "L  2.0",
-  "F"
-};  
-
-
 String stand1[] = {
   "N Stand30",
   "A",
@@ -458,41 +446,10 @@ String shortRoute[] = {
   "F"
 };
 
-String longRoute[] = {
-  "N Long - loaded route",
-  "Z    0",
-  "S	0",
-//  "E WY	0,49  8",
-//  "E CY                 1 4  6 6",
-//  "E CY                45 3  7 6 o",
-  "GY	 0,4  4",
-  "GY	 0,49  10",
-  "T   155,62  8 7",
-// "WX  165,62  8 ",
-//  "CX                  31 1 10 6",  // CO 1
-//  "CX                 102 1 10 6",  // CO 2
-//  "CX                 150 1 10 6",  // CO 2
-  "GX  170,62  10",
-  "GX  186,69  10",
-  "GX  216,62  10",
-  "GX  236,69  10",
-  "GX  278,62  9",
-  "T   288,-52  8 7",
-//  "GY  288,30  8",
-//  "GY  305,0   8",
-//  "GY  298,-30 8",
-  "GY  288,-52 9",
-  "T    10,-62 8 7",
-  "GX   12,-62 10",
-  "GX   10,-62 10",
-  "T     0,0   8 7",
-  "GY    0,-5   8",
-  "GY    0,10  4",
-  "F"
-};
 
 
-String garageLoopSND[] = {"N Garage Sonar NoDis",
+String garageLoopSND[] = {
+  "N Garage Sonar NoDis",
   "Z     0",
   "S     0",
   "WY          0,12    3",                            // Step 3
@@ -520,7 +477,8 @@ String garageLoopSND[] = {"N Garage Sonar NoDis",
 
 
 
-String garageLoopS[] = {"N Garage loop Sonar",
+String garageLoopS[] = {
+  "N Garage loop Sonar",
   "Z     0",
   "S     0",
   "WY         0,12  4",                            // Step 3
@@ -549,7 +507,8 @@ String garageLoopS[] = {"N Garage loop Sonar",
 }; 
     
 
-String garageLoopNS[] = {"N Garage loop no Sonar",
+String garageLoopNS[] = {
+  "N Garage loop no Sonar",
   "Z     0",
   "S     0",
   "GY     0,12    4",
@@ -653,7 +612,7 @@ String rtA[] = {
 
 
 String *routeTable[] = {
-  WR, WL, house3f, house3h, house2, basement1, survey, smallSquare};
+  street1, house3f, house3h, basement1, smallSquare};
 
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
@@ -685,8 +644,8 @@ void setRoute(boolean increment) {
   
   routeStepPtr = 0;
   interpretRouteLine(currentRoute[0]);
-  sendXMsg(SEND_ROUTE_NAME, routeTitle); 
-  sendBMsg(SEND_ROUTE_NAME, routeTitle); 
+  sendXMsg(SEND_MESSAGE, routeTitle); 
+  sendBMsg(SEND_MESSAGE, routeTitle); 
 }
 
 /************************************************************************

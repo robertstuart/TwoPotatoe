@@ -1,0 +1,339 @@
+const int RF_DATA_SIZE = 72;
+byte rfData[RF_DATA_SIZE];
+int rfDataPtr = 0;
+//byte txRequestDataFrame[100];
+//byte packetBuffer[120] = {0x7E}; 
+
+int dumpPtr, dumpEnd;
+int tickDumpPtr, tickDumpEnd;
+
+/*********************************************************
+ * SendStatus??() 
+ *********************************************************/
+void sendStatusBluePc() {
+  static int part = 0;
+  part = ++part % 4;
+  switch (part) {
+    case 0:
+      sendBMsg(SEND_FPS, 2, wheelSpeedFps);
+      sendBMsg(SEND_HEADING, 1, magHeading);
+      break;
+    case 1:
+      sendBMsg(SEND_SONAR_R, 2, sonarRight);
+      break;
+    case 2:
+      sendBMsg(SEND_SONAR_L, 2, sonarLeft);
+      break;
+    case 3:
+      sendBMsg(SEND_BATT_A, battVolt); // integer
+  }
+  if (isNewMessage) {
+    sendBMsg(SEND_MESSAGE, message); 
+    isNewMessage = false;
+  }
+  sendBMsg(SEND_STATE, getState());
+}
+
+void sendStatusXBeeHc() {
+  static int part = 0;
+  part = ++part % 4;
+  switch (part) {
+    case 0:
+      sendXMsg(SEND_FPS, 2, wheelSpeedFps);
+      sendXMsg(SEND_HEADING, 1, magHeading);
+      break;
+    case 1:
+      sendXMsg(SEND_SONAR_R, 2, sonarRight);
+      sendXMsg(SEND_STATE, getState());
+      break;
+    case 2:
+      sendXMsg(SEND_SONAR_L, 2, sonarLeft);
+      sendXMsg(SEND_STATE, getState());
+      break;
+    case 3:
+      sendXMsg(SEND_BATT_A, battVolt); // integer
+      sendXMsg(SEND_STATE, getState());
+      break;
+    default:
+      break;
+  }
+  if (isNewMessage) {
+    sendXMsg(SEND_MESSAGE, message); 
+  }
+  xTransmitRequest(XBEE_DEST_C1, rfData, rfDataPtr);
+  rfDataPtr = 0;
+}
+
+
+
+int getState() {
+  int statusInt = 0;
+  if (isRunning)          statusInt += 1;
+  if (isRunReady)         statusInt += 2;
+  if (isUpright)          statusInt += 4;
+  if (isLifted)           statusInt += 8;
+  if (isHcActive)         statusInt += 16;
+  if (isPcActive)         statusInt += 32;
+  if (isRouteInProgress)  statusInt += 64;
+  if (isDumpingData)      statusInt += 128;
+  if (isHoldHeading)      statusInt += 256;
+  if (isSpin)             statusInt += 512;
+  if (false)              statusInt += 1024; // empty
+  if (isStand)            statusInt += 2048;
+  return statusInt;
+}
+
+
+/*********************************************************
+ * dumpData() Set up to start a data dump.
+ *********************************************************/
+void sendDumpData() {
+  dumpEnd = dumpPtr =  dataArrayPtr;
+  isDumpingData = true;
+}
+
+/*********************************************************
+ * dumpTicks() Set up to start a tick dump.
+ *********************************************************/
+void sendDumpTicks() {
+  tickDumpEnd = tickDumpPtr =  tickArrayPtr;
+  isDumpingTicks = true;
+}
+
+
+
+/*********************************************************
+ * dumpData()
+ *********************************************************/
+void dumpData() {
+  BLUE_SER.write(SEND_DUMP_DATA);
+  dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
+  if (dumpPtr != dumpEnd) {
+    BLUE_SER.print(aArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(bArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(cArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(dArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(eArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(fArray[dumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(gArray[dumpPtr]);
+  }
+  else {
+    BLUE_SER.print("12345678");
+    isDumpingData = false;
+  }
+  BLUE_SER.write((byte) 0);
+}
+
+
+
+/*********************************************************
+ * dumpTicks()
+ *********************************************************/
+void dumpTicks() {
+  BLUE_SER.write(SEND_DUMP_TICKS);
+  tickDumpPtr = (tickDumpPtr + 1) %  TICK_ARRAY_SIZE;
+  if (tickDumpPtr != tickDumpEnd) {
+    BLUE_SER.print(tArray[tickDumpPtr]); BLUE_SER.print(",");
+    BLUE_SER.print(uArray[tickDumpPtr]);
+  }
+  else {
+    BLUE_SER.print("12345678");
+    isDumpingTicks = false;
+  }
+  BLUE_SER.write((byte) 0);
+}
+
+
+
+/*********************************************************
+ * send?Msg()
+ *********************************************************/
+void sendBMsg(int cmd, int precision, double val) {
+  BLUE_SER.write(cmd);
+  BLUE_SER.print(val, precision);
+  BLUE_SER.write((byte) 0);
+}
+
+void sendBMsg(int cmd, int val) {
+  BLUE_SER.write(cmd);
+  BLUE_SER.print(val);
+  BLUE_SER.write((byte) 0);
+}
+
+void sendBMsg(int cmd, String val) {
+  BLUE_SER.write(cmd);
+  BLUE_SER.print(val);
+  BLUE_SER.write((byte) 0);
+}
+
+void sendXMsg(int cmd, int precision, double val) {
+  char buf[20];
+  int len = sprintf(buf, "%.*f", precision, val);
+  xAddMessage(cmd, buf, len);
+}
+
+void sendXMsg(int cmd, int val) {
+  char buf[10];
+  int len = sprintf(buf, "%d", val);
+  xAddMessage(cmd, buf, len);
+}
+
+void sendXMsg(int cmd, String val) {
+  char buf[50];
+  int len = val.length();
+  if (len >= 50) return;
+  val.toCharArray(buf, len+1);
+  xAddMessage(cmd, buf, len);
+}
+
+
+/**************************************************************************.
+ * xAddMessage()
+ *                Add message to rfData
+ **************************************************************************/
+void xAddMessage(int cmd, char buf[], int len) {
+  if ((len + 1 + rfDataPtr) >= RF_DATA_SIZE) return;
+  rfData[rfDataPtr++] = cmd;
+  for (int i = 0; i < len; i++) {
+    rfData[rfDataPtr++] = buf[i];
+  }
+}
+
+
+
+/**************************************************************************.
+ * xTransmitRequest()
+ *                    Create a Transmit Request data frame from the 
+ *                    rfDataFrame and send it out.
+ **************************************************************************/
+void xTransmitRequest(int dest, byte rfFrame[], int rfLength) { 
+  static byte txRequestDataFrame[100];
+  static int frameId = 0;
+  unsigned int sh, sl;
+  frameId = ++frameId % 200;   // ID cycles 1-200
+  if (dest == XBEE_DEST_C1) {
+    sh = XBEE_C1_SH;
+    sl = XBEE_C1_SL;
+  } else return;
+  txRequestDataFrame[0] = 0x10;  // API identifier value
+  txRequestDataFrame[1] = frameId + 1;
+  txRequestDataFrame[2] = (sh >> 24) & 0x000000FF;
+  txRequestDataFrame[3] = (sh >> 16) & 0x000000FF;
+  txRequestDataFrame[4] = (sh >> 8) & 0x000000FF;
+  txRequestDataFrame[5] = sh & 0x000000FF;
+  txRequestDataFrame[6] = (sl >> 24) & 0x000000FF;
+  txRequestDataFrame[7] = (sl >> 16) & 0x000000FF;
+  txRequestDataFrame[8] = (sl >> 8) & 0x000000FF;
+  txRequestDataFrame[9] = sl & 0x000000FF;
+  txRequestDataFrame[10] = 0x24;  // 16-bit network address (PAN ID)
+  txRequestDataFrame[11] = 0x56;  // 16-bit network address (PAN ID)
+  txRequestDataFrame[12] = 0;     // Raduis
+  txRequestDataFrame[13] = 0;     // 0ptions
+
+  for (int i = 0; i < rfLength; i++) {
+    txRequestDataFrame[i + 14] = rfFrame[i];
+  }
+  xTransmitUartFrame(txRequestDataFrame, rfLength + 14);  
+}
+
+
+
+/**************************************************************************.
+ *
+ * xTransmitUartFrame()
+ *
+ *     Set all frame bytes and send out with appropriate
+ *     characters escaped.
+ **************************************************************************/
+void xTransmitUartFrame(byte dataFrame[], int dataFrameLength) {
+  static byte preEscPack[100];
+  static byte uartXmitFrame[200];
+  int sum = 0;
+
+  // Compute the checksum.
+  for (int i = 0; i < dataFrameLength; i++) {
+    sum += dataFrame[i];
+  }  
+  byte checkSum = 0xFF - (sum & 0xFF);
+
+  // Fill out preEscPack with the array that must be escaped. That is, minus FE.
+  preEscPack[0] = 0;
+  preEscPack[1] = dataFrameLength;
+  for (int i = 0; i < dataFrameLength; i++) {
+    preEscPack[i + 2] = dataFrame[i];
+  }
+  preEscPack[dataFrameLength + 2] = checkSum;
+
+  // Now put it into a single array with the escaped characters.
+  int oPtr = 1;
+  uartXmitFrame[0] = 0x7E;
+  for (int i = 0; i < (dataFrameLength + 3); i++) {
+    int b = preEscPack[i];
+    if ((b == 0x7E) || (b == 0x7D) || (b == 0x11) || (b == 0x13)) {
+      uartXmitFrame[oPtr++] = 0x7D;
+      uartXmitFrame[oPtr++] = b ^ 0x20;
+    }
+    else {
+      uartXmitFrame[oPtr++] = b;
+    }
+  }
+  XBEE_SER.write(uartXmitFrame, oPtr);
+//Serial.print(hcX); Serial.print("\t");Serial.println(timeMilliseconds);
+//  for (int i = 0; i < oPtr; i++) {
+//    int b = uartXmitFrame[i];
+//    if (b < 0x21) Serial.print(b, HEX);
+//    if (b > 124) Serial.print(b);
+//    else Serial.print((char) b);
+//    Serial.print(" ");
+//  }
+//  Serial.println();
+}
+
+//
+//
+//  
+//  unsigned int sum = 0;
+//  int dataLength = *dl;
+//
+//  transmitBuffer[1] = 
+//  if (dest == XBEE_DEST_C1) {
+//    
+//  }
+//  
+//  *dl = 0;
+//  // Set the length in bytes 2 & 3.
+//  transmitBuffer[1] = 0;
+//  transmitBuffer[2] = dataLength + 5;
+//  transmitBuffer[5] = destId / 256; // MSB
+//  transmitBuffer[6] = destId & 0xFF; // LSB
+//
+//  // Copy to a single buffer.
+//  for (int i = 0; i < dataLength; i++) {
+//    transmitBuffer[i + 8] = sendData[i];
+//  }
+//  
+//  // Compute the checksum.
+//  for (int i = 3; i < (dataLength + 8); i++) {
+//    sum += transmitBuffer[i];
+//  }  
+//  byte checkSum = 0xFF - sum;
+//  transmitBufferLength = 8 + dataLength;
+//  transmitBuffer[transmitBufferLength] = checkSum;
+//  
+//  // Escape characters
+//  int oPtr = 1;
+//  xbeeBuffer[0] = 0x7E;
+//  for (int i = 1; i < (transmitBufferLength + 1); i++) {
+//    int b = transmitBuffer[i];
+//    if ((b == 0x7E) || (b == 0x7D) || (b == 0x11) || (b == 0x13)) {
+//      xbeeBuffer[oPtr++] = 0x7D;
+//      xbeeBuffer[oPtr++] = b ^ 0x20;
+//    }
+//    else {
+//      xbeeBuffer[oPtr++] = b;
+//    }
+//  }
+//  
+//  XBEE_SER.write(xbeeBuffer, oPtr);
+//}
+

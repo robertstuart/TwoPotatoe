@@ -119,7 +119,15 @@ void setRunningState() {
         else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
       }
       if ((!isHcActive) && (!isPcActive)) {
-        pcX = pcY = hcX = hcY = 0.0f;
+        controllerX = controllerY = 0.0f;
+      }
+      if (!isHcActive) {
+        hcX = 0.0;
+        hcY = 0.0;
+      }
+      if (!isPcActive) {
+        pcX = 0.0;
+        pcY = 0.0;
       }
       break;
     default:
@@ -337,45 +345,6 @@ void switches() {
       buState = !buState;
     }
   }
-}
-
-
-
-/**************************************************************************.
- * getControllerXY() return fps from two controllers & hold state
- **************************************************************************/
-void setControllerXY() {
-  static double y = 0.0D;
-  static double x = 0.0D;
-
-//  if (!isHoldFps) {
-//    if (abs(hcY) > abs(pcY)) y = hcY;
-//    else y = pcY;
-//  }
-//  controllerY = y;
-//
-//  if (!isHoldHeading) {
-//    if (abs(hcX) > abs(pcX)) x = hcX;
-//    else x = pcX;
-//  }
-//  controllerX = x;
-  controllerX = hcX;
-  controllerY = hcY;
-}
-
-
-
-/**************************************************************************.
- * getControllerX() return turn from two controllers & hold state
- **************************************************************************/
-double getControllerX() {
-  //  return hcX;
-  static double x = 0.0D;
-  if (!isHoldHeading) {
-    if (abs(hcX) > abs(pcX)) x = hcX;
-    else x = pcX;
-  }
-  return x;
 }
 
 

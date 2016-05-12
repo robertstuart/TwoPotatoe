@@ -811,9 +811,8 @@ void adjustPosition() {
   double aDiff;
 
   // Adjust the position
-  float joyY = (abs(pcY) > abs(hcY)) ? pcY : hcY;
-  if (abs(joyY) > 0.05) {
-    fixPosition = fixPosition + ((int) (joyY * 10.0));
+  if (abs(controllerY) > 0.05) {
+    fixPosition = fixPosition + ((int) (controllerY * 10.0));
   }
   int dist = coTickPosition - fixPosition; // P
   double fps = tp6LpfCos;                  // D
@@ -826,9 +825,8 @@ void adjustPosition() {
     speedAdjustment = -tmHeading * (S_LIM / A_LIM);
     speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
   } else {
-    float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
-    if (abs(joyX) > 0.05) {
-      fixHeading = rangeAngle(fixHeading + (joyX * .2));
+    if (abs(controllerX) > 0.05) {
+      fixHeading = rangeAngle(fixHeading + (controllerX * .2));
     }
     aDiff = rangeAngle(fixHeading - tickHeading);
     speedAdjustment = aDiff * .2;

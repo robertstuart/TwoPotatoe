@@ -37,13 +37,12 @@ void aTp6Run() {
     if (timeMicroseconds > gyroTrigger) {
       gyroTrigger +=  2400; // ~400/sec
       subCycle++;
-      setControllerXY();
       readGyro();
       if ((subCycle % 16) == 3) readCompass();   // 25/sec
       setNavigation();
       if ((subCycle % 4)  == 1) readAccel();  // 100/sec
       aTp6(); 
-      sendTp6Status();
+      sendLog();
       safeAngle();
       switches();
       checkMotorRight();
@@ -131,9 +130,9 @@ void aTp6() {
 
 
 /***********************************************************************.
- *  sendTp6Status() Called 400 time/sec.
+ *  sendLog() Called 400 time/sec.
  ***********************************************************************/
-void sendTp6Status() {
+void sendLog() {
   static unsigned int loopc = 0;
   static unsigned int loopd = 0;
   static float marker = 1.1;
@@ -145,17 +144,19 @@ void sendTp6Status() {
   if (isDumpingTicks) {
     if ((loopc % 4) == 0)  dumpTicks();
   }
-  if ((loopc == 0)  || (loopc == 20))  { // Status 20/sec
-    sendStatusXBeeHc(); 
-    sendStatusBluePc();
-    isNewMessage = false;
+  if (loopc == 0)  { // 10/sec
+//    Serial.print(magHeading); Serial.print("\t");
+//    Serial.print(tickHeading); Serial.print("\t");
+//    Serial.print(tmHeading); Serial.print("\t");
+//    Serial.print(gyroHeading); Serial.print("\t");
+//    Serial.print(gmHeading); Serial.println("\t");
   }
   else if ((loopc == 10) || (loopc == 30)) { // Logging & debugging 20/sec
 //    log20PerSec();
 //  sprintf(message,"%7.3f %7.3f %7.3f %7.3f %7d %7.3f", 
 //          xVec, yVec, zVec, tmCumHeading, mY, magHeading);
 //   sendBMsg(SEND_MESSAGE, message);
-//    if (isRouteInProgress) routeLog();
+    if (isRouteInProgress) routeLog();
 //    routeLog();
   }    
 //  if (loopd == 0) log1PerSec();
@@ -205,7 +206,6 @@ void log1PerSec() {
  ***********************************************************************/
 void tp6Steer(double fps) {
   double speedAdjustment;
-  controllerX = getControllerX();
   if (isSpin) {
     speedAdjustment = controllerX * 10.0D;
   }
@@ -223,13 +223,12 @@ void tp6Steer(double fps) {
  ************************************************************************/
 double spin() {
   if (isSpin) {
-    double spinRate = getControllerX() * 10.0D;
+    double spinRate = controllerX * 10.0D;
     setTargetSpeedRight(-spinRate);
     setTargetSpeedLeft(spinRate);
   }
   else {
-//    double normalRate = getControllerX() * 2.0D;
-    double normalRate = (((1.0 - abs(0.0)) * 1.5) + 0.5) * getControllerX(); 
+    double normalRate = (((1.0 - abs(0.0)) * 1.5) + 0.5) * controllerX; 
     setTargetSpeedRight(-normalRate);
     setTargetSpeedLeft(normalRate);
   }
@@ -241,13 +240,12 @@ double spin() {
  *  stand() Keep position from base tickPosition
  ************************************************************************/
 double standFps() {
-  float joyY = (abs(pcY) > abs(hcY)) ? pcY : hcY;
   routeFps = 0.0;
   
-  if (abs(joyY) > 0.05) {
+  if (abs(controllerY) > 0.05) {
     standTPRight = tickPositionRight;
     standTPLeft = tickPositionLeft;
-    return(joyY * 1.0);
+    return(controllerY * 1.0);
   } 
   else {
     int targetPos = standTPRight + standTPLeft;
@@ -258,10 +256,9 @@ double standFps() {
 
 void standSteer() {
   float headingSpeedAdjustment = 0.0;
-  float joyX = (abs(pcX) > abs(hcX)) ? pcX : hcX;
-  
-  if (abs(joyX) > 0.05) {
-    headingSpeedAdjustment = joyX * 0.3;
+   
+  if (abs(controllerX) > 0.05) {
+    headingSpeedAdjustment = controllerX * 0.3;
     standTPRight = tickPositionRight;
     standTPLeft = tickPositionLeft;
   }

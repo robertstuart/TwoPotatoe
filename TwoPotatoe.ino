@@ -15,7 +15,8 @@
 //#define TICKS_PER_FOOT 3342.0D // For Pro-Line Masher 2.8" PRO1192-12
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 //#define TICKS_PER_CIRCLE_YAW  11900.0  // For Pro-Line Masher 2.8" PRO1192-12
-#define TICKS_PER_CIRCLE_YAW  7816.0  // For Losi DB XL 1/5 scale
+//#define TICKS_PER_CIRCLE_YAW  7816.0  // For Losi DB XL 1/5 scale
+#define TICKS_PER_CIRCLE_YAW  7428.0  // For Losi DB XL 1/5 scale
 
 L3G gyro;
 LSM303 compass;
@@ -349,7 +350,6 @@ double fixHeading = 0.0;
 // Speed and position variables
 long tickPositionRight = 0L;
 long tickPositionLeft = 0L;
-long tpDistanceDiff = 0L;
 long tickPosition;
 long coTickPosition;
 double tp6LpfCos = 0.0;
@@ -466,7 +466,7 @@ unsigned int packetSource;
 unsigned int packetSignal;
 boolean isTxStatusMessage = false;
 int txAckFrame = 0;
-boolean isBluePassthrough = false;
+//boolean isBluePassthrough = false;
 
 boolean isHcCommand = false;
 
