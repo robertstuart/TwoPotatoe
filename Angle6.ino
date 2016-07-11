@@ -21,68 +21,61 @@ const int yMax = 509;
 const int zMin = -43;
 const int zMax = 1148;
 
-
+int zSum = 0;
+int zCount = 0;
+int yawTempComp = 0;
 /***********************************************************************.
  *  angleInit6()
  ***********************************************************************/
 void angleInit6() {
-  delay(20);
   Wire.begin();
-  Wire1.begin();
-  delay(20);
-  compass.init(LSM303::device_D, LSM303::sa0_high);
-  delay(20);
-  compass.enableDefault(); // Mag: [DR=6.25 Hz, 4 gauss, contin] Accel: [2g]
-  compass.writeAccReg(LSM303::CTRL1, 0x67); // Accel DR=100 HZ, all axis
-  gyro.init(L3G::device_D20H, L3G::sa0_high); // Sets no parameters
-  gyro.writeReg(L3G::CTRL1, 0xBF); // power, all axes, DR=400 Hz, BW=110
-  gyro.writeReg(L3G::CTRL4, 0x30); // FS - 2000dps
+  if (!lsm6.init()) Serial.println("IMU initialize failed!");
+  else Serial.println("IMU Initialized!****************************");
+  lsm6.enableDefault();
+  lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Gyro data on INT1
+  lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
+  lsm6.writeReg(LSM6::CTRL2_G, 0X6C);   // Gyro 2000fs, 416hz
+  lsm6.writeReg(LSM6::CTRL1_XL, 0X40);  // Accel 2g, 104hz
 
   // Set up HMC5883L magnetometer
-  Wire.beginTransmission(HC_ADDRESS);
-  Wire.write(0x02); //select mode register
-  Wire.write(0x00); //continuous measurement mode
-  Wire.endTransmission();
-
-  delay(100);
-  readCompass();  // Do this so we have a magHeading.
+//  Wire.beginTransmission(HC_ADDRESS);
+//  Wire.write(0x02); //select mode register
+//  Wire.write(0x00); //continuous measurement mode
+//  Wire.endTransmission();
+//
+//  delay(100);
+//  readCompass();  // Do this so we have a magHeading.
 }
 
 #define TG_PITCH_TC 0.90D
 
 /***********************************************************************.
- * readGyro()
+ * setGyroData()
  ***********************************************************************/
-boolean readGyro() {
-  static int temperatureLoop = 0;
-
-  static int oldX = 0, oldY = 0, oldZ = 0;
+void setGyroData() {
   int t;
-  gyro.read();  // 860 microseconds
-  if ((gyro.g.x == oldX) && (gyro.g.y == oldY) && (gyro.g.z == oldZ)) return false;
-  oldX = gyro.g.x;
-  oldY = gyro.g.y;
-  oldZ = gyro.g.z;
-
+gSet++;
   // Pitch
-  gyroPitchRaw = ((double) gyro.g.y) - timeDriftPitch;
-  gyroPitchRate = (((double) gyroPitchRaw) * GYRO_SENS) - pitchDrift;  // Rate in degreesChange/sec
-  gyroPitchDelta = (gyroPitchRate * 2500.0) / 1000000.0; // degrees changed during period
+  gyroPitchRaw = ((double) lsm6.g.x) - timeDriftPitch;
+  gyroPitchRate = (((double) gyroPitchRaw) * GYRO_SENS);  // Rate in degreesChange/sec
+  gyroPitchDelta = -gyroPitchRate / 416.0; // degrees changed during period
   gPitch = gPitch + gyroPitchDelta;   // Used by tgPitch & debugging
   gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
   gaFullPitch = gyroPitchDelta + gaFullPitch;
   
   // Roll
-  gyroRollRaw = (-((double) gyro.g.x)) - timeDriftRoll;
-  gyroRollRate = (((double) gyroRollRaw) * GYRO_SENS) - rollDrift;
-  double gyroRollDelta = (gyroRollRate * 2500.0) / 1000000.0;
+  gyroRollRaw = ((double) lsm6.g.y) - timeDriftRoll;
+  gyroRollRate = (((double) gyroRollRaw) * GYRO_SENS);
+  double gyroRollDelta = gyroRollRate / 416.0;
   gRoll = gRoll - gyroRollDelta;
   gaRoll = gaRoll - gyroRollDelta;
 
   // Yaw
-  gyroYawRaw = ((double) gyro.g.z) - timeDriftYaw; 
+//  gyroYawRaw = ((double) lsm6.g.z) - timeDriftYaw - temperatureDriftYaw; 
+sumYaw += lsm6.g.z;
+  gyroYawRaw = ((double) lsm6.g.z) - timeDriftYaw; 
   gyroYawRate = ((double) gyroYawRaw) * GYRO_SENS;  // Rate in degreesChange/sec
-  double gyroYawDelta = (gyroYawRate * 2500.0) / 1000000.0; // degrees changed during period
+  double gyroYawDelta = -gyroYawRate / 416.0; // degrees changed during period
   gYaw += gyroYawDelta;
   gyroCumHeading += gyroYawDelta;   //
   double tc = (gyroCumHeading > 0.0) ? 180.0 : -180.0;
@@ -107,31 +100,26 @@ boolean readGyro() {
   // tgaPitch:
   q = tgaPitch + qDiff;
   tgaPitch = (q * TG_PITCH_TC) + (gaPitch * (1.0D - TG_PITCH_TC));
-
-  return true;
 }
 
 /***********************************************************************.
- *  readAccel()
+ *  setAccelData()
  ***********************************************************************/
-void readAccel() {
-//  if (isAccelOff) return; // If jump?
-  compass.readAcc(); // 848 microseconds
+void setAccelData() {
 
   // Pitch
   double k8 = 45.5;  // for new MinImu
-  //    aPitch =  (atan2(compass.a.x, -compass.a.z) * RAD_TO_DEG);
-  double accelX = compass.a.x - (k8 * 1000.0 * tp6LpfCosAccel);
-  aPitch = ((atan2(accelX, -compass.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
+  double accelX = lsm6.a.y + (k8 * 1000.0 * tp6LpfCosAccel);
+  aPitch = ((atan2(-accelX, lsm6.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
   gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
-  if (          ((compass.a.z > -20000) && (compass.a.z < -10000))
+  if (          (lsm6.a.z > 7000)
              && ((accelX > -7000) && (accelX < 7000))
              && ((aPitch > -45.0) && (aPitch < 45.0))) {
       gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
     }
 
   // Roll
-  aRoll =  (atan2(-compass.a.y, -compass.a.z) * RAD_TO_DEG);
+  aRoll =  (atan2(lsm6.a.x, lsm6.a.z) * RAD_TO_DEG);
   gaRoll = (gaRoll * GYRO_WEIGHT) + (aRoll * (1 - GYRO_WEIGHT)); // Weigh factors
 }
 
@@ -145,64 +133,96 @@ int magX, magY, magZ;
 /***********************************************************************.
  *  readCompass()
  ***********************************************************************/
-void readCompass() {
-//  double xVec, yVec, zVec;
-  //  compass.readMag();
-  if (readHMC()) {
-    //  if ((compass.m.x != mX) || (compass.m.y != mY) || (compass.m.z != mZ)) {
-    //    mX = compass.m.x;
-    //    mY = compass.m.y;
-    //    mZ = compass.m.z;
+//void readCompass() {
+////  double xVec, yVec, zVec;
+//  //  compass.readMag();
+//  if (readHMC()) {
+//    //  if ((compass.m.x != mX) || (compass.m.y != mY) || (compass.m.z != mZ)) {
+//    //    mX = compass.m.x;
+//    //    mY = compass.m.y;
+//    //    mZ = compass.m.z;
+//
+//    // move from HMC
+//    mX = magX;
+//    mY = magY;
+//    mZ = magZ;
+//
+//
+//    xVec = -(((((double) (mX - xMin)) / ((double) (xMax - xMin))) * 2.0) - 1.0);
+//    yVec = -(((((double) (mY - yMin)) / ((double) (yMax - yMin))) * 2.0) - 1.0);
+//    zVec = (((((double) (mZ - zMin)) / ((double) (zMax - zMin))) * 2.0) - 1.0);
+////    Serial.print(xVec); Serial.print("\t");
+////    Serial.print(yVec); Serial.print("\t");
+////    Serial.print(zVec); Serial.println("\t");
+//
+//    headX = xVec;
+//    headY = yVec;
+//
+//    // tilt-compenstate magnetic heading
+//    double gaPitchRad = gaPitch * DEG_TO_RAD;
+//    double gaRollRad = gaRoll * DEG_TO_RAD;
+//    double cosPitch = cos(gaPitchRad);
+//    double sinPitch = sin(gaPitchRad);
+//    double cosRoll = cos(gaRollRad);
+//    double sinRoll = sin(gaRollRad);
+//
+//    headX = (xVec * cosPitch) + (yVec * sinRoll * sinPitch) + (zVec * cosRoll * sinPitch);
+//    headY = (yVec * cosRoll) - (zVec * sinRoll);
+//
+//    magHeading = atan2(-headY, headX) * RAD_TO_DEG;
+//    double oldGridHeading = gridHeading;
+//    gridHeading = rangeAngle(magHeading - gridOffset);
+//    if ((oldGridHeading > 90.0D) && (gridHeading < -90.0D))  gridRotations += 360.0;
+//    else if ((oldGridHeading < -90.0D) && (gridHeading > 90.0D))  gridRotations -= 360.0;
+//    gridCumHeading = gridRotations + gridHeading;
+//
+//    // Since this is 15/sec, we do all of our complementary filtering here
+//
+//    // gmHeading. Complementary filter gyro and mag headings.
+//    gmCumHeading = (gmCumHeading * GM_HEADING_TC) + (gridCumHeading * (1.0 - GM_HEADING_TC));
+//    double c = (gmCumHeading > 0.0) ? 180.0 : -180.0;
+//    double rotations = (int) ((gmCumHeading + c) / 360.0);
+//    gmHeading = gmCumHeading - (((double) rotations) * 360.0);
+//  }
+//}
 
-    // move from HMC
-    mX = magX;
-    mY = magY;
-    mZ = magZ;
 
 
-    xVec = -(((((double) (mX - xMin)) / ((double) (xMax - xMin))) * 2.0) - 1.0);
-    yVec = -(((((double) (mY - yMin)) / ((double) (yMax - yMin))) * 2.0) - 1.0);
-    zVec = (((((double) (mZ - zMin)) / ((double) (zMax - zMin))) * 2.0) - 1.0);
-//    Serial.print(xVec); Serial.print("\t");
-//    Serial.print(yVec); Serial.print("\t");
-//    Serial.print(zVec); Serial.println("\t");
+/***********************************************************************.
+ *  readTemperature()  Read the gyro temperature and set the yawTempComp
+ *                     variable 
+ ***********************************************************************/
+//#define YAW_TEMP_FACTOR 0.84  // 
+//void readTemperature() {
+//  int t = gyro.readReg(L3G::OUT_TEMP);
+//  if (t > 127) t -= 256;
+//  gyroFahrenheit = (((33 - t) * 9) / 5) + 32;
+//  yawTempComp = (int) (((float) (startTemp - t)) * YAW_TEMP_FACTOR);
+//}
 
-    headX = xVec;
-    headY = yVec;
 
-    // tilt-compenstate magnetic heading
-    double gaPitchRad = gaPitch * DEG_TO_RAD;
-    double gaRollRad = gaRoll * DEG_TO_RAD;
-    double cosPitch = cos(gaPitchRad);
-    double sinPitch = sin(gaPitchRad);
-    double cosRoll = cos(gaRollRad);
-    double sinRoll = sin(gaRollRad);
-
-    headX = (xVec * cosPitch) + (yVec * sinRoll * sinPitch) + (zVec * cosRoll * sinPitch);
-    headY = (yVec * cosRoll) - (zVec * sinRoll);
-
-    magHeading = atan2(-headY, headX) * RAD_TO_DEG;
-    double oldGridHeading = gridHeading;
-    gridHeading = rangeAngle(magHeading - gridOffset);
-    if ((oldGridHeading > 90.0D) && (gridHeading < -90.0D))  gridRotations += 360.0;
-    else if ((oldGridHeading < -90.0D) && (gridHeading > 90.0D))  gridRotations -= 360.0;
-    gridCumHeading = gridRotations + gridHeading;
-
-    // Since this is 15/sec, we do all of our complementary filtering here
-
-    // gmHeading. Complementary filter gyro and mag headings.
-    gmCumHeading = (gmCumHeading * GM_HEADING_TC) + (gridCumHeading * (1.0 - GM_HEADING_TC));
-    double c = (gmCumHeading > 0.0) ? 180.0 : -180.0;
-    double rotations = (int) ((gmCumHeading + c) / 360.0);
-    gmHeading = gmCumHeading - (((double) rotations) * 360.0);
-  }
-}
-
+ 
 /***********************************************************************.
  *  setNavigation() Set gmHeading, tmHeading, tickHeading, currentLoc
  *                  Called 400/sec (every read of gyro).
  ***********************************************************************/
+#define TICK_BIAS_TRIGGER 500
 void setNavigation() {
+  
+  tickPosition = tickPositionRight + tickPositionLeft;
+
+  // Tick bias
+  if ((tickPosition - lastTickSet) > TICK_BIAS_TRIGGER) {
+    lastTickSet = tickPosition;
+    tickPositionRight++;
+    tickPositionLeft--;
+  }
+  if ((lastTickSet - tickPosition) > TICK_BIAS_TRIGGER) {
+    lastTickSet = tickPosition;
+    tickPositionRight--;
+    tickPositionLeft++;
+  }
+
 
   // Tick heading.
   tickCumHeading =  ((double) (tickOffset + tickPositionLeft - tickPositionRight)) / TICKS_PER_DEGREE_YAW;
@@ -290,6 +310,7 @@ void setHeading(double newHeading) {
   tickOffset = newHeading * TICKS_PER_DEGREE_YAW;
   oldGyroCumHeading = oldTickCumHeading = newHeading;
   tickHeading = gyroHeading = newHeading;
+  lastTickSet = 0;
   gridRotations = 0.0;
 }
 
@@ -344,58 +365,58 @@ boolean readHMC() {
 
 
 /**************************************************************************.
- * zeroGyro()  Take x,y, & z values for one second.  Compute the value to
+ * zeroGyro()  Take x,y, & z values for ? second.  Compute the value to
  *             cancel out drift.
  **************************************************************************/
 #define GLOOPS 2000  // Number of 400/sec reads
 void zeroGyro() {
   int loopCount = GLOOPS;
-  double sumPitch = 0;
-  double sumRoll = 0;
-  double sumYaw = 0;
-  double gyroPitchMin, gyroPitchMax;
-  double gyroRollMin, gyroRollMax;
-  double gyroYawMin, gyroYawMax;
-  unsigned long endTime = millis() + (GLOOPS * 3);  // Bailout time in case of bad I2C.
-
-  temperatureDriftPitch = timeDriftPitch = 0.0D;
-  temperatureDriftRoll = timeDriftRoll = 0.0D;
-  temperatureDriftYaw = timeDriftYaw = 0.0D;
+  int sumPitch = 0;
+  int sumRoll = 0;
+  int sumYaw = 0;
+  int gyroPitchMin, gyroPitchMax;
+  int gyroRollMin, gyroRollMax;
+  int gyroYawMin, gyroYawMax;
 
   for (int i = 0; i < 100; i++) {
-    readGyro();
-    delay(2);
+    lsm6.readGyro();
+    delay(3);
   }
   
-  gyroPitchMin = gyroPitchMax = gyroPitchRaw;
-  gyroRollMin = gyroRollMax = gyroRollRaw;
-  gyroYawMin = gyroYawMax = gyroYawRaw;
+  gyroPitchMin = gyroPitchMax = lsm6.g.x;
+  gyroRollMin = gyroRollMax = lsm6.g.y;
+  gyroYawMin = gyroYawMax = lsm6.g.z;
   while(true) {
-    if (readGyro()) {
-      sumPitch += (double) gyroPitchRaw;
-      if (gyroPitchRaw > gyroPitchMax) gyroPitchMax = gyroPitchRaw;
-      if (gyroPitchRaw < gyroPitchMin) gyroPitchMin = gyroPitchRaw;
-      sumRoll += (double) gyroRollRaw;
-      if (gyroRollRaw > gyroRollMax) gyroRollMax = gyroRollRaw;
-      if (gyroRollRaw < gyroRollMin) gyroRollMin = gyroRollRaw;
-      sumYaw += (double) gyroYawRaw;
-      if (gyroYawRaw > gyroYawMax) gyroYawMax = gyroYawRaw;
-      if (gyroYawRaw < gyroYawMin) gyroYawMin = gyroYawRaw;
+    if (isNewGyro()) {
+      int pitch = lsm6.g.x;
+      sumPitch += pitch;
+      if (pitch > gyroPitchMax) gyroPitchMax = pitch;
+      if (pitch < gyroPitchMin) gyroPitchMin = pitch;
+      
+      int roll = lsm6.g.y;
+      sumRoll += roll;
+      if (roll > gyroRollMax) gyroRollMax = roll;
+      if (roll < gyroRollMin) gyroRollMin = roll;
+
+      int yaw = lsm6.g.z;
+      sumYaw += yaw;
+      if (yaw > gyroYawMax) gyroYawMax = yaw;
+      if (yaw < gyroYawMin) gyroYawMin = yaw;
       if (--loopCount <= 0) break;
-      if (millis() > endTime) break;
     }
   }
-  if (     ((gyroPitchMax - gyroPitchMin) < 50)
-        && ((gyroRollMax - gyroRollMin) < 50)
-        && ((gyroYawMax - gyroYawMin) < 50)) {
-    timeDriftPitch = (sumPitch / ((double) GLOOPS));
-    timeDriftRoll = (sumRoll / ((double) GLOOPS));
-    timeDriftYaw = (sumYaw / ((double) GLOOPS));
+  
+  timeDriftPitch = (((double) sumPitch) / ((double) GLOOPS)) - 0.80; //************* FUDGE! ****************
+  timeDriftRoll = (((double) sumRoll) / ((double) GLOOPS)) + 1.50 ; //************* FUDGE! ****************
+  timeDriftYaw = (((double) sumYaw) / ((double) GLOOPS)) + 0.20; //************* FUDGE! ****************
+  if (     ((gyroPitchMax - gyroPitchMin) < 20)
+        && ((gyroRollMax - gyroRollMin) < 20)
+        && ((gyroYawMax - gyroYawMin) < 20)) {
     beep(BEEP_UP);
   } else {
-    timeDriftPitch = -9.55;
-    timeDriftRoll = -25.27;
-    timeDriftYaw = -8.59;
+    timeDriftPitch = PITCH_DRIFT;
+    timeDriftRoll = ROLL_DRIFT;
+    timeDriftYaw = YAW_DRIFT;
     beep(BEEP_DOWN);
   }
 
@@ -404,24 +425,86 @@ void zeroGyro() {
   Serial.print("rollDrift: "); Serial.print(timeDriftRoll); Serial.print("\t");
   Serial.print("yawDrift: "); Serial.print(timeDriftYaw); Serial.println();
   
-  Serial.print("Pitch min: "); Serial.print(gyroPitchMin,0); Serial.print("\t");
-  Serial.print("Pitch Max: "); Serial.print(gyroPitchMax,0); Serial.print("\t");
-  Serial.print("Pitch Range: "); Serial.print(gyroPitchMax - gyroPitchMin,0); Serial.println();
+  Serial.print("Pitch min: "); Serial.print(gyroPitchMin); Serial.print("\t");
+  Serial.print("Pitch Max: "); Serial.print(gyroPitchMax); Serial.print("\t");
+  Serial.print("Pitch Range: "); Serial.print(gyroPitchMax - gyroPitchMin); Serial.println();
   
-  Serial.print("Roll min: "); Serial.print(gyroRollMin,0); Serial.print("\t");
-  Serial.print("Roll Max: "); Serial.print(gyroRollMax,0); Serial.print("\t");
-  Serial.print("Roll Range: "); Serial.print(gyroRollMax - gyroRollMin,0); Serial.println();
+  Serial.print("Roll min: "); Serial.print(gyroRollMin); Serial.print("\t");
+  Serial.print("Roll Max: "); Serial.print(gyroRollMax); Serial.print("\t");
+  Serial.print("Roll Range: "); Serial.print(gyroRollMax - gyroRollMin); Serial.println();
   
-  Serial.print("Yaw min: "); Serial.print(gyroYawMin,0); Serial.print("\t");
-  Serial.print("Yaw Max: "); Serial.print(gyroYawMax,0); Serial.print("\t");
-  Serial.print("Yaw Range: "); Serial.print(gyroYawMax - gyroYawMin,0); Serial.println();
+  Serial.print("Yaw min: "); Serial.print(gyroYawMin); Serial.print("\t");
+  Serial.print("Yaw Max: "); Serial.print(gyroYawMax); Serial.print("\t");
+  Serial.print("Yaw Range: "); Serial.print(gyroYawMax - gyroYawMin); Serial.println();
   
-  gPitch = 0.0;
-  gRoll = 0.0;
-  gYaw = 0.0;
-  int t = gyro.readReg(L3G::OUT_TEMP);
-  if (t > 127) t -= 256;
-  gyroFahrenheit = (((33 - t) * 9) / 5) + 32;
-  Serial.print("Temperature: "); Serial.println(gyroFahrenheit);
+  baseGyroTemp = readFahr();
 }
 
+
+
+/**************************************************************************.
+ * isNew???()  Return true if new data has been read.
+ **************************************************************************/
+boolean isNewGyro() {
+  if (digitalRead(GYRO_INTR_PIN) == LOW) return false;
+  lsm6.readGyro();
+  return true;
+}
+boolean isNewAccel() {
+  if (digitalRead(ACCEL_INTR_PIN) == LOW) return false;
+  lsm6.readAcc();
+  return true;
+}
+
+
+
+
+/**************************************************************************.
+ * resetIMU()  From: https://forum.arduino.cc/index.php?topic=386269.0
+ *             I2C clocks to make sure no slaves are hung in a read
+ *             at startup
+ **************************************************************************/
+void resetIMU() {
+  // Issue 20 I2C clocks to make sure no slaves are hung in a read
+  pinMode(20, OUTPUT);
+  pinMode(21, OUTPUT);
+  pinMode(70, OUTPUT);
+  pinMode(71, OUTPUT);
+  digitalWrite(20, LOW);
+  digitalWrite(70, LOW);
+  for (int i = 0; i < 1000; i++)
+  {
+    digitalWrite(21, LOW);
+    digitalWrite(71, LOW);
+    delayMicroseconds(10);
+    digitalWrite(21, HIGH);
+    digitalWrite(71, HIGH);
+    delayMicroseconds(10);
+  }
+}
+
+
+
+/**************************************************************************.
+ * readFahr()  Read the Fahrenheit temperature from the gyro
+ **************************************************************************/
+float readFahr() {
+  Wire.beginTransmission(0b1101011);
+  // automatic increment of register address is enabled by default (IF_INC in CTRL3_C)
+  Wire.write(LSM6::OUT_TEMP_L);
+  Wire.endTransmission();
+  Wire.requestFrom((uint8_t) 0b1101011, (uint8_t) 2);
+
+  while (Wire.available() < 2) {
+  }
+
+  uint8_t tl = Wire.read();
+  uint8_t th = Wire.read();
+
+  // combine high and low bytes
+  int16_t out = (int16_t)(th << 8 | tl);
+  float ret = ((float) out) / 16;
+  ret += 25.0;
+  ret = ((ret * 9.0) / 5) + 32;
+  return ret;
+}

@@ -516,7 +516,6 @@ void readSpeedLeft() {
 void readSpeed() {
   readSpeedRight();
   readSpeedLeft();
-  tickPosition = tickPositionRight + tickPositionLeft;
   wheelSpeedFps = (fpsLeft + fpsRight)/ 2.0D;
   mWheelSpeedFps = (mFpsRight + mFpsLeft) / 2.0D;
 }

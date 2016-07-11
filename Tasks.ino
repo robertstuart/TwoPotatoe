@@ -64,6 +64,7 @@ void commonTasks() {
   battery();
   controllerConnected();
   liftJump();
+  switches();
   setRunningState();
   gyroTemperature();
 }
@@ -216,7 +217,7 @@ void battery() {
   static unsigned long batteryTrigger = 0L;
   if (timeMilliseconds > batteryTrigger) {
     batteryTrigger = timeMilliseconds + 1000;  // 1 per second
-    battVolt = (1000 * analogRead(BATT_PIN)) / 451;
+    battVolt = ((float) analogRead(BATT_PIN)) * .0223;
   }
 }
 
@@ -230,9 +231,8 @@ void gyroTemperature() {
   static unsigned long gyroTemperatureTrigger = 0UL;
   if (timeMilliseconds > gyroTemperatureTrigger) {
     gyroTemperatureTrigger = timeMilliseconds + 1000;  // 1 per second
-    int t = gyro.readReg(L3G::OUT_TEMP);
-    if (t > 127) t -= 256;
-    gyroFahrenheit = (((33 - t) * 9) / 5) + 32;
+    float f = readFahr();
+    temperatureDriftYaw = (f - baseGyroTemp) * 0.17;
   }
 }
 
@@ -257,6 +257,12 @@ digitalWrite(GREEN_LED_PIN, b);
     digitalWrite(RED_LED_PIN, b);
   }
 }
+
+
+void run(boolean b) {
+        isRunReady = b;
+}
+
 
 /**************************************************************************.
  *  setBlink() Set blink patter for led
@@ -329,22 +335,36 @@ void beepIsr() {
  *      Toggle TP_STATE_RUN_READY on yellow switch.  1 sec dead period.
  **************************************************************************/
 void switches() {
-  static int yeTrigger = 0;
-  static int buTrigger = 0;
-  static boolean buState = false;
-  String s = "";
-  if (digitalRead(YE_SW_PIN) == LOW) {
-    if (timeMilliseconds > yeTrigger) {
-      yeTrigger = timeMilliseconds + 1000;
-      isRunReady = isRunReady ? false : true;
-    }
+  static unsigned int yeTimer = 0;
+  static boolean yeState = false;
+  static boolean oldYeState = false;
+  static unsigned int reTimer = 0;
+  static boolean reState = false;
+  static boolean oldReState = false;
+  
+  // Debounce Yellow
+  boolean ye = digitalRead(YE_SW_PIN) == LOW;
+  if (ye) yeTimer = timeMilliseconds;
+  if ((timeMilliseconds - yeTimer) > 50) yeState = false;
+  else yeState = true;
+
+  // Debounce Red
+  boolean re = digitalRead(RE_SW_PIN) == LOW;
+  if (re) reTimer = timeMilliseconds;
+  if ((timeMilliseconds - reTimer) > 50) reState = false;
+  else reState = true;
+
+  // Yellow press transition
+  if ((yeState) && (!oldYeState)) run(!isRunReady);
+
+  // Red press transition
+  if ((reState) && (!oldReState)) {
+    if (!isRouteInProgress) startRoute();
+    else stopRoute();
   }
-  if (digitalRead(BU_SW_PIN) == LOW) {
-    if (timeMilliseconds > buTrigger) {
-      buTrigger = timeMilliseconds + 1000;
-      buState = !buState;
-    }
-  }
+
+  oldYeState = yeState;
+  oldReState = reState;
 }
 
 
@@ -394,7 +414,14 @@ void readSonar() {
  *           Called for every sonar reading.
  **************************************************************************/
 void doSonar(float distance, int isRight) {
-    
+//if (!isRight) {
+//  float d = distance - 0.32;
+//  int z = (int) (12 * d);
+//  Serial.print(d);
+//  for (int i = 0; i < z; i++) Serial.print(" ");
+//  Serial.println("*");  
+//}
+//    
   // Collect data for least squares calculation.
   if (isGXAxis) {
     lsXArray[lsPtr] = (float) currentMapLoc.x;
@@ -416,8 +443,6 @@ void doSonar(float distance, int isRight) {
     sonarLeftArrayPtr = ++sonarLeftArrayPtr % SONAR_ARRAY_SIZE;
     sonarLeft = distance;
   }
-
-  if (isRouteInProgress) routeLog();
 }
 
 void setSonar(int mode) {

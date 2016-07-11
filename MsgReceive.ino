@@ -115,6 +115,10 @@ void interpretRcvDataFrame() {
 }
 
 void doRFData() {
+//  for (int i = 0; i < 16; i++) {
+//    Serial.print(rcvDataFrame[i + 4], HEX); Serial.print(" ");
+//  }
+//  Serial.println();
   static int cmd;
   int rfPtr = 12;
   char msgVal[100];
@@ -145,7 +149,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   int intVal;
   float floatVal;
   boolean booleanVal;
-  int x = 0;
+//  int x = 0;
   String ss;
   
   msgStr[count] = 0; // Just to be sure.
@@ -178,45 +182,35 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
           if (abs(pcY) > abs(hcY)) controllerY = floatVal;
         }
         if ((abs(hcY) < 0.02) && (abs(pcY) < 0.02)) controllerY = 0.0;
-Serial.print(hcY); Serial.print("\t"); 
-Serial.print(pcY); Serial.print("\t"); Serial.print("\t"); 
-Serial.print(controllerY); Serial.println("\t"); 
       }
       break;
     case RCV_RUN:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        isRunReady = (x == 0) ? false : true;
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        run(intVal != 0);
       }
       break;
     case RCV_MODE:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        mode = x;
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        mode = intVal;
         Serial.print("Mode: "); Serial.println(mode);
       }
       break;
     case RCV_LIGHTS:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        x = (x == 0) ? LOW : HIGH;
-        digitalWrite(RIGHT_HL_PIN, x);
-        digitalWrite(LEFT_HL_PIN, x);
-//        digitalWrite(REAR_TL_PIN, x);
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        intVal = (intVal == 0) ? LOW : HIGH;
+        digitalWrite(RIGHT_HL_PIN, intVal);
+        digitalWrite(LEFT_HL_PIN, intVal);
+//        digitalWrite(REAR_TL_PIN, intVal);
       }
       break;
     case RCV_ROUTE:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        if (x == 1) {
-          startRoute();
-        }
-        else {
-          isRouteInProgress = false;
-          setSonar(SONAR_BOTH);
-        }
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        if (intVal == 1) startRoute();
+        else stopRoute();
       }
       break;
     case RCV_ROUTE_ES:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        isEsReceived = true;
-      }
+      isEsReceived = true;
       break;
     case RCV_DUMP_START:
       sendDumpData();
@@ -225,18 +219,18 @@ Serial.print(controllerY); Serial.println("\t");
       sendDumpTicks();
       break;
     case RCV_HOLD_HEADING:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        isHoldHeading = (x == 0) ? false : true;
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        isHoldHeading = (intVal == 0) ? false : true;
       }
       break;
     case RCV_SPIN:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        isSpin = (x == 0) ? false : true;
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        isSpin = (intVal == 0) ? false : true;
       }
       break;
     case RCV_SET_ROUTE:      // 0 to decrease, 1 to increase
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        setRoute((x == 0) ? false : true);
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        setRoute((intVal == 0) ? false : true);
       }
       break;
     case RCV_ROUTE_DATA: 
@@ -245,14 +239,22 @@ Serial.print(controllerY); Serial.println("\t");
     case RCV_DELETE_ROUTE:
       break;
     case RCV_STAND:
-      if (sscanf(msgStr, "%d", &x) > 0) {
-        isStand = (x == 0) ? false : true;
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        isStand = (intVal == 0) ? false : true;
         if (isStand) {
-          sprintf(message, "Stand"); isNewMessage = true;
           standTPRight = tickPositionRight;
           standTPLeft = tickPositionLeft;
         }
-        else {sprintf(message, " ");  isNewMessage = true;}
+      }
+      break;
+    case SEND_XPOS:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        Serial.print(floatVal); Serial.print(tab);
+      }
+      break;
+    case SEND_YPOS:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        Serial.println(floatVal);
       }
       break;
     case RCV_T: // valset t

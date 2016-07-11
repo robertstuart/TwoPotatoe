@@ -4,8 +4,12 @@
 #include "pwm01.h"
 #include <DueTimer.h>
 #include <Wire.h>
-#include <L3G.h>
-#include <LSM303.h>
+#include <LSM6.h>
+
+// Values for initial timeDrift???
+const double PITCH_DRIFT = -16.52;
+const double ROLL_DRIFT = 63.60;
+const double YAW_DRIFT = -26.81;
 
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
@@ -18,8 +22,7 @@
 //#define TICKS_PER_CIRCLE_YAW  7816.0  // For Losi DB XL 1/5 scale
 #define TICKS_PER_CIRCLE_YAW  7428.0  // For Losi DB XL 1/5 scale
 
-L3G gyro;
-LSM303 compass;
+LSM6 lsm6;
 
 // defines for motor pins
 // connections are reversed here to produce correct forward motion in both motors
@@ -59,14 +62,16 @@ const int HEADING_SOURCE_GM = 3;
 #define SONAR_LEFT 2
 #define SONAR_BOTH 3
 
-#define LED_PIN 13 // LED connected to digital pin 13
-#define BLUE_LED_PIN 13 // LED in switch, same as status above
-#define YELLOW_LED_PIN 12 // LED in switch
-#define RED_LED_PIN 11 // LED in switch
-#define RIGHT_HL_PIN 10 // headlamp
-#define LEFT_HL_PIN 9 // headlamp
-#define REAR_TL_PIN 8 // rear lamp
-#define GREEN_LED_PIN 38 // LED in switch
+#define LED_PIN         13 // LED connected to digital pin 13
+#define BLUE_LED_PIN    13 // LED in switch, same as status above
+#define YELLOW_LED_PIN  12 // LED in switch
+#define RED_LED_PIN     11 // LED in switch
+#define RIGHT_HL_PIN    10 // headlamp
+#define LEFT_HL_PIN      9 // headlamp
+#define REAR_TL_PIN      8 // rear lamp
+#define GREEN_LED_PIN   38 // LED in switch
+#define ACCEL_INTR_PIN  30
+#define GYRO_INTR_PIN   31
 
 #define BU_SW_PIN 39 // Blue switch
 #define YE_SW_PIN 34 // Yellow switch
@@ -85,6 +90,8 @@ const int HEADING_SOURCE_GM = 3;
 
 #define A_LIM 20.0 // degrees at which the speedAdjustment starts reducing.
 #define S_LIM 1.0  // maximum speedAdjustment;
+
+String tab = "\t";
 
 //Encoder factor
 //const double ENC_FACTOR = 1329.0f;  // Change pulse width to fps speed, 1/29 gear
@@ -109,10 +116,7 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define SONAR_SENS 0.0385
 
 // Decrease this value to get greater turn for a given angle
-//#define GYRO_SENS 0.0660     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
-#define GYRO_SENS 0.0664     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
-//#define GYRO_SENS 0.0665     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
-//#define GYRO_SENS 0.0670     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+#define GYRO_SENS 0.0690     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
 
 #define INVALID_VAL -123456.78D
 
@@ -134,6 +138,9 @@ unsigned int dataArrayPtr = 0;
 short tArray[TICK_ARRAY_SIZE]; // Period in usec
 short uArray[TICK_ARRAY_SIZE]; // State of rotation tick
 unsigned int tickArrayPtr = 0;
+
+int gSet = 0;
+int sumYaw = 0;
 
 unsigned int mode = MODE_TP6;
 boolean motorMode = MM_DRIVE_BRAKE;  // Can also be MM_DRIVE_COAST
@@ -199,7 +206,7 @@ struct valSet tp6 = {
   0.18,    // w
   0.05,    // x
  130.0,   // y
-  -1.5}; // z accelerometer offset
+ -1.6}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -249,6 +256,8 @@ double hugSonarDistance = 0.0D;
 double hugBearing = 0.0D;
 char hugDirection = 'N';
 boolean isHug = false;
+boolean isLockStand = true;
+int lockStartTicks = 0;
 
 int routeStepPtr = 0;
 String routeTitle = "No route";
@@ -279,9 +288,6 @@ double currentMapCumHeading = 0.0;
 double routeTargetXYDistance = 0.0;
 int originalAction = 0;
 
-int gyroTempCompX = 200;
-int gyroTempCompY = 0;
-int gyroTempCompZ = 105;
 double sumX = 0.0D;
 double sumY = 0.0D;
 double sumZ = 0.0D;
@@ -297,9 +303,7 @@ double gaRoll = 0.0;
 double aPitch = 0.0;
 double aRoll = 0.0;
 
-double pitchDrift = 0.0D;
-double rollDrift = 0.0D;
-double yawDrift = 0.0D;
+int baseFahr = 0;
 double gPitch = 0.0;
 double gRoll = 0.0;
 double gYaw = 0.0;
@@ -348,9 +352,12 @@ int fixPosition = 0;
 double fixHeading = 0.0;
 
 // Speed and position variables
-long tickPositionRight = 0L;
-long tickPositionLeft = 0L;
+int tickPositionRight = 0;
+int tickPositionLeft = 0;
 long tickPosition;
+int lastTickSet = 0;
+  
+
 long coTickPosition;
 double tp6LpfCos = 0.0;
 double startDecelSpeed = 0.0;
@@ -393,7 +400,6 @@ double fpsLeft = 0.0f;  // left feet per second TODO rename!
 double wheelSpeedFps = 0.0f;
 int mWheelSpeedFps = 0;
 
-unsigned long gyroTrigger = 0UL;
 unsigned long statusTrigger = 0UL;
 unsigned long oldTimeTrigger = 0UL;
 unsigned long timeMicroseconds = 0UL; // Set in main loop.  Used by several routines.
@@ -419,38 +425,35 @@ double pcX = 0.0;
 double pcY = 0.0;
 double controllerX = 0.0; // +1.0 to -1.0 from controller
 double controllerY = 0.0;  // Y value set by message from controller
-boolean isNewMessage = false;
+//boolean isNewMessage = false;
 char message[100] = "";
 
-int gyroFahrenheit = 0;
+float baseGyroTemp = 75.0;
 double gyroPitchRaw;  // Vertical plane parallel to wheels
 double gyroPitchRate;
-long gyroPitchRawSum;
 double oldGaPitch = 0.0;
 double gyroPitchDelta = 0.0;
 double gyroPitch = 0.0; // not needed
-double temperatureDriftPitch = 0.0D;
-double timeDriftPitch = 0.0;
+double timeDriftPitch = PITCH_DRIFT;
 
 double gyroRollRaw = 0;
 double gyroRollRate;
 double gyroRoll = 0.0f;
 double accelRoll = 0.0f;
-double temperatureDriftRoll = 0.0D;
-double timeDriftRoll = 0.0;
+double timeDriftRoll = ROLL_DRIFT;
 
-double gyroYawRaw = 0.0f;
+double gyroYawRaw = 0.0D;
 double gyroYawRate = 0.0f;
 double gyroYawAngle = 0.0f;
 double gyroYawRawSum = 0.0;
 double temperatureDriftYaw = 0.0D;
-double timeDriftYaw = 0.0;
+double timeDriftYaw = YAW_DRIFT;
 
 int gyroErrorX = 0;
 int gyroErrorY = 0;
 int gyroErrorZ = 0;
 
-int battVolt = 0; // battery 
+float battVolt = 0; // battery 
 int tpDebug = 4241;
 
 unsigned long tHc = 0L;  // Time of last Hc packet
@@ -568,6 +571,8 @@ char pBuf[100];
  *
  *********************************************************/
 void setup() {
+  resetIMU();
+  
   XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
   BLUE_SER.begin(115200);  // Bluetooth 
   SONAR_SER.begin(9600);   // Mini-pro sonar controller
@@ -595,6 +600,8 @@ void setup() {
   pinMode(YE_SW_PIN, INPUT_PULLUP);
   pinMode(RE_SW_PIN, INPUT_PULLUP);
   pinMode(GN_SW_PIN, INPUT_PULLUP);
+  pinMode(GYRO_INTR_PIN, INPUT);
+  pinMode(ACCEL_INTR_PIN, INPUT);
 
   pinMode(MOT_RIGHT_ENCA, INPUT);
   pinMode(MOT_RIGHT_ENCB, INPUT);
@@ -612,14 +619,13 @@ void setup() {
   digitalWrite(YELLOW_LED_PIN, LOW);
   digitalWrite(GREEN_LED_PIN, HIGH);
 
-  setSonar(SONAR_BOTH);
+  setSonar(SONAR_NONE);
   
   Serial.println("Serial & pins initialized.");
   angleInit6();
   Serial.println("Navigation initialized");
   motorInitTp();
   Serial.println("Motors initialized.");
-  gyroTrigger = micros();
   delay(100);
   for (int i = 0; i < DATA_ARRAY_SIZE; i++) {
     aArray[i] = 42;
@@ -627,8 +633,8 @@ void setup() {
     cArray[i] = 4242;
     dArray[i] = i;
   }
-  zeroGyro();
-  Serial.println("Gyro zeroed out.");
+//  zeroGyro();
+//  Serial.println("Gyro zeroed out.");
   diagnostics();
   Serial.println("Diagnostics ignored.");
 } // end setup()
@@ -817,14 +823,16 @@ void diagnostics() {
 
     // Accelerometer
     dTime1 = micros();
-    readAccel(); 
+    isNewAccel();
+    setAccelData(); 
     Serial.print("uSec:"); Serial.print(micros() - dTime1); Serial.print("\t");
     Serial.print("aPitch: "); Serial.print(aPitch); Serial.print("\t");
     Serial.print("aRoll: "); Serial.print(aRoll); Serial.println();
 
     // Gyro
     dTime1 = micros();
-    readGyro();
+    isNewGyro();
+    setAccelData();
     Serial.print("uSec:"); Serial.print(micros() - dTime1); Serial.print("\t");
     Serial.print("gyroPitchRate: "); Serial.print(gyroPitchRate); Serial.print("\t");
     Serial.print("gyroRollRate: "); Serial.print(gyroRollRate); Serial.print("\t");
@@ -832,9 +840,9 @@ void diagnostics() {
 
     // Magnetometer
     dTime1 = micros();
-    readCompass();
-    Serial.print("uSec:"); Serial.print(micros() - dTime1); Serial.print("\t");
-    Serial.print("magHeading: "); Serial.print(magHeading); Serial.println();
+//    readCompass();
+//    Serial.print("uSec:"); Serial.print(micros() - dTime1); Serial.print("\t");
+//    Serial.print("magHeading: "); Serial.print(magHeading); Serial.println();
 
     // Ground sensors
     Serial.print("forceRight: "); Serial.print(forceRight); Serial.print("\t");

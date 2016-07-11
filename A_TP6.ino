@@ -18,15 +18,13 @@ double rotationCorrection = 0.0;
  *  aTp6Run() 
  ***********************************************************************/
 void aTp6Run() {
-  unsigned int subCycle = 0;
-  
-  timeMicroseconds = gyroTrigger = micros();
+  timeMicroseconds = micros();
   timeMilliseconds = timeMicroseconds / 1000;
   tickPositionRight = tickPositionLeft = tickPosition = 0L;
   currentValSet = &tp6;
   setBlink(RED_LED_PIN, BLINK_SB);
   delay(200);
-  readCompass();
+//  readCompass();
   setHeading(0.0D);
   resetTicks();
   while(mode == MODE_TP6) { // main loop
@@ -34,20 +32,18 @@ void aTp6Run() {
     // Do the timed loop
     timeMicroseconds = micros();
     timeMilliseconds = timeMicroseconds / 1000;
-    if (timeMicroseconds > gyroTrigger) {
-      gyroTrigger +=  2400; // ~400/sec
-      subCycle++;
-      readGyro();
-      if ((subCycle % 16) == 3) readCompass();   // 25/sec
+    if (isNewGyro()) {
+      setGyroData();
       setNavigation();
-      if ((subCycle % 4)  == 1) readAccel();  // 100/sec
       aTp6(); 
       sendLog();
       safeAngle();
-      switches();
       checkMotorRight();
       checkMotorLeft();
-    } // end timed 400/sec loop
+    }
+    if (isNewAccel()) {
+      setAccelData();
+    }
   }
 }
 
@@ -115,53 +111,57 @@ void aTp6() {
   if (isRouteInProgress) route();
   else if (isStand) standSteer();
   else tp6Steer(tp6Fps);
-
-  
-//  if (isJump) {
-//    setTargetSpeedRight(tp6FpsRightJump);
-//    setTargetSpeedLeft(tp6FpsLeftJump);
-//  }
-//  else {
-    setTargetSpeedRight(tp6FpsRight);
-    setTargetSpeedLeft(tp6FpsLeft);
-//  }
+//  usec(
+//        (long) timeMicroseconds,
+//        (short) (gaPitch * 100.0),
+//        (short) (tp6ControllerSpeed * 10.0),
+//        (short) (lpfCos2 * 100.0),
+//        (short) (tp6SpeedError * 100.0),
+//        (short) (tp6Fps * 100.0),
+//        (short) (currentMapLoc.y * 100.0)
+//   );
+//
+  setTargetSpeedRight(tp6FpsRight);
+  setTargetSpeedLeft(tp6FpsLeft);
 } // end aTp6() 
 
 
 
 /***********************************************************************.
- *  sendLog() Called 400 time/sec.
+ *  sendLog() Called 416 times/sec.
  ***********************************************************************/
 void sendLog() {
-  static unsigned int loopc = 0;
-  static unsigned int loopd = 0;
-  static float marker = 1.1;
-  loopc = ++loopc % 40; // 10/sec loop.
-  loopd = ++loopd % 400; // 1/sec loop.
+  static unsigned int logLoop = 0;
+  logLoop++;
+  
   if (isDumpingData) {
-    if ((loopc % 4) == 0)  dumpData();
+    if ((logLoop % 4) == 0)  dumpData();
   }
   if (isDumpingTicks) {
-    if ((loopc % 4) == 0)  dumpTicks();
+    if ((logLoop % 4) == 0)  dumpTicks();
   }
-  if (loopc == 0)  { // 10/sec
-//    Serial.print(magHeading); Serial.print("\t");
-//    Serial.print(tickHeading); Serial.print("\t");
-//    Serial.print(tmHeading); Serial.print("\t");
-//    Serial.print(gyroHeading); Serial.print("\t");
-//    Serial.print(gmHeading); Serial.println("\t");
+  
+  if ((logLoop % 208) == 5) log2PerSec();
+
+  if ((logLoop % 42) == 5) { // 10/sec
   }
-  else if ((loopc == 10) || (loopc == 30)) { // Logging & debugging 20/sec
-//    log20PerSec();
-//  sprintf(message,"%7.3f %7.3f %7.3f %7.3f %7d %7.3f", 
-//          xVec, yVec, zVec, tmCumHeading, mY, magHeading);
-//   sendBMsg(SEND_MESSAGE, message);
-    if (isRouteInProgress) routeLog();
-//    routeLog();
+  if ((logLoop % 21) == 7) { // 20/sec
+   routeLog();
   }    
-//  if (loopd == 0) log1PerSec();
-//  log400PerSec();
 }
+
+
+
+void log2PerSec() {
+//    sprintf(message, "gPitch %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gPitch, aPitch, gaPitch);
+//    sendBMsg(SEND_MESSAGE, message);
+//  Serial.print(tp6FpsLeft);
+//  Serial.print(tab);
+//  Serial.print(tp6FpsRight);
+//  Serial.println();
+}
+
+
 
 void log20PerSec() {
 //  snprintf(pBuf, sizeof(pBuf), "%5d", (int) gyroCumHeading);
@@ -192,14 +192,7 @@ void log400PerSec() {
    );
 }
         
-void log1PerSec() {
-  static unsigned long t;
-  unsigned long t2 = millis();
-  int tickDiff = tickPositionLeft - tickPositionRight;
-  double tickA = ((double) tickDiff) / TICKS_PER_DEGREE_YAW;
-  sprintf(message, "tickDiff:%5d     tickAngle:%6.2f", tickDiff , tickA);
-  sendBMsg(SEND_MESSAGE, message); 
-}
+
 
 /***********************************************************************.
  *  tp6Steer() 

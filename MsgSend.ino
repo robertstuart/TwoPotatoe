@@ -25,11 +25,7 @@ void sendStatusBluePc() {
       sendBMsg(SEND_SONAR_L, 2, sonarLeft);
       break;
     case 3:
-      sendBMsg(SEND_BATT_A, battVolt); // integer
-  }
-  if (isNewMessage) {
-    sendBMsg(SEND_MESSAGE, message); 
-    isNewMessage = false;
+      sendBMsg(SEND_BATT_A, 2, battVolt); 
   }
   sendBMsg(SEND_STATE, getState());
 }
@@ -44,22 +40,18 @@ void sendStatusXBeeHc() {
       break;
     case 1:
       sendXMsg(SEND_SONAR_R, 2, sonarRight);
-      sendXMsg(SEND_STATE, getState());
       break;
     case 2:
       sendXMsg(SEND_SONAR_L, 2, sonarLeft);
-      sendXMsg(SEND_STATE, getState());
       break;
     case 3:
-      sendXMsg(SEND_BATT_A, battVolt); // integer
-      sendXMsg(SEND_STATE, getState());
+      sendXMsg(SEND_BATT_A, 2, battVolt);
       break;
     default:
       break;
   }
-  if (isNewMessage) {
-    sendXMsg(SEND_MESSAGE, message); 
-  }
+  sendXMsg(SEND_STATE, getState());
+
   xTransmitRequest(XBEE_DEST_C1, rfData, rfDataPtr);
   rfDataPtr = 0;
 }
@@ -182,7 +174,7 @@ void sendXMsg(int cmd, String val) {
   char buf[50];
   int len = val.length();
   if (len >= 50) return;
-  val.toCharArray(buf, len+1);
+  val.toCharArray(buf, len + 1);
   xAddMessage(cmd, buf, len);
 }
 

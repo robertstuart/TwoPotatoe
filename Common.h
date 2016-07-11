@@ -26,9 +26,11 @@ const int SEND_VALSET      = 140;
 const int SEND_ROUTE_NAME  = 141;
 const int SEND_X           = 142;
 const int SEND_Y           = 143;
-const int SEND_SONAR_F     = 144;
+//const int SEND_SONAR_F     = 144;
 const int SEND_SONAR_L     = 145;
 const int SEND_DUMP_TICKS  = 146;
+const int SEND_XPOS        = 190;
+const int SEND_YPOS        = 191;
 
 const int RCV_JOYX         = 129;
 const int RCV_JOYY         = 130;
