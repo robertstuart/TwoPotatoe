@@ -60,7 +60,7 @@ void commonTasks() {
   readBluetooth();
   readSonar();
   //  motorIdle();
-  led();
+  blink();
   battery();
   controllerConnected();
   liftJump();
@@ -101,20 +101,17 @@ void setRunningState() {
     isRunning = isRunReady;
   }
 
-  // Set the blue connection led
-  if (isHcActive) setBlink(BLUE_LED_PIN, BLINK_ON);
-  else if (isPcActive) setBlink(BLUE_LED_PIN, BLINK_SB);
-  else setBlink(BLUE_LED_PIN, BLINK_FF);
+  // Set the blue route led
+  if (isRouteInProgress) setBlink(BLUE_LED_PIN, BLINK_ON);
+  else setBlink(BLUE_LED_PIN, BLINK_OFF);
 
   // set red (mode) and yellow (state)
   switch (mode) {
     case MODE_TP6:
       if  (isRouteInProgress) {
         setBlink(YELLOW_LED_PIN, BLINK_FF);
-        setBlink(RED_LED_PIN, BLINK_FF);
-      }
+       }
       else {
-        setBlink(RED_LED_PIN, BLINK_SF);
         if (isRunning)         setBlink(YELLOW_LED_PIN, BLINK_ON);
         else if (isRunReady)   setBlink(YELLOW_LED_PIN, BLINK_FF);
         else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
@@ -238,9 +235,11 @@ void gyroTemperature() {
 
 
 /**************************************************************************.
- *  led() Call at least 10/sec
+ *  blink() Call at least 10/sec
  **************************************************************************/
-void led() {
+void blink() {
+  static int routeCycle = 0; //
+  static int routeOffCount = 0;
   static unsigned long blinkTrigger = 0L;
   if (timeMilliseconds > blinkTrigger) {
     blinkTrigger = timeMilliseconds + 100;  // 10 per second
@@ -248,14 +247,25 @@ void led() {
     int b = (patternBlue[blinkPtrBlue++] == 1) ? HIGH : LOW;
     if (patternBlue[blinkPtrBlue] == END_MARKER) blinkPtrBlue = 0;
     digitalWrite(BLUE_LED_PIN, b);
-digitalWrite(GREEN_LED_PIN, b);
+    digitalWrite(GREEN_LED_PIN, b);
     b = (patternYellow[blinkPtrYellow++] == 1) ? HIGH : LOW;
     if (patternYellow[blinkPtrYellow] == END_MARKER) blinkPtrYellow = 0;
     digitalWrite(YELLOW_LED_PIN, b);
-    b = (patternRed[blinkPtrRed++] == 1) ? HIGH : LOW;
-    if (patternRed[blinkPtrRed] == END_MARKER) blinkPtrRed = 0;
-    digitalWrite(RED_LED_PIN, b);
-  }
+
+    // Blink route number on red
+    if (++routeOffCount >=5) {
+      routeOffCount = 0;
+      if (routeCycle <= routeTablePtr) {
+        digitalWrite(RED_LED_PIN, HIGH);
+      }
+      routeCycle++;
+      if (routeCycle >= (routeTablePtr + 3)) {
+        routeCycle = 0;
+      }
+    } else if (routeOffCount == 2) {
+      digitalWrite(RED_LED_PIN, LOW);
+    }
+  }  
 }
 
 
@@ -335,12 +345,23 @@ void beepIsr() {
  *      Toggle TP_STATE_RUN_READY on yellow switch.  1 sec dead period.
  **************************************************************************/
 void switches() {
+  static unsigned int buTimer = 0;
+  static boolean buState = false;
+  static boolean oldBuState = false;
+
   static unsigned int yeTimer = 0;
   static boolean yeState = false;
   static boolean oldYeState = false;
+  
   static unsigned int reTimer = 0;
   static boolean reState = false;
   static boolean oldReState = false;
+  
+  // Debounce Blue
+  boolean bu = digitalRead(BU_SW_PIN) == LOW;
+  if (bu) buTimer = timeMilliseconds;
+  if ((timeMilliseconds - buTimer) > 50) buState = false;
+  else buState = true;
   
   // Debounce Yellow
   boolean ye = digitalRead(YE_SW_PIN) == LOW;
@@ -354,15 +375,19 @@ void switches() {
   if ((timeMilliseconds - reTimer) > 50) reState = false;
   else reState = true;
 
-  // Yellow press transition
-  if ((yeState) && (!oldYeState)) run(!isRunReady);
-
-  // Red press transition
-  if ((reState) && (!oldReState)) {
-    if (!isRouteInProgress) startRoute();
-    else stopRoute();
+  // Blue press transition
+  if (buState && (!oldBuState)) {
+    if (isRouteInProgress) stopRoute();
+    else startRoute();
   }
 
+  // Yellow press transition
+  if (yeState && (!oldYeState)) run(!isRunReady);
+
+  // Red press transition
+  if ((reState) && (!oldReState)) setRoute(true);
+
+  oldBuState = buState;
   oldYeState = yeState;
   oldReState = reState;
 }
@@ -397,9 +422,9 @@ void readSonar() {
       } else {
         msgStr[msgPtr++] = b;
       }
-    } else {
-      if (b == 'R') isRight = true;
-      else if (b == 'L') isRight = false;
+    } else { // The R/L indicator is reversed in the Micro Pro, fix here
+      if (b == 'L') isRight = true;
+      else if (b == 'R') isRight = false;
       else continue; 
       msgPtr = 0;
       isMsgInProgress = true;         
@@ -414,34 +439,28 @@ void readSonar() {
  *           Called for every sonar reading.
  **************************************************************************/
 void doSonar(float distance, int isRight) {
-//if (!isRight) {
-//  float d = distance - 0.32;
-//  int z = (int) (12 * d);
-//  Serial.print(d);
-//  for (int i = 0; i < z; i++) Serial.print(" ");
-//  Serial.println("*");  
-//}
-//    
-  // Collect data for least squares calculation.
-  if (isGXAxis) {
-    lsXArray[lsPtr] = (float) currentMapLoc.x;
-    lsYLArray[lsPtr] = (float) currentMapLoc.y;
-  } else {
-    lsXArray[lsPtr] = (float) currentMapLoc.y;
-    lsYLArray[lsPtr] = (float) currentMapLoc.x;
-  }
-  lsSArray[lsPtr] = (float) distance;
-  if (lsPtr < (LS_ARRAY_SIZE - 1)) lsPtr++;
+  distance += 0.06; // New MaxSonar position
 
   // Collect data for Charted Object measurements. 
   if (isRight) {     
-    sonarRightArray[sonarRightArrayPtr] = sonarRight;
+    sonarRightArray[sonarRightArrayPtr] = (distance * 100.0);
     sonarRightArrayPtr = ++sonarRightArrayPtr % SONAR_ARRAY_SIZE;
     sonarRight = distance;
   } else {
-    sonarLeftArray[sonarLeftArrayPtr] = sonarLeft;
+    sonarLeftArray[sonarLeftArrayPtr] = (int) (distance * 100.0);
     sonarLeftArrayPtr = ++sonarLeftArrayPtr % SONAR_ARRAY_SIZE;
     sonarLeft = distance;
+  }
+  if (isRouteInProgress) {
+    addLog(
+        (long) timeMilliseconds,
+        (short) (currentMapLoc.x * 100.0),
+        (short) (currentMapLoc.y * 100.0),
+        (short) (sonarRight * 100.0),
+        (short) (sonarLeft * 100.0),
+        (short) (0),
+        (short) (routeStepPtr)
+    );
   }
 }
 

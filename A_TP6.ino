@@ -69,7 +69,7 @@ void aTp6() {
   lpfCosOld2 = lpfCos2;
 
   if (isRouteInProgress) {
-    tp6ControllerSpeed = routeFps;
+    tp6ControllerSpeed = routeFps + stickSpeed;
   }
   else if (isStand) {
     tp6ControllerSpeed = standFps();
@@ -111,16 +111,6 @@ void aTp6() {
   if (isRouteInProgress) route();
   else if (isStand) standSteer();
   else tp6Steer(tp6Fps);
-//  usec(
-//        (long) timeMicroseconds,
-//        (short) (gaPitch * 100.0),
-//        (short) (tp6ControllerSpeed * 10.0),
-//        (short) (lpfCos2 * 100.0),
-//        (short) (tp6SpeedError * 100.0),
-//        (short) (tp6Fps * 100.0),
-//        (short) (currentMapLoc.y * 100.0)
-//   );
-//
   setTargetSpeedRight(tp6FpsRight);
   setTargetSpeedLeft(tp6FpsLeft);
 } // end aTp6() 
@@ -141,13 +131,13 @@ void sendLog() {
     if ((logLoop % 4) == 0)  dumpTicks();
   }
   
-  if ((logLoop % 208) == 5) log2PerSec();
-
-  if ((logLoop % 42) == 5) { // 10/sec
-  }
-  if ((logLoop % 21) == 7) { // 20/sec
-   routeLog();
-  }    
+//  if ((logLoop % 208) == 5) log2PerSec();
+//
+//  if ((logLoop % 42) == 5) { // 10/sec
+//  }
+//  if ((logLoop % 21) == 7) { // 20/sec
+//   routeLog();
+//  }    
 }
 
 

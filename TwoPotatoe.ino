@@ -6,6 +6,16 @@
 #include <Wire.h>
 #include <LSM6.h>
 
+// One screw turn on the stand produces 4" change at 100'
+
+// Decrease this value to get greater turn for a given angle
+//#define GYRO_SENS 0.0690     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+#define GYRO_SENS 0.0696     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+
+//#define TICKS_PER_FOOT 3017.0D  // For G-made inflatable
+//#define TICKS_PER_FOOT 3342.0D // For Pro-Line Masher 2.8" PRO1192-12
+#define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
+
 // Values for initial timeDrift???
 const double PITCH_DRIFT = -16.52;
 const double ROLL_DRIFT = 63.60;
@@ -15,9 +25,6 @@ const double YAW_DRIFT = -26.81;
 #define BLUE_SER Serial1
 #define SONAR_SER Serial2
 
-//#define TICKS_PER_FOOT 3017.0D  // For G-made inflatable
-//#define TICKS_PER_FOOT 3342.0D // For Pro-Line Masher 2.8" PRO1192-12
-#define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 //#define TICKS_PER_CIRCLE_YAW  11900.0  // For Pro-Line Masher 2.8" PRO1192-12
 //#define TICKS_PER_CIRCLE_YAW  7816.0  // For Losi DB XL 1/5 scale
 #define TICKS_PER_CIRCLE_YAW  7428.0  // For Losi DB XL 1/5 scale
@@ -85,8 +92,8 @@ const int HEADING_SOURCE_GM = 3;
 //#define R_CURRENT_PIN A3             // Right motor current
 //#define L_CURRENT_PIN A4             // Left motor current
 
-#define SONAR_RIGHT_PIN 43
-#define SONAR_LEFT_PIN 45
+#define SONAR_RIGHT_PIN 45
+#define SONAR_LEFT_PIN 43
 
 #define A_LIM 20.0 // degrees at which the speedAdjustment starts reducing.
 #define S_LIM 1.0  // maximum speedAdjustment;
@@ -114,9 +121,6 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
 #define DEFAULT_GRID_OFFSET 0.0
 #define SONAR_SENS 0.0385
-
-// Decrease this value to get greater turn for a given angle
-#define GYRO_SENS 0.0690     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
 
 #define INVALID_VAL -123456.78D
 
@@ -233,9 +237,9 @@ struct chartedObject {
   double surface;
 };
 
-#define SONAR_ARRAY_SIZE 20
-double sonarRightArray[SONAR_ARRAY_SIZE];
-double sonarLeftArray[SONAR_ARRAY_SIZE];
+#define SONAR_ARRAY_SIZE 100
+int sonarRightArray[SONAR_ARRAY_SIZE];
+int sonarLeftArray[SONAR_ARRAY_SIZE];
 int sonarRightArrayPtr = 0;
 int sonarLeftArrayPtr = 0;
 
@@ -276,6 +280,7 @@ long routeTargetTickPosition = 0L;
 double targetDistance = 0.0D;
 double pirouetteFps = 0.0;
 double routeFps = 0.0;
+double stickSpeed = 0.0;
 double routeRadius = 0.0;
 int routeWaitTime = 0L;
 boolean isEsReceived = false;

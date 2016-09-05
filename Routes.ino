@@ -1,35 +1,108 @@
-// AVC Full route, no ramp
+String cal200[] = {
+  "N Cal200",
+  "KR 0,0 0",
+  "HG",
+  "GY 0,200 6",
+  "F"
+};
+
+// AVC Full route, TwoPotatoe
 String avcFn[] = {
-  "N Full miss ramp",
-  "KR 119,5   -90",
+  "N AVC 1",
+  "MR",
+  "KR 120,0   -90",
   "HG",
   "GX  10,5    7",      // Down straightaway away from building
-  "T    5,45    5  5",
-  "GY   5,45    7",
+  "T    5,46    5  5",
+  "GY   5,46    7",
   "T   30,48    5  6",   // Turn toward building
   "GX  30,48    7",      // To second barrel
   "GX  48,52    7",      // To third barrel
-  "GX  64,48    7",      // To fourth barrel
-  "T   75,75    5",      // Turn toward hoop
-  "GY  75,75    7",      // 3' from bales for sonar measurement
-  "GY  73,84    7",      // To hoop
-  "GY  73,108   7",      // To end of hoop run
-  "T  135,113   5  6",
-  "GX 135,113   7",      // Toward building
-  "T  138,96    5  3",   // close to bales
-  "GY 138,96    7",      // 3' from bales on R for measurement
-  "GY 137,86    6",      // past bales
-  "GY 140,42    7",      // to hairpins
-  "T  130,37    5  3",   // turn away from building
-  "GX 130,37    5",
-  "T  125,23    5  3",   // turn toward start
-  "GY 125,23    5",
-  "T  135,18    5  3",   // turn toward building
+  "GX  67,48    7",      // To fourth barrel
+  "T   76,63    5  7",   // Turn toward hoop
+  "GY  76,63    7",       // Stage for sonar
+//  "CR     70    79",     // Sonar
+  "GY  76,71    7",      // Sonar run
+  "GY  74,80    7",      // To hoop
+  "GY  73,102   7",      // To end of hoop run
+  "T  133,107   5  5",   // Turn toward building
+  "GX 128,107   5",      // Toward building
+  "GX 133,107   5",      // Toward building slow
+  "T  140,100   5  5",   // Turn toward ramp
+  "GY 138,100   6"       // Stage for sonar
+//  "CR     93    135",    // Sonar
+  "GY 138,92    6",      // Sonar run
+  "GY 137,84    6",      // Veer in slightly to avoid ramp
+  "GY 137,76    6",      // Straight past ramp
+  "GY 140,50    7",      // to pool
+  "GY 140,42    5",      // to hairpins  slow
+  "T  128,37    5  5",   // turn away from building
+  "GX 128,37    5",
+  "T  125,21    5  5",   // turn toward start
+  "GY 125,21    5",
+  "T  135,18    5  5",   // turn toward building
   "GX 135,18    5",
-  "T  140,10    5  3",   //
+  "T  140,10    5  5",   //
   "GY 140,10    5",
-  "T  110,5     5  5",
-  "GX 110,5     7",
+  "T  120,5     5  5",   
+  "GX 120,5     5",       // Signal end
+//  "GX 110,5     8",      // End 10' past ramp
+  "F"
+};
+// MLC  TwoPotatoe
+String mlc[] = {
+  "N MLC 1",
+  "MR",
+  "KR 119,0   -90",
+  "HG",
+  "GX  10,5    7",      // Down straightaway away from building
+  "T    5,45    5  5",
+  "GY   5,46    7",
+  "T   30,48    5  6",   // Turn toward building
+  "GX  30,48    7",      // To second barrel
+  "GX  48,52    7",      // To third barrel
+  "GX  67,48    7",      // To fourth barrel
+  "T   76,63    5  7",   // Turn toward hoop
+  "GY  76,63    7",       // Stage for sonar
+//  "CR     70    79",     // Sonar
+  "GY  76,71    7",      // Sonar run
+  "GY  74,80    7",      // To hoop
+  "GY  73,108   7",      // To end of hoop run
+  "T  133,115   5  5",   // Turn toward building
+  "GX 128,115   5",      // Toward building
+  "GX 133,115   5",      // Toward building slow
+  "T  140,100   5  5",   // Stage for sonar
+//  "CR     97    137",    // Sonar
+  "GY 140,92    6",      // Sonar run
+  "GY 138,84    6",      // Veer in slightly to avoid ramp
+  "GY 138,76    6",      // Straight past ramp
+  "GY 140,50    7",      // to pool
+  "GY 140,42    5",      // to hairpins  slow
+  "T  128,37    4  5",   // turn away from building
+  "GX 128,37    4",
+  "T  125,21    4  5",   // turn toward start
+  "GY 125,21    4",
+  "T  135,18    4  5",   // turn toward building
+  "GX 135,18    4",
+  "T  140,10    4  5",   //
+  "GY 140,10    5",
+  "T  119,5     5  5",   
+  "GX 119,5     5",       // Signal end
+  "GX 109,5     7",      // End 10' past ramp
+  "F"
+};
+
+String houseSonar[] = {
+  "N House Sonar",
+  "ML",
+  "KR 0,0 0",
+  "HG",
+  "GY  0,3 4",
+  "T  16,6.5 4 4",
+  "CL  13.5 8.9",
+  "GX 16,6.5 4",
+  "T  30,2  4 5",
+  "GX 30,2  4",
   "F"
 };
 
@@ -65,7 +138,8 @@ String loadedRoute[200] = {
 
 
 String *routeTable[] = {
-   avcFn};
+ avcFn,  street1, houseSonar
+};
 
 int routeTablePtr = 0;
 boolean isLoadedRouteValid = true;
@@ -112,9 +186,9 @@ void startRoute() {
   while (true) {
     if (!interpretRouteLine(getNextStepString())) {
       isRouteInProgress = false;
-      sendXMsg(SEND_MESSAGE, "Error step %d!");
-      sendBMsg(SEND_MESSAGE, "Error step %d!");
-//      sprintf(message, "Error step %d!", routeStepPtr - 1); isNewMessage = true;
+      sprintf(message, "Error step %d!", routeStepPtr - 1);
+      sendXMsg(SEND_MESSAGE, message);
+      sendBMsg(SEND_MESSAGE, message);
       return;
     }
     if (!isRouteInProgress) break;
