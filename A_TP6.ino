@@ -17,6 +17,7 @@ double rotationCorrection = 0.0;
 /***********************************************************************.
  *  aTp6Run() 
  ***********************************************************************/
+unsigned int t0, t1, t2, t3;
 void aTp6Run() {
   timeMicroseconds = micros();
   timeMilliseconds = timeMicroseconds / 1000;
@@ -55,7 +56,7 @@ void aTp6Run() {
 void aTp6() {
   readSpeed();
   // compute the Center of Oscillation Speed (COS)
-  tp6Rotation = (*currentValSet).t * (-gyroPitchDelta); // 3.6
+  tp6Rotation = 4.8 * (-gyroPitchDelta); // 4.8
   tp6Cos = wheelSpeedFps + tp6Rotation; // subtract rotation 
   tp6LpfCos = (tp6LpfCosOld * (1.0 - (*currentValSet).u))  + (tp6Cos  * (*currentValSet).u); // smooth it out a little (0.2)
 //  tp6LpfCos = (tp6LpfCosOld * (1.0 - 0.05)) + (tp6Cos * 0.05); // smooth it out a little (0.2)
@@ -63,7 +64,7 @@ void aTp6() {
   tp6LpfCosOld = tp6LpfCos;
 
    // Do new calculation.  Used for including ticks in pitch estimation.
-  rotation2 = -tgPitchDelta * 7.4;
+  rotation2 = -tgPitchDelta * (*currentValSet).t;  // 7.4
   cos2 = wheelSpeedFps + rotation2;
   lpfCos2 = (lpfCosOld2 * .9) + (cos2 * (1.0D - .9));
   lpfCosOld2 = lpfCos2;
@@ -132,30 +133,27 @@ void sendLog() {
   }
   
 //  if ((logLoop % 208) == 5) log2PerSec();
-//
-//  if ((logLoop % 42) == 5) { // 10/sec
-//  }
-//  if ((logLoop % 21) == 7) { // 20/sec
-//   routeLog();
-//  }    
+//  if ((logLoop % 42) == 5) ;  // 10/sec
+  if ((logLoop % 21) == 7) routeLog(); // 20/sec  
+//  log400PerSec();
 }
 
 
 
 void log2PerSec() {
-//    sprintf(message, "gPitch %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gPitch, aPitch, gaPitch);
-//    sendBMsg(SEND_MESSAGE, message);
-//  Serial.print(tp6FpsLeft);
-//  Serial.print(tab);
-//  Serial.print(tp6FpsRight);
-//  Serial.println();
+//  sprintf(message, "gPitch %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gPitch, aPitch, gaPitch);
+//  sendBMsg(SEND_MESSAGE, message);
+  Serial.print(gaPitch);
+  Serial.print(tab);
+  Serial.print(gaRoll);
+  Serial.println();
 }
 
 
 
 void log20PerSec() {
-//  snprintf(pBuf, sizeof(pBuf), "%5d", (int) gyroCumHeading);
-//  sendBMsg(SEND_MESSAGE, pBuf); 
+  sprintf(message,  "%5.2f\t%5.2f\t%5.2f\t", sonarLeft, sonarFront, sonarRight);
+  sendBMsg(SEND_MESSAGE, message); 
 
   if (!isRouteInProgress) return;
   addLog(
@@ -170,15 +168,14 @@ void log20PerSec() {
 }
 
 void log400PerSec() {
-//  if (!isRouteInProgress) return;
   addLog(
-        (long) (0),
-        (short) (currentMapLoc.y * 100.0),
+        (long) (timeMicroseconds),
+        (short) (controllerY * 100.0),
         (short) (tp6LpfCos * 100.0),
         (short) (gaPitch * 100.0),
         (short) (wheelSpeedFps * 100.0),
-        (short) (stopDist * 100.0),
-        (short) (routeStepPtr)
+        (short) (0),
+        (short) (0)
    );
 }
         

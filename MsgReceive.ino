@@ -306,26 +306,6 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
 
 
 void setValSet(int newValSet) {
-  if (newValSet == vSetStatus) {
-    return;
-  }
-  vSetStatus = newValSet;
-  if (mode == MODE_TP4) {
-    switch (vSetStatus) {
-    case VAL_SET_A:
-      currentValSet = &tp4A;
-      break;
-    case VAL_SET_B:
-      currentValSet = &tp4B;
-      break;
-    case VAL_SET_C:
-      currentValSet = &tp4C;
-      break;
-    default:  
-      currentValSet = &tp4A;
-      break;
-    }
-  }
 }
 
 

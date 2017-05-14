@@ -60,7 +60,7 @@ void commonTasks() {
   readBluetooth();
   readSonar();
   //  motorIdle();
-  blink();
+  blinkLed();
   battery();
   controllerConnected();
   liftJump();
@@ -110,8 +110,7 @@ void setRunningState() {
     case MODE_TP6:
       if  (isRouteInProgress) {
         setBlink(YELLOW_LED_PIN, BLINK_FF);
-       }
-      else {
+      } else {
         if (isRunning)         setBlink(YELLOW_LED_PIN, BLINK_ON);
         else if (isRunReady)   setBlink(YELLOW_LED_PIN, BLINK_FF);
         else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
@@ -172,9 +171,10 @@ void liftJump() {
   static boolean isOldOnGround = false;
   
   forceLeft = analogRead(L_FORCE_PIN);
-  forceRight = analogRead(R_FORCE_PIN);
-  isOnGround = (forceLeft < 800) && (forceRight < 950);
-
+//  forceRight = analogRead(R_FORCE_PIN);
+//  isOnGround = (forceLeft < 800) && (forceRight < 950);
+isOnGround = forceLeft < 800; // right not working
+  
   if (!isOnGround) {
     // TP has just left the ground.
     if (isOldOnGround) {  // Just left the ground?
@@ -237,7 +237,7 @@ void gyroTemperature() {
 /**************************************************************************.
  *  blink() Call at least 10/sec
  **************************************************************************/
-void blink() {
+void blinkLed() {
   static int routeCycle = 0; //
   static int routeOffCount = 0;
   static unsigned long blinkTrigger = 0L;
@@ -402,7 +402,7 @@ void readSonar() {
   static char msgStr[S_BUFFER_SIZE + 1];
   static boolean isMsgInProgress = false;
   static int msgPtr = 0;
-  static boolean isRight = false;
+  static char dir = 'X';
   
   float distance = 0.0;
  
@@ -410,11 +410,11 @@ void readSonar() {
     byte b = SONAR_SER.read();
     if (isMsgInProgress) {
       if (b == 13) {
-        msgStr[msgPtr] = 0;
         int e = sscanf(msgStr, "%f", &distance);
         if ((e > 0) && (distance < 30.0)) {
-          doSonar(distance, isRight);
+          doSonar(distance, dir);
         }
+        msgStr[msgPtr] = 0;
         isMsgInProgress = false;
       }
       else if (msgPtr >= S_BUFFER_SIZE) {
@@ -422,12 +422,12 @@ void readSonar() {
       } else {
         msgStr[msgPtr++] = b;
       }
-    } else { // The R/L indicator is reversed in the Micro Pro, fix here
-      if (b == 'L') isRight = true;
-      else if (b == 'R') isRight = false;
-      else continue; 
-      msgPtr = 0;
-      isMsgInProgress = true;         
+    } else { // Wait for a L, F, or R.
+      if ((b == 'L') || (b == 'F') ||(b == 'R')) {
+        dir = b;
+        isMsgInProgress = true;         
+        msgPtr = 0;
+      }
     }
   }
 }
@@ -438,51 +438,47 @@ void readSonar() {
  * doSonar() Process received distance from sonar.
  *           Called for every sonar reading.
  **************************************************************************/
-void doSonar(float distance, int isRight) {
-  distance += 0.06; // New MaxSonar position
+void doSonar(float distance, char dir) {
 
   // Collect data for Charted Object measurements. 
-  if (isRight) {     
+  if (dir == 'R') {     
     sonarRightArray[sonarRightArrayPtr] = (distance * 100.0);
     sonarRightArrayPtr = ++sonarRightArrayPtr % SONAR_ARRAY_SIZE;
     sonarRight = distance;
-  } else {
+  } else if (dir == 'L') {
     sonarLeftArray[sonarLeftArrayPtr] = (int) (distance * 100.0);
     sonarLeftArrayPtr = ++sonarLeftArrayPtr % SONAR_ARRAY_SIZE;
     sonarLeft = distance;
+  } else {
+    sonarFront = distance;
   }
-  if (isRouteInProgress) {
-    addLog(
-        (long) timeMilliseconds,
-        (short) (currentMapLoc.x * 100.0),
-        (short) (currentMapLoc.y * 100.0),
-        (short) (sonarRight * 100.0),
-        (short) (sonarLeft * 100.0),
-        (short) (0),
-        (short) (routeStepPtr)
-    );
+//  if (isRouteInProgress) {
+//    addLog(
+//        (long) timeMilliseconds,
+//        (short) (currentMapLoc.x * 100.0),
+//        (short) (currentMapLoc.y * 100.0),
+//        (short) (sonarRight * 100.0),
+//        (short) (sonarLeft * 100.0),
+//        (short) (0),
+//        (short) (routeStepPtr)
+//    );
+//  }
+}
+
+
+
+/**************************************************************************.
+ * setSonar() Can be any combintion of "LlFfRr" for Left, Right and Front.
+ *            Upper case to turn on and lower case to turn off.
+ **************************************************************************/
+void setSonar(String sonarStr) {
+  int len = sonarStr.length();
+  for (int i = 0; i < len; i++) {
+    SONAR_SER.print(sonarStr.charAt(i));
   }
 }
 
-void setSonar(int mode) {
-  int r, l;
-  sonarMode = mode;
-  if (mode == SONAR_RIGHT) {
-    r = HIGH;
-    l = LOW;
-  } else if (mode == SONAR_LEFT) {
-    r = LOW;
-    l = HIGH;
-  } else if (mode == SONAR_BOTH) {
-    r = HIGH;
-    l = HIGH;
-  } else {
-    r = LOW;
-    l = LOW;
-  }
-  digitalWrite(SONAR_RIGHT_PIN, r);
-  digitalWrite(SONAR_LEFT_PIN, l);
-}
+
 
 /**************************************************************************.
  *  rangeAngle() Set angle value between -180 and +180

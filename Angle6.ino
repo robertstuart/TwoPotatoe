@@ -32,7 +32,7 @@ void angleInit6() {
   if (!lsm6.init()) Serial.println("IMU initialize failed!");
   else Serial.println("IMU Initialized!****************************");
   lsm6.enableDefault();
-  lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Gyro data on INT1
+  lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Accel data on INT1
   lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
   lsm6.writeReg(LSM6::CTRL2_G, 0X6C);   // Gyro 2000fs, 416hz
   lsm6.writeReg(LSM6::CTRL1_XL, 0X40);  // Accel 2g, 104hz
@@ -54,7 +54,6 @@ void angleInit6() {
  ***********************************************************************/
 void setGyroData() {
   int t;
-gSet++;
   // Pitch
   gyroPitchRaw = ((double) lsm6.g.x) - timeDriftPitch;
   gyroPitchRate = (((double) gyroPitchRaw) * GYRO_SENS);  // Rate in degreesChange/sec
@@ -72,7 +71,7 @@ gSet++;
 
   // Yaw
 //  gyroYawRaw = ((double) lsm6.g.z) - timeDriftYaw - temperatureDriftYaw; 
-sumYaw += lsm6.g.z;
+//sumYaw += lsm6.g.z;
   gyroYawRaw = ((double) lsm6.g.z) - timeDriftYaw; 
   gyroYawRate = ((double) gyroYawRaw) * GYRO_SENS;  // Rate in degreesChange/sec
   double gyroYawDelta = -gyroYawRate / 416.0; // degrees changed during period

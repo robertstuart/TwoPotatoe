@@ -77,8 +77,8 @@ const int HEADING_SOURCE_GM = 3;
 #define LEFT_HL_PIN      9 // headlamp
 #define REAR_TL_PIN      8 // rear lamp
 #define GREEN_LED_PIN   38 // LED in switch
-#define ACCEL_INTR_PIN  30
-#define GYRO_INTR_PIN   31
+#define ACCEL_INTR_PIN  31
+#define GYRO_INTR_PIN   30
 
 #define BU_SW_PIN 39 // Blue switch
 #define YE_SW_PIN 34 // Yellow switch
@@ -143,8 +143,7 @@ short tArray[TICK_ARRAY_SIZE]; // Period in usec
 short uArray[TICK_ARRAY_SIZE]; // State of rotation tick
 unsigned int tickArrayPtr = 0;
 
-int gSet = 0;
-int sumYaw = 0;
+//int sumYaw = 0;
 
 unsigned int mode = MODE_TP6;
 boolean motorMode = MM_DRIVE_BRAKE;  // Can also be MM_DRIVE_COAST
@@ -176,35 +175,8 @@ struct valSet {
   double z;
 };
 
-struct valSet tp4A = { 
-  0.5,    // t 
-  0.0,    // u 
-  0.7,    // v
-  0.2,    // w 
-  2.0,    // x 
-  0.18,   // Y 
-  3.3};   // z 
-
-struct valSet tp4B = { 
-  0.5,    // t 
-  0.0,    // u 
- 1.13,    // v 
-  0.3,    // w 
-  3.0,    // x 
-  0.15,   // Y 
-  3.3}; // z 
-
-struct valSet tp4C = { 
-  0.5,    // t 
-  0.0,    // u 
- 1.13,    // v 
-  0.3,    // w 
-  3.0,    // x 
-  0.15,   // Y 
-  3.3}; // z 
-
 struct valSet tp6 = { 
-  4.8,    // t
+  6.0,    // t
   0.1,    // u
   4.0,    // v - was 2.0, set to 3.0 for low speed
   0.18,    // w
@@ -415,11 +387,12 @@ int cmdState = 0;  // READY, PWR, & HOME command bits
 
 unsigned int forceRight = 0; // force sensor value
 unsigned int forceLeft = 0; // force sensor value
-double sonarRight = 0.0;
-double sonarRightMin = 0.0;
-double sonarLeft = 0.0;
-double sonarLeftMin = 0.0;
-int sonarMode = SONAR_BOTH;
+float sonarLeft = 0.0;
+float sonarLeftMin = 0.0;
+float sonarFront = 0.0;
+float sonarLeftFront = 0.0;
+float sonarRight = 0.0;
+float sonarRightMin = 0.0;
 double sonarMin = 0.0D;
 double sonarMax = 100.0D;
 
@@ -623,8 +596,6 @@ void setup() {
   digitalWrite(SPEAKER_PIN, LOW);
   digitalWrite(YELLOW_LED_PIN, LOW);
   digitalWrite(GREEN_LED_PIN, HIGH);
-
-  setSonar(SONAR_NONE);
   
   Serial.println("Serial & pins initialized.");
   angleInit6();
@@ -640,8 +611,10 @@ void setup() {
   }
 //  zeroGyro();
 //  Serial.println("Gyro zeroed out.");
-  diagnostics();
+//  diagnostics();
   Serial.println("Diagnostics ignored.");
+  beep(BEEP_UP);
+  setSonar("LFR");
 } // end setup()
 
 
@@ -837,7 +810,7 @@ void diagnostics() {
     // Gyro
     dTime1 = micros();
     isNewGyro();
-    setAccelData();
+    setGyroData();
     Serial.print("uSec:"); Serial.print(micros() - dTime1); Serial.print("\t");
     Serial.print("gyroPitchRate: "); Serial.print(gyroPitchRate); Serial.print("\t");
     Serial.print("gyroRollRate: "); Serial.print(gyroRollRate); Serial.print("\t");
@@ -852,11 +825,6 @@ void diagnostics() {
     // Ground sensors
     Serial.print("forceRight: "); Serial.print(forceRight); Serial.print("\t");
     Serial.print("forceLeft: "); Serial.print(forceLeft); Serial.println();
-
-    // Sonar
-//    double sonar = analogRead(SONAR_RIGHT_AN) * SONAR_SENS;
-//    Serial.print("Right Sonar: "); Serial.print(sonar); Serial.print("\t");
-//    Serial.print("Left Sonar: "); Serial.print(sonar); Serial.println();
 
     // Motors
     readSpeedRight();

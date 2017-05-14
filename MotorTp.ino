@@ -244,7 +244,7 @@ int getDecelPw(int wFps, int tFps) {
 }
 
 
-
+#define DEAD_PW 20
 /*********************************************************
  *
  * checkMotorXXX()
@@ -259,34 +259,29 @@ void checkMotorRight() {
     if (ws < abs(targetMFpsRight / 2)) { // less than 1/2 target speed?
       if (targetMFpsRight > 0) {
         noInterrupts();
-        setMotor(MOTOR_RIGHT, FWD, 70);
+        setMotor(MOTOR_RIGHT, FWD, DEAD_PW);
         interrupts();
       }
       else {
         noInterrupts();
-        setMotor(MOTOR_RIGHT, BKWD, 70);
+        setMotor(MOTOR_RIGHT, BKWD, DEAD_PW);
         interrupts();
       }
     }
   }
 }
-
-
-/************************************************************************
- *  checkMotorLeft() 
- ************************************************************************/
 void checkMotorLeft() {
   int ws = (ENC_FACTOR_M / (micros() - tickTimeLeft)); // speed in milli-fps
   if (ws < 100) { // less than ~0.1 fps?
     if (ws < abs(targetMFpsLeft / 2)) { // less than 1/2 target speed?
       if (targetMFpsLeft > 0) {
         noInterrupts();
-        setMotor(MOTOR_LEFT, FWD, 70);
+        setMotor(MOTOR_LEFT, FWD, DEAD_PW);
         interrupts();
       }
       else {
         noInterrupts();
-        setMotor(MOTOR_LEFT, BKWD, 70);
+        setMotor(MOTOR_LEFT, BKWD, DEAD_PW);
         interrupts();
       }
     }

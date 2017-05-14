@@ -217,8 +217,8 @@ boolean interpretRouteLine(String ss) {
       stepString = stepString.substring(1);
       char2 = stepString.charAt(0);
       if (!isspace(char2)) {
-        if (char2 == 'R') setSonar(SONAR_RIGHT);
-        else if (char2 == 'L') setSonar(SONAR_LEFT);
+        if (char2 == 'R') setSonar("lfR");
+        else if (char2 == 'L') setSonar("Lfr");
         else return false;
         stepString = stepString.substring(1);
       }
@@ -290,10 +290,10 @@ boolean interpretRouteLine(String ss) {
 
     case 'M':
       char1 = stepString.charAt(0);
-      if      (char1 == 'R') setSonar(SONAR_RIGHT);
-      else if (char1 == 'L') setSonar(SONAR_LEFT);
-      else if (char1 == 'B') setSonar(SONAR_BOTH);
-      else if (char1 == 'N') setSonar(SONAR_NONE);
+      if      (char1 == 'R') setSonar("lfR");
+      else if (char1 == 'L') setSonar("Lfr");
+      else if (char1 == 'B') setSonar("LfR");
+      else if (char1 == 'N') setSonar("lfr");
       else return false;
       break;
 
@@ -431,8 +431,8 @@ boolean interpretRouteLine(String ss) {
       else return false;
       stepString = stepString.substring(1);
       char2 = stepString.charAt(0);
-      if (char2 == 'R') setSonar(SONAR_RIGHT);
-      else if (char2 == 'L') setSonar(SONAR_LEFT);
+      if (char2 == 'R') setSonar("lfR");
+      else if (char2 == 'L') setSonar("Lfr");
       else return false;
       stepString = stepString.substring(1);
       routeTargetXY = readNum();
@@ -542,6 +542,7 @@ void doChartedObject() {
     addLog(0,goodSonars[i],0,0,0,0,0);
   }
   addLog(0,0,((short) (medianSonar * 100.0)),0,0,0,0);
+  if (medianSonar < 0.99) return;
   
 //sprintf(message, "Sonar samples: %2d", n);
 //sendBMsg(SEND_MESSAGE, message);
@@ -624,49 +625,49 @@ void steerHeading() {
  ************************************************************************/
 void steerHug() {
   double hugTargetDistance, angleError;
-
-  if ((hugDirection == 'N') && (sonarMode == SONAR_RIGHT)) {
-    hugTargetDistance = hugXYSurface - hugXYRhumb;
-    angleError = (sonarRight - hugTargetDistance) * 20.0;
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing + angleError; 
-  } else if ((hugDirection == 'N') && (sonarMode == SONAR_LEFT)) {
-    hugTargetDistance = hugXYRhumb - hugXYSurface;
-    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing - angleError; 
-  } else if ((hugDirection == 'S') && (sonarMode == SONAR_RIGHT)) {
-    hugTargetDistance = hugXYRhumb - hugXYSurface;
-    angleError = (sonarRight - hugTargetDistance) * 20.0; 
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing + angleError; 
-  } else if ((hugDirection == 'S') && (sonarMode == SONAR_LEFT)) {
-    hugTargetDistance = hugXYSurface - hugXYRhumb;
-    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing - angleError; 
-  } else if ((hugDirection == 'E') && (sonarMode == SONAR_RIGHT)) {
-    hugTargetDistance = hugXYRhumb - hugXYSurface;
-    angleError = (sonarRight - hugTargetDistance) * 20.0;
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing + angleError; 
-  } else if ((hugDirection == 'E') && (sonarMode == SONAR_LEFT)) {
-    hugTargetDistance = hugXYSurface - hugXYRhumb;
-    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing - angleError; 
-  } else if ((hugDirection == 'W') && (sonarMode == SONAR_RIGHT)) {
-    hugTargetDistance = hugXYSurface - hugXYRhumb;
-    angleError = (sonarRight - hugTargetDistance) * 20.0;
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing + angleError; 
-  } else if ((hugDirection == 'W') && (sonarMode == SONAR_LEFT)) {
-    hugTargetDistance = hugXYRhumb - hugXYSurface ;
-    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-    angleError = constrain(angleError, -20.0, 20.0);
-    routeTargetBearing = hugBearing - angleError; 
-  }
-  steerHeading();
+//
+//  if ((hugDirection == 'N') && (sonarMode == SONAR_RIGHT)) {
+//    hugTargetDistance = hugXYSurface - hugXYRhumb;
+//    angleError = (sonarRight - hugTargetDistance) * 20.0;
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing + angleError; 
+//  } else if ((hugDirection == 'N') && (sonarMode == SONAR_LEFT)) {
+//    hugTargetDistance = hugXYRhumb - hugXYSurface;
+//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing - angleError; 
+//  } else if ((hugDirection == 'S') && (sonarMode == SONAR_RIGHT)) {
+//    hugTargetDistance = hugXYRhumb - hugXYSurface;
+//    angleError = (sonarRight - hugTargetDistance) * 20.0; 
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing + angleError; 
+//  } else if ((hugDirection == 'S') && (sonarMode == SONAR_LEFT)) {
+//    hugTargetDistance = hugXYSurface - hugXYRhumb;
+//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing - angleError; 
+//  } else if ((hugDirection == 'E') && (sonarMode == SONAR_RIGHT)) {
+//    hugTargetDistance = hugXYRhumb - hugXYSurface;
+//    angleError = (sonarRight - hugTargetDistance) * 20.0;
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing + angleError; 
+//  } else if ((hugDirection == 'E') && (sonarMode == SONAR_LEFT)) {
+//    hugTargetDistance = hugXYSurface - hugXYRhumb;
+//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing - angleError; 
+//  } else if ((hugDirection == 'W') && (sonarMode == SONAR_RIGHT)) {
+//    hugTargetDistance = hugXYSurface - hugXYRhumb;
+//    angleError = (sonarRight - hugTargetDistance) * 20.0;
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing + angleError; 
+//  } else if ((hugDirection == 'W') && (sonarMode == SONAR_LEFT)) {
+//    hugTargetDistance = hugXYRhumb - hugXYSurface ;
+//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
+//    angleError = constrain(angleError, -20.0, 20.0);
+//    routeTargetBearing = hugBearing - angleError; 
+//  }
+//  steerHeading();
 }
 
 
@@ -857,7 +858,8 @@ void leastSquares() {
   interceptS = meanYS - (slopeS * meanX);
 
   if (isHug) { // Following U command. Use last sonar for xy value;
-    if (sonarMode == SONAR_LEFT) {
+//    if (sonarMode == SONAR_LEFT) {
+    if (true) { // =============================== needs fixed ============================
       if (isGXAxis) {
         if (isRouteTargetIncreasing) {                                  // OK
           sendBMsg(SEND_MESSAGE, "Left, !XAxis, increasing: East");
