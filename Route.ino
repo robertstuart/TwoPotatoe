@@ -10,6 +10,7 @@ boolean isSavePosition = false;
 boolean isFixOrientation = false;
 long endStandTime = 0L;
 double routeStandFps = 0.0D;
+float barrelXAxis = 0.0;
 char axisC = ' ';
 double dDiff = 0.0D;
 
@@ -19,109 +20,96 @@ int startTurnTick;
 double avgTargetBearing = 0.0;
 //double reFactor = 1.0;  // From tests at 3.5fps, 1.5 radius
 //double reFactor = 2.0;  // From hous3
-double reFactor = 0.0;  // From hous3
+//double reFactor = 0.0;  // From hous3
 double startOrientation = 0.0;
 struct loc startLoc;
 
 void routeLog() {
-  if (isRouteInProgress) {
+  if (isRouteInProgress && isRunning) {
     addLog(
-      (long) (timeMilliseconds),
-      (short) (currentMapLoc.x * 100.0),
-      (short) (currentMapLoc.y * 100.0),
+      (long) (timeRun),
+      (short) (currentLoc.x * 100.0),
+      (short) (currentLoc.y * 100.0),
       (short) (gyroHeading * 100.0),
-      (short) (sonarRight * 100.0),
-      (short) (sonarLeft * 100.0),
-      (short) routeStepPtr
+      (short) (sonarFront * 100.0),
+      (short) (barrelX * 100.0),
+      (short) (routeStepPtr - isDecelPhase)
     );
   }
 }
 
 /************************************************************************
- *  Route() called every loop (400/sec).
- *          This is called as the last step in aTp6() for steering.
- *            1. Check if target reached.
- *            2. Set currentLoc.
- *            3. Adjust steering.
+    Route() called every loop (400/sec).
+            This is called as the last step in aTp6() for steering.
+              1. Check if target reached.
+              2. Set currentLoc.
+              3. Adjust steering.
  ************************************************************************/
 void route() {
   boolean isNewRouteStep = false;
-  setTargetBearing();
-  stickSpeed = 0.0;
+  boolean ret;
+  timeRun = timeMilliseconds - timeStart;
+  tp6FpsRight = tp6FpsLeft = tp6Fps;
+
   // See of we need to move to the next route step.
   switch (routeCurrentAction) {
     case 'C':
     case 'E':
-    case 'H':
     case 'L':
     case 'M':
     case 'N':
-    case 'W':
-    case 'Z':
+    case 'D':
       isNewRouteStep = true;
       break;
 
-    case 'A':  // Adjust position and bearing
-      if (isEndStand()) {
-        isNewRouteStep = true;
-        //        if (isMagAdjust) setHeading(gmHeading);
-        if (isMagAdjust) setHeading(tmHeading);
-        else setHeading(rangeAngle(tickHeading - fixHeading));
-        //        setHeading(0.0D);
-        currentMapLoc.x = 0.0D;
-        currentMapLoc.y = 0.0D;
-      }
-      else adjustPosition();
+    case 'B':
+      if (barrels(false)) isNewRouteStep = true;
       break;
 
     case 'G':
-      if (coPtr < coEnd) doChartedObject();
-      if (isReachedTrigger(routeTargetXY)) {
+      setTarget();
+      ret = setFps();
+      if (!isDecelActive) ret = isTargetReached();
+      if (ret) {
+        isDecelPhase = isDecelActive = false;
         isNewRouteStep = true;
-        coPtr = 0;
-        coEnd = 0;
+      } else {
+        steerHeading();
       }
-      steerHeading();
       break;
 
     case 'K':  // Lock
-      if (isEndStand()) {
+      if (isStartReceived) {
         isNewRouteStep = true;
         setLockDrift();
         setHeading(rangeAngle(startOrientation));
-        currentMapLoc = startLoc;
-        run(true);
+        currentLoc = startLoc;
+        timeStart = timeMilliseconds;
+        routeFps = 0.0;
+        isRunReady = true;
       }
       else {
+        routeFps = 0.0;
         addLockHeading();
       }
       break;
 
     case 'P':
-      if (pirouette()) isNewRouteStep = true;
-      break;
-
-    case 'S': // Stop. Next step when WS, Pitch, Bearing, COS are near zero.
-      if (stopFix()) isNewRouteStep = true;
+      if (pedestrian(false)) {
+        isNewRouteStep = true;
+      }
       break;
 
     case 'T': // Turn
-      if (isTurnDegrees) {
-        if (routeIsRightTurn) {
-          if (currentMapCumHeading > turnTargetCumHeading) isNewRouteStep = true;
-        } else {
-          if (currentMapCumHeading < turnTargetCumHeading) isNewRouteStep = true;
-        }
+      setTarget();
+      ret = setFps();
+      if (!isDecelActive) ret = isTargetReached();
+      if (ret) {
+        isDecelPhase = isDecelActive = false;
+        isNewRouteStep = true; 
+      } else {
+        turn();
       }
-      else {
-        if (abs(routeTargetBearing - currentMapHeading) < 5.0)  isNewRouteStep = true;
-      }
-      turnRadius();
-      break;
-
-    case 'U': // Hug
-      if (isReachedTrigger(routeTargetXY)) isNewRouteStep = true;
-      steerHug();
       break;
 
     default:
@@ -145,9 +133,9 @@ void route() {
 
 
 /************************************************************************
- *  interpretRouteLine()
- *      Called every time the end criterion for a route step is reached.
- *      Read the new route step and set the values.
+    interpretRouteLine()
+        Called every time the end criterion for a route step is reached.
+        Read the new route step and set the values.
  ************************************************************************/
 boolean interpretRouteLine(String ss) {
   double pivotDir, dblVal, aDiff;
@@ -166,22 +154,15 @@ boolean interpretRouteLine(String ss) {
   (*currentValSet).v = 2.0;  // restore speed correction.
 
   switch (routeCurrentAction) {
-
-    case 'A': // Adjust position and bearing.
-      isMagAdjust = false;
-      char1 = stepString.charAt(0);
-      if (char1 == 'M') {
-        isMagAdjust = true;
-        stepString = stepString.substring(1);
-        gridOffset = readNum();
-        Serial.print(gridOffset); Serial.print("   ");
-        if ((gridOffset < -180.0D) || (gridOffset > 180.0)) return false;
-        setHeading(rangeAngle(magHeading - gridOffset));
-      }
-      fixPosition = tickPosition;
-      fixHeading = tickHeading;
-      routeTargetLoc.y = 100.0; // For following command.
-      routeTargetLoc.x = 0.0;
+    case 'B': // Barrels
+      barrelXCenter = readNum();
+      Serial.print(barrelXCenter); Serial.print("   ");
+      if (barrelXCenter == STEP_ERROR) return false;
+      barrelYEnd = readNum();
+      Serial.print(barrelYEnd); Serial.print("   ");
+      if (barrelYEnd == STEP_ERROR) return false;
+      setSonar("lFr");
+      barrels(true); // Reset
       break;
 
     case 'C': // Charted object
@@ -199,66 +180,26 @@ boolean interpretRouteLine(String ss) {
       chartedObjects[coEnd++] = co;
       break;
 
-    case 'E':
+    case 'D':  // Decelerate
+      decelFps = readNum();
+      Serial.print(decelFps); Serial.print("   ");
+      if (decelFps == STEP_ERROR) return false;
+      isDecelActive = true;
       break;
 
-    case 'F':
+    case 'F':  // Fini
       isRouteInProgress = false;
-      //reFactor += .2;
       break;
 
-    case 'G':
+    case 'G':  // Go to the next waypoint
       lsPtr = 0;
       isHug = false;
-      char1 = stepString.charAt(0);
-      if (char1 == 'X') isGXAxis = true;
-      else if (char1 == 'Y') isGXAxis = false;
-      else return false;
-      stepString = stepString.substring(1);
-      char2 = stepString.charAt(0);
-      if (!isspace(char2)) {
-        if (char2 == 'R') setSonar("lfR");
-        else if (char2 == 'L') setSonar("Lfr");
-        else return false;
-        stepString = stepString.substring(1);
-      }
-
-      routeTargetLoc = readLoc();
-      Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-      if (routeTargetLoc.y == STEP_ERROR) return false;
-      if (isGXAxis) {
-        routeTargetXY = routeTargetLoc.x;
-        if (currentMapLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      else {
-        routeTargetXY = routeTargetLoc.y;
-        if (currentMapLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-
-      routeFps = readNum();
+      targetLoc = readLoc();
+      Serial.print(targetLoc.x); Serial.print("  "); Serial.print(targetLoc.y); Serial.print("   ");
+      if (targetLoc.y == STEP_ERROR) return false;
+      routeFps = routeScriptFps = readNum();
       Serial.print(routeFps);  Serial.print("   ");
       if (routeFps == STEP_ERROR) return false;
-
-      routeRadius = readNum();
-      Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius < .5) routeRadius = 0.5;
-      if (routeRadius == STEP_ERROR) routeRadius = 2.0;
-      break;
-
-    case 'H':
-      if (headingSource == HEADING_SOURCE_M) {
-        gyroCumHeading = gyroHeading = gridHeading;
-        tickCumHeading = tickHeading = gridHeading;
-        gmCumHeading = gmHeading = gridHeading;
-        tmCumHeading = tmHeading = gridHeading;
-      }
-      char1 = stepString.charAt(0);
-      if      (char1 == 'G')  headingSource = HEADING_SOURCE_G;
-      else if (char1 == 'M') headingSource = HEADING_SOURCE_M;
-      else if (char1 == 'T') headingSource = HEADING_SOURCE_T;
-      else if (char1 == 'H') headingSource = HEADING_SOURCE_GM;
       break;
 
     case 'K': // Lock bearing at start
@@ -270,192 +211,66 @@ boolean interpretRouteLine(String ss) {
       startLoc = readLoc();
       Serial.print(startLoc.x); Serial.print("  "); Serial.print(startLoc.y); Serial.print("   ");
       if (startLoc.y == STEP_ERROR) return false;
-      
       startOrientation = readNum();
       Serial.print(startOrientation); Serial.print("   ");
       if ((startOrientation < -180.0D) || (startOrientation > 180.0)) return false;
-      
       resetLockHeading();
-      break;
-
-    case 'L':
-      //      lsBearing = readNum();
-      //      Serial.print(lsBearing);  Serial.print("   ");
-      //      if (lsBearing == STEP_ERROR) return false;
-      lsXYSurface = readNum();
-      Serial.print(lsXYSurface);  Serial.print("   ");
-      if (lsXYSurface == STEP_ERROR) return false;
-      leastSquares();
+      isStartReceived = false;
       break;
 
     case 'M':
       char1 = stepString.charAt(0);
       if      (char1 == 'R') setSonar("lfR");
+      else if (char1 == 'F') setSonar("lFr");
       else if (char1 == 'L') setSonar("Lfr");
-      else if (char1 == 'B') setSonar("LfR");
+      else if (char1 == 'A') setSonar("LFR");
       else if (char1 == 'N') setSonar("lfr");
       else return false;
       break;
 
-    case 'N':
+    case 'N':  // Name of route
       stripWhite();
       routeTitle = stepString;
       break;
 
-    case 'P':  // Pirouette
-      dblVal = readNum();
-      Serial.print(dblVal); Serial.print("  ");
-      if (dblVal == STEP_ERROR) return false;
-      routeIsRightTurn = (dblVal >= 0) ? true : false;
-      turnTargetCumHeading = currentMapCumHeading + dblVal;
-      dblVal = readNum();
-      Serial.print(dblVal); Serial.print("  ");
-      if (dblVal == STEP_ERROR) return false;
-      pirouetteFps = dblVal;
-      routeFps = 0.9D;
+    case 'P':  // Pedestrian, place holder
+      pedestrian(true);
       break;
 
-    case 'R':
-      routeStepPtr = (int) readNum();
-      Serial.print(retInt);
-      if ((routeStepPtr == STEP_ERROR) || (routeStepPtr >= (routeStepPtr - 2))) return false;
-      break;
+    case 'T':  // Turn at radius ending at waypoint.
+      targetLoc = readLoc();
+      Serial.print(targetLoc.x); Serial.print("  "); Serial.print(targetLoc.y); Serial.print("   ");
+      if (targetLoc.y == STEP_ERROR) return false;
+      setTarget();
+      aDiff = rangeAngle(targetBearing - gyroHeading);
+      isRightTurn = aDiff > 0.0;
 
-    case 'S':  // Stop at a fixed point.
-      char1 = stepString.charAt(0);
-      stepString = stepString.substring(1);
-      char2 = stepString.charAt(0);
-      if (char2 == 'W') {
-        isRouteWait = true;
-        stepString = stepString.substring(1);
-      }
-      else {
-        isRouteWait = false;
-      }
-
-      dblVal = readNum();
-      Serial.print(dblVal); Serial.print("   ");
-      if (dblVal == STEP_ERROR) return false;
-      switch (char1) {
-        case 'X':
-          axisC = 'X';
-          routeTargetLoc.x = dblVal;
-          break;
-        case 'x':
-          axisC = 'X';
-          routeTargetLoc.x = jumpFallXY + dblVal;
-          break;
-        case 'Y':
-          axisC = 'Y';
-          routeTargetLoc.y = dblVal;
-          break;
-        case 'y':
-          axisC = 'Y';
-          routeTargetLoc.y = jumpFallXY + dblVal;
-          break;
-        default:
-          return false;
-      }
-      if (axisC == 'X') {
-        if (routeTargetLoc.x < routeTargetLoc.x) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      else {
-        routeTargetXY = routeTargetLoc.y;
-        if (routeTargetLoc.y < routeTargetLoc.y) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      break;
-
-    case 'T':  // Turn
-      char1 = stepString.charAt(0);
-      if ((char1 == 'R') || (char1 == 'L')) {
-        isTurnDegrees = true;
-        routeIsRightTurn = (char1 == 'R') ? true : false;
-        stepString = stepString.substring(1);
-        dblVal = readNum();
-        Serial.print(dblVal); Serial.print("  ");
-        if (dblVal == STEP_ERROR) return false;
-        turnTargetCumHeading = currentMapCumHeading + dblVal;
-      }
-      else {
-        isTurnDegrees = false;
-        routeTargetLoc = readLoc();
-        Serial.print(routeTargetLoc.x); Serial.print("  "); Serial.print(routeTargetLoc.y); Serial.print("   ");
-        if (routeTargetLoc.y == STEP_ERROR) return false;
-        setTargetBearing();
-        aDiff = routeTargetBearing - currentMapHeading;
-        if (aDiff > 180.0) aDiff -= 360.0;
-        else if (aDiff < -180.0) aDiff += 360.0;
-        routeIsRightTurn = aDiff > 0.0;
-      }
-      routeFps = readNum();
+      routeFps = routeScriptFps = readNum();
       Serial.print(routeFps);  Serial.print("   ");
       if (routeFps == STEP_ERROR) return false;
-      routeRadius = readNum();
-      Serial.print(routeRadius);  Serial.print("   ");
-      if (routeRadius == STEP_ERROR) return false;
-      
-      pivotDir = routeIsRightTurn ? (currentMapHeading + 90.0) : (currentMapHeading - 90.0);
-      pivotDir = rangeAngle(pivotDir);
-      pivotLoc.x = (sin(pivotDir * DEG_TO_RAD) * routeRadius) +  currentMapLoc.x;
-      pivotLoc.y = (cos(pivotDir * DEG_TO_RAD) * routeRadius) +  currentMapLoc.y;
-      //      sprintf(message, "pivotLoc.x: %5.2f     pivotLoc.y: %5.2f", pivotLoc.x, pivotLoc.y);
-      //      sendBMsg(SEND_MESSAGE, message);
-      degreesPerTick = 180.0D / (TICKS_PER_FOOT * PI * routeRadius);
-      if (!routeIsRightTurn) degreesPerTick = -degreesPerTick;
-      turnStartBearing = currentMapHeading; // Need to fix this..........
-      startTurnTick = tickPosition;
-      break;
+      turnRadius = readNum();
+      Serial.print(turnRadius);  Serial.print("   ");
+      if (turnRadius == STEP_ERROR) return false;
+      endTangentDegrees = readNum();
+      Serial.print(endTangentDegrees);  Serial.print("   ");
+      if (endTangentDegrees == STEP_ERROR) return false;
 
-    case 'U': // Hug
-      lsPtr = 0;
-      isHug = true;
-      hugDirection = stepString.charAt(0);
-      if (hugDirection == 'N') {
-        hugBearing = 0.0D;
-        isGXAxis = false;
-      }
-      else if (hugDirection == 'E') {
-        hugBearing = 90.0D;
-        isGXAxis = true;
-      }
-      else if (hugDirection == 'S') {
-        hugBearing = 180.0D;
-        isGXAxis = false;
-      }
-      else if (hugDirection == 'W') {
-        hugBearing = -90.0D;
-        isGXAxis = true;
-      }
-      else return false;
-      stepString = stepString.substring(1);
-      char2 = stepString.charAt(0);
-      if (char2 == 'R') setSonar("lfR");
-      else if (char2 == 'L') setSonar("Lfr");
-      else return false;
-      stepString = stepString.substring(1);
-      routeTargetXY = readNum();
-      Serial.print(routeTargetXY); Serial.print("  ");
-      if (routeTargetXY == STEP_ERROR) return false;
-      if (isGXAxis) {
-        if (currentMapLoc.x < routeTargetXY) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      else {
-        if (currentMapLoc.y < routeTargetXY) isRouteTargetIncreasing = true;
-        else isRouteTargetIncreasing = false;
-      }
-      routeFps = readNum();
-      Serial.print(routeFps);  Serial.print("   ");
-      if (routeFps == STEP_ERROR) return false;
-      hugXYRhumb = readNum();
-      Serial.print(hugXYRhumb);  Serial.print("   ");
-      if (hugXYRhumb == STEP_ERROR) return false;
-      hugXYSurface = readNum();
-      Serial.print(hugXYSurface);  Serial.print("   ");
-      if (hugXYSurface == STEP_ERROR) return false;
-//      hugSonarDistance = abs(hugXYRhumb - hugXYSurface);
+      pivotBearing = endTangentDegrees + (isRightTurn ?  90.0 :  -90.0);
+      pivotBearing = rangeAngle(pivotBearing);
+      //      if (isRightTurn) {
+      pivotLoc.x = targetLoc.x + (sin(pivotBearing * DEG_TO_RAD) * turnRadius);
+      pivotLoc.y = targetLoc.y + (cos(pivotBearing * DEG_TO_RAD) * turnRadius);
+      //      } else {
+      //        pivotLoc.x = targetLoc.x + (sin(pivotBearing * DEG_TO_RAD) * turnRadius);
+      //        pivotLoc.y = targetLoc.y - (cos(pivotBearing * DEG_TO_RAD) * turnRadius);
+      //      }
+      Serial.println();
+      sprintf(message, "       turn = %s ", (isRightTurn ? "R" : "L"));
+      sendBMsg(SEND_MESSAGE, message);
+      Serial.print(message);
+      sprintf(message, "      pivotLoc.: %5.2f,%5.2f", pivotLoc.x, pivotLoc.y);
+      sendBMsg(SEND_MESSAGE, message);
+      Serial.print(message);
       break;
 
     default:
@@ -468,141 +283,23 @@ boolean interpretRouteLine(String ss) {
 }
 
 
-/************************************************************************
- *  isEndStand() return true if EndStand buttons pressed or message
- *               from controller.
- ************************************************************************/
-boolean isEndStand() {
-  if (!isLifted) return true;
-  return false;
-}
-
-
-/************************************************************************
- *  doChartedObject()
- ************************************************************************/
-void doChartedObject() {
-  struct chartedObject co = chartedObjects[coPtr];
-  if (!isReachedTrigger(co.trigger)) return;
-
-  double xyVal;
-  int goodSonars[200];
-  int nGood = 0;
-  loc beforeLoc = currentMapLoc;
-
-  // Compute median value of last  6 feet
-  int nAll = (int) (133.0D / routeFps);      // number of measurement to collect
-//  double minVal = 20.0D;
-  if (co.isRightSonar) {
-    for (int i = 0; i < nAll; i++) {
-      int index = sonarRightArrayPtr - i - 1;
-      if (index < 0) index += SONAR_ARRAY_SIZE; //% is not modulus!
-      int val = sonarRightArray[index];
-      if (val < 700) {
-        goodSonars[nGood++] = val;
-      }
-    }
-  } else {
-    for (int i = 0; i < nAll; i++) {
-      int index = sonarLeftArrayPtr - i - 1;
-      if (index < 0) index += SONAR_ARRAY_SIZE; //% is not modulus!
-      int val = sonarLeftArray[index];
-      if (val < 700) {
-        goodSonars[nGood++] = val;
-      }
-    }
-  }
-  coPtr++;
-  if (nGood < 3) return;
-
-  // Log the values
-  for (int i = 0; i < nGood; i++) {
-    addLog(goodSonars[i], 0,0,0,0,0,0);
-  }
-
-  // Find the median, Bubble Sort
-  boolean swapped;
-  while (true) {
-    swapped = false;
-    for (int i = 1; i < nGood; i++) {
-      int a = goodSonars[i - 1];
-      int b = goodSonars[i];
-      if (a > b) {
-        goodSonars[i - 1] = b;
-        goodSonars[i] = a;
-        swapped = true;
-      }
-    }
-    if (!swapped) break;
-  }
-  float medianSonar = ((float) goodSonars[nGood / 2]) / 100.0;
-
-  // Log the values
-  for (int i = 0; i < nGood; i++) {
-    addLog(0,goodSonars[i],0,0,0,0,0);
-  }
-  addLog(0,0,((short) (medianSonar * 100.0)),0,0,0,0);
-  if (medianSonar < 0.99) return;
-  
-//sprintf(message, "Sonar samples: %2d", n);
-//sendBMsg(SEND_MESSAGE, message);
-
-  if (!co.isRightSonar) {
-    if (isGXAxis) {
-      // Left sonar.
-      if (isRouteTargetIncreasing) {
-        currentMapLoc.y = co.surface - medianSonar;
-      } else {
-        currentMapLoc.y = co.surface + medianSonar;
-      }
-    } else {
-      if (isRouteTargetIncreasing) {
-        currentMapLoc.x = co.surface + medianSonar;
-      } else {
-        currentMapLoc.x = co.surface - medianSonar;
-      }
-    }
-  } else {
-    // Right sonar.
-    if (isGXAxis) {
-      if (isRouteTargetIncreasing) {
-        currentMapLoc.y = co.surface + medianSonar;
-      } else {
-        currentMapLoc.y = co.surface - medianSonar;
-      }
-    } else {
-      if (isRouteTargetIncreasing) {
-        currentMapLoc.x = co.surface - medianSonar;
-      } else {
-        currentMapLoc.x = co.surface + medianSonar;
-      }
-    }
-  }
-  
-  sprintf(message, "minVal: %5.2f\t  oldX: %5.2f\t oldY: %5.2f\t newX: %5.2f\t newY: %5.2f", 
-  medianSonar, beforeLoc.x, beforeLoc.y, currentMapLoc.x, currentMapLoc.y);
-  sendBMsg(SEND_MESSAGE, message);
-//  currentMapLoc = beforeLoc;
-}
-
 
 
 //#define RAD_TURN 10.0
 #define RAD_TURN 4.0
 #define END_STEER 0.5
 /************************************************************************
- *  steerHeading() Find the correct heading to the target and adjust the
- *               wheel speeds to turn toward the target.  As tp approaches
- *               the target, use the originalTargetBearing.
+    steerHeading() Find the correct heading to the target and adjust the
+                 wheel speeds to turn toward the target.  As tp approaches
+                 the target, use the originalTargetBearing.
  ************************************************************************/
 void steerHeading() {
   double speedAdjustment;
+
   if (targetDistance < 1.0) {
     speedAdjustment = 0.0;
   } else {
-    double aDiff = routeTargetBearing - currentMapHeading;
-    if (aDiff > 180.0) aDiff -= 360.0;
-    else if (aDiff < -180.0) aDiff += 360.0;
+    double aDiff = rangeAngle(targetBearing - gyroHeading);
     double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
     speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
@@ -612,414 +309,149 @@ void steerHeading() {
       speedAdjustment = (abs(aDiff) / 5.0) * speedAdjustment;
     }
   }
-  stickSpeed = controllerY * 5.0;
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
 }
 
 
 
-/************************************************************************
- *  steerHug() Follow along a wall at the specified distance.
- *             Do not steer beyong 20 degrees from the specified angle.
+/***********************************************************************.
+    turn() Turn with a given radius.
  ************************************************************************/
-void steerHug() {
-  double hugTargetDistance, angleError;
-//
-//  if ((hugDirection == 'N') && (sonarMode == SONAR_RIGHT)) {
-//    hugTargetDistance = hugXYSurface - hugXYRhumb;
-//    angleError = (sonarRight - hugTargetDistance) * 20.0;
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing + angleError; 
-//  } else if ((hugDirection == 'N') && (sonarMode == SONAR_LEFT)) {
-//    hugTargetDistance = hugXYRhumb - hugXYSurface;
-//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing - angleError; 
-//  } else if ((hugDirection == 'S') && (sonarMode == SONAR_RIGHT)) {
-//    hugTargetDistance = hugXYRhumb - hugXYSurface;
-//    angleError = (sonarRight - hugTargetDistance) * 20.0; 
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing + angleError; 
-//  } else if ((hugDirection == 'S') && (sonarMode == SONAR_LEFT)) {
-//    hugTargetDistance = hugXYSurface - hugXYRhumb;
-//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing - angleError; 
-//  } else if ((hugDirection == 'E') && (sonarMode == SONAR_RIGHT)) {
-//    hugTargetDistance = hugXYRhumb - hugXYSurface;
-//    angleError = (sonarRight - hugTargetDistance) * 20.0;
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing + angleError; 
-//  } else if ((hugDirection == 'E') && (sonarMode == SONAR_LEFT)) {
-//    hugTargetDistance = hugXYSurface - hugXYRhumb;
-//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing - angleError; 
-//  } else if ((hugDirection == 'W') && (sonarMode == SONAR_RIGHT)) {
-//    hugTargetDistance = hugXYSurface - hugXYRhumb;
-//    angleError = (sonarRight - hugTargetDistance) * 20.0;
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing + angleError; 
-//  } else if ((hugDirection == 'W') && (sonarMode == SONAR_LEFT)) {
-//    hugTargetDistance = hugXYRhumb - hugXYSurface ;
-//    angleError = (sonarLeft - hugTargetDistance) * 20.0;
-//    angleError = constrain(angleError, -20.0, 20.0);
-//    routeTargetBearing = hugBearing - angleError; 
-//  }
-//  steerHeading();
-}
+void turn() {
+  float speedAdjustment, headingError;
+  float xDist, yDist, radiusAngle, targetTurnHeading;
 
+  float d = isRightTurn ? 1.0 : -1.0;
+  float radiusDiff = (wheelSpeedFps / turnRadius) * 0.54 * d;
 
-
-/************************************************************************
- *  stopFix() Stop  and fix location on target X or Y.
- *  Return true if stabile or escape message received.
- ************************************************************************/
-boolean stopFix() {
-  double speedAdjustment = 0.0;
-  routeFps = 0.0;
-
-  // Adjust differential wheel speeds to point in correct direction
-  stopADiff = rangeAngle(routeTargetBearing - currentMapHeading);
-  speedAdjustment = stopADiff * .1;
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  tp6FpsLeft = tp6Fps + speedAdjustment;
-
-  // Adjust routeFps to set position.
-  if (axisC == 'X') {
-    stopDist = currentMapLoc.x - routeTargetLoc.x;
-  }
-  else {
-    stopDist = currentMapLoc.y - routeTargetLoc.y;
-  }
-  if (!isRouteTargetIncreasing) stopDist *= -1.0;  // P
-  double fps = tp6LpfCos;                      // D
-  routeFps = (stopDist * 4.0) - (fps * 2.3);    // P+D
-
-  // Check to see if we are stabile.
-  if (isRouteWait) {
-    if (isEsReceived) {
-      isEsReceived = false;
-      return true;
-    }
-    return false;
-  }
-  else {
-    if ((abs(gaPitch) < 1.0) &&
-        (abs(tp6LpfCos) < 0.1) &&
-        (abs(stopADiff) < 1.0) &&
-        (abs(wheelSpeedFps) < 0.3) &&
-        (abs(stopDist) < 0.25))  return true;
-    return false;
-  }
-}
-
-
-
-/************************************************************************
- *  turnRadius() Turn with a given radius.
- *  reFactor += .4;
-
- ************************************************************************/
-void turnRadius() {
-  double speedAdjustment = 0.0;
-  double aDiff  = 0.0;
-  double d;
-  double radiusError = 0.0D;
-  double  headingError = 0.0D;
-
-  if (isTurnDegrees) {
-    d = routeIsRightTurn ? 1.0 : -1.0;
-  }
-  else { // Turn toward the routeTarget
-    aDiff = routeTargetBearing - currentMapHeading;
-    if (aDiff > 180.0) aDiff -= 360.0;
-    else if (aDiff < -180.0) aDiff += 360.0;
-    d = (aDiff > 0.0) ? 1.0 : -1.0;
-  }
-  double rsa = (wheelSpeedFps / routeRadius) * 0.64 * d;
-
-  double xDist = (pivotLoc.x - currentMapLoc.x);
-  double yDist = (pivotLoc.y - currentMapLoc.y);
-  radiusError = sqrt((xDist * xDist) + (yDist * yDist)) - routeRadius;
-  int turnTicks = tickPosition - startTurnTick;
-  headingError = (turnTicks * degreesPerTick) - currentMapHeading;
-  double errorAdjustment = radiusError * reFactor * d;
-  speedAdjustment = rsa + errorAdjustment;
-
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  tp6FpsLeft = tp6Fps + speedAdjustment;
-}
-
-
-
-/************************************************************************
- *  adjustPosition() Allow position and bearing to be adjusted
- *                   from the joystick.  If M, then only allow position.
- ************************************************************************/
-void adjustPosition() {
-  static boolean isOldOnGround = false;
-  float speedAdjustment = 0.0;
-  routeFps = 0.0;
-  double aDiff;
-
-  // Adjust the position
-  if (abs(controllerY) > 0.05) {
-    fixPosition = fixPosition + ((int) (controllerY * 10.0));
-  }
-  int dist = coTickPosition - fixPosition; // P
-  double fps = tp6LpfCos;                  // D
-  routeFps = ((double) - (dist * .004)) - (fps * 2.0);
-
-  // Adjust the heading.
-  if (isMagAdjust) {
-    //    speedAdjustment = -gridHeading * (S_LIM / A_LIM);
-    //    speedAdjustment = -gmHeading * (S_LIM / A_LIM);
-    speedAdjustment = -tmHeading * (S_LIM / A_LIM);
-    speedAdjustment = constrain(speedAdjustment, -S_LIM, S_LIM);
+  if (isRightTurn) {
+    xDist = (currentLoc.x - pivotLoc.x);
+    yDist = (currentLoc.y - pivotLoc.y);
+    radiusAngle = atan2(xDist, yDist) * RAD_TO_DEG;
+    targetTurnHeading = rangeAngle(radiusAngle + 90.0);
+    headingError = rangeAngle(gyroHeading - targetTurnHeading);
   } else {
-    if (abs(controllerX) > 0.05) {
-      fixHeading = rangeAngle(fixHeading + (controllerX * .2));
-    }
-    aDiff = rangeAngle(fixHeading - tickHeading);
-    speedAdjustment = aDiff * .2;
+    xDist = (currentLoc.x - pivotLoc.x);
+    yDist = (currentLoc.y - pivotLoc.y);
+    radiusAngle = atan2(xDist, yDist) * RAD_TO_DEG;
+    targetTurnHeading = rangeAngle(radiusAngle - 90.0);
+    headingError = rangeAngle(gyroHeading - targetTurnHeading);
   }
+
+  float radiusError = sqrt((xDist * xDist) + (yDist * yDist)) - turnRadius;
+  float radiusAdjustment = radiusError * 0.8 * d;
+  float headingAdjustment = -headingError * 0.03;
+//  float radiusAdjustment = radiusError * 0.2 * d;
+//  float headingAdjustment = -headingError * 0.02;
+  speedAdjustment = radiusDiff + headingAdjustment + radiusAdjustment;
+//  speedAdjustment = radiusDiff;
+
   tp6FpsRight = tp6Fps - speedAdjustment;
   tp6FpsLeft = tp6Fps + speedAdjustment;
+//    addLog(
+//    (long) (timeMilliseconds),
+//    (short) (currentLoc.x * 100.0),
+//    (short) (currentLoc.y * 100.0),
+//    (short) (targetDistance * 100.0),
+//    (short) (gyroHeading * 100.0),
+//    (short) (speedAdjustment * 100.0),
+//    (short) (sonarFront)
+//  );
 }
 
-
-
 /************************************************************************
- *  pirouette()  
+    setFps() Limit acceleration to prevent too rapid acceleration--
+             particularly when starting from zero from the stand.
+             Also starts deceleration at end of step.
+             Returns true if is decelerating and reached target fps.
  ************************************************************************/
-boolean pirouette() {
-  double speedAdjustment;
-  if (routeIsRightTurn) {
-    if (currentMapCumHeading > turnTargetCumHeading) return true;
-    speedAdjustment = pirouetteFps;
-  } else {
-    if (currentMapCumHeading < turnTargetCumHeading) return true;
-    speedAdjustment = -pirouetteFps;
+boolean setFps() {
+  float stopDistance;
+
+  // Check to see if we need to start the decel phase.
+  if (isDecelActive && !isDecelPhase) {
+    stopDistance = (tp6LpfCos * tp6LpfCos) / 5.58;
+    if (targetDistance <= stopDistance) {
+      isDecelPhase = true;
+    }
   }
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  tp6FpsLeft = tp6Fps + speedAdjustment;
+
+  if (isDecelPhase) {
+    if (tp6LpfCos <= 0.0) return true;
+    routeFps = tp6LpfCos - 5.0;
+  } else {
+    if (routeScriptFps < 0.0) {
+      routeFps = routeScriptFps;
+    } else {
+      if (timeRun < 1000) {  // taking off from stand?
+        routeFps = (((float) timeRun) / 200.0) + 0.5;
+      } else {
+        routeFps = tp6LpfCos + 5.0;
+        if (routeFps > (routeScriptFps + 2.5)) {
+          float inc = (routeScriptFps - tp6LpfCos) / 2.0;
+          routeFps = routeScriptFps + inc;
+        }
+      }
+    }
+  }
   return false;
 }
 
 
 
 /************************************************************************
- *  leastSquares()
+    setTarget() Set the new targetBearing and targetDistance from
+                the currentLoc.
  ************************************************************************/
-void leastSquares() {
-  if (lsPtr < 2) return;
-  float df = (float) (lsPtr - 1);
-  float sumX = 0.0F;
-  float sumYL = 0.0F;
-  float sumYS = 0.0F;
-  float sumSqX = 0.0F;
-  float sumSqYL = 0.0F;
-  float sumSqYS = 0.0F;
-  float sumXYL = 0.0F;
-  float sumXYS = 0.0F;
-  float meanX, meanYL, meanYS;
-  float diffX, diffYL, diffYS, sigmaX, sigmaYL, sigmaYS;
-  float rL, rS, slopeL, slopeS, interceptL, interceptS;
-  double angleCorrection;
+void setTarget() {
+  double x =  targetLoc.x - currentLoc.x;
+  double y = targetLoc.y - currentLoc.y;
+  targetBearing = atan2(x, y) * RAD_TO_DEG;
+  double xTargetDist = currentLoc.x - targetLoc.x;
+  double yTargetDist = currentLoc.y - targetLoc.y;
+  targetDistance = sqrt((xTargetDist * xTargetDist) + (yTargetDist * yTargetDist));
+}
 
-  for (int i = 0; i < lsPtr; i++) sumX += lsXArray[i];
-  for (int i = 0; i < lsPtr; i++) sumYL += lsYLArray[i];
-  for (int i = 0; i < lsPtr; i++) sumYS += lsSArray[i];
-  meanX = sumX / ((float) lsPtr);
-  meanYL = sumYL / ((float) lsPtr);
-  meanYS = sumYS / ((float) lsPtr);
-  for (int i = 0; i < lsPtr; i++) {
-    diffX = meanX - lsXArray[i];
-    sumSqX += diffX * diffX;
-    diffYL = meanYL - lsYLArray[i];
-    sumSqYL += diffYL * diffYL;
-    diffYS = meanYS - lsSArray[i];
-    sumSqYS += diffYS * diffYS;
-    sumXYL += (diffX * diffYL);
-    sumXYS += (diffX * diffYS);
-  }
-  sigmaX = sqrt(sumSqX / df);
-  sigmaYL = sqrt(sumSqYL / df);
-  sigmaYS = sqrt(sumSqYS / df);
-  rL = (sumXYL / (sigmaYL * sigmaX)) / df;
-  slopeL = rL * (sigmaYL / sigmaX);
-  double bearingL = asin(slopeL) * RAD_TO_DEG;
-  interceptL = meanYL - (slopeL * meanX);
-  rS = (sumXYS / (sigmaYS * sigmaX)) / df;
-  slopeS = rS * (sigmaYS / sigmaX);
-  double bearingS = asin(slopeS) * RAD_TO_DEG;
-  interceptS = meanYS - (slopeS * meanX);
 
-  if (isHug) { // Following U command. Use last sonar for xy value;
-//    if (sonarMode == SONAR_LEFT) {
-    if (true) { // =============================== needs fixed ============================
-      if (isGXAxis) {
-        if (isRouteTargetIncreasing) {                                  // OK
-          sendBMsg(SEND_MESSAGE, "Left, !XAxis, increasing: East");
-          currentMapLoc.y = lsXYSurface - sonarLeft;
-          angleCorrection = bearingL + bearingS;
-          setHeading(currentMapHeading + angleCorrection);
-        } else {
-          sendBMsg(SEND_MESSAGE, "Left, XAxis, !increasing: West");
-          currentMapLoc.y = lsXYSurface + sonarLeft;
-          angleCorrection = bearingL - bearingS;
-          setHeading(currentMapHeading + angleCorrection);
-        }
-      } else {
-        if (isRouteTargetIncreasing) {                                   // OK
-          // Correct from some testing.
-          sendBMsg(SEND_MESSAGE, "Left, !XAxis, increasing: North");
-          currentMapLoc.x = lsXYSurface + sonarLeft;
-          angleCorrection = bearingL - bearingS;
-          setHeading(currentMapHeading - angleCorrection);
-        } else {                                                         // OK
-          sendBMsg(SEND_MESSAGE, "Left, !XAxis, !increasing: South");
-          currentMapLoc.x = lsXYSurface - sonarLeft;
-          angleCorrection = bearingL + bearingS;
-          setHeading(currentMapHeading - angleCorrection);
-        }
-      }
+
+/***********************************************************************.
+    isTargetReached()  Return true if within 1 ft of target and is
+                       moving away from the target.
+ ***********************************************************************/
+boolean isTargetReached() {
+  const int RETREAT_TIMES = 10;
+  const int RETREAT_DISTANCE = 2.0;
+  static double lastX = 0.0D;
+  static double lastY = 0.0D;
+  static double lastTargetDist = 10000.0D;
+  static int timesReached = 0;
+
+  if (targetDistance < RETREAT_DISTANCE) {
+    boolean isCloser = ((lastTargetDist - targetDistance) >= 0.0D);
+    lastTargetDist = targetDistance;
+    lastX = currentLoc.x;
+    lastY = currentLoc.y;
+    if (isCloser) { // Getting closer?
+      timesReached = 0;
     } else {
-      // Right sonar.
-      if (isGXAxis) {                                                  // OK
-        if (isRouteTargetIncreasing) {
-           sendBMsg(SEND_MESSAGE, "Right, !XAxis, increasing: East");
-          currentMapLoc.y = lsXYSurface + sonarRight;
-          angleCorrection = bearingL - bearingS;
-          setHeading(currentMapHeading + angleCorrection);
-        } else {
-          sendBMsg(SEND_MESSAGE, "Right, XAxis, !increasing: West");
-          currentMapLoc.y = lsXYSurface - sonarRight;
-          angleCorrection = bearingL + bearingS;
-          setHeading(currentMapHeading + angleCorrection);
-        }
-      } else {
-        if (isRouteTargetIncreasing) {                                  // OK
-          sendBMsg(SEND_MESSAGE, "Right, !XAxis, increasing: North");
-          currentMapLoc.x = lsXYSurface - sonarRight;
-          angleCorrection = bearingL + bearingS;
-          setHeading(currentMapHeading - angleCorrection);
-        } else {                                                         // OK
-          sendBMsg(SEND_MESSAGE, "Right, !XAxis, !increasing: South");
-          currentMapLoc.x = lsXYSurface + sonarRight;
-          angleCorrection = bearingL - bearingS;
-          setHeading(currentMapHeading - angleCorrection);
-        }
+      timesReached++;
+      // Return true after Nth time.
+      if (timesReached > RETREAT_TIMES) {
+        timesReached = 0;
+        return true;
       }
     }
-  } else { // Following G command.
-    // This situation only used for testing and callibration.  It only tests
-    // traveling East with the left sonar.
-    currentMapLoc.y = lsXYSurface - sonarLeft;
-    angleCorrection = bearingL + bearingS;
-    setHeading(currentMapHeading + angleCorrection);
-    //    sprintf(message, "Dist. correction:%2.2f",  (lsDistanceMeasured - lsDistanceExpected));
-    //    sendBMsg(SEND_MESSAGE, message);
+  } else {
+    timesReached = 0;
   }
-  //  sprintf(message, "%5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f",
-  //          sigmaX, sigmaYL, sigmaYS, rL, bearingL, interceptL, rS, bearingS, interceptS);
-  //  sendBMsg(SEND_MESSAGE, message);
-  sprintf(message, "bearingL: %5.2f\tbearingS: %5.2f", bearingL, bearingS);
-  sendBMsg(SEND_MESSAGE, message);
-  sprintf(message, "Angle correction:%2.2f",  angleCorrection);
-  sendBMsg(SEND_MESSAGE, message);
+  return false;
 }
-
-
-
-/************************************************************************
- *  setTargetBearing() Set the new XY position given the distance and
- *                orientation traveled since the last call.
- ************************************************************************/
-void setTargetBearing() {
-  double x =  routeTargetLoc.x - currentMapLoc.x;
-  double y = routeTargetLoc.y - currentMapLoc.y;
-  routeTargetBearing = atan2(x, y) * RAD_TO_DEG;
-}
-
-
-
-/************************************************************************
- *  addTargetBearing() Average the target bearing over the last
- *                     1/4 second.
- ************************************************************************/
-void addTargetBearing() {
-  static const int AVG_SIZE = 100;
-  static float avgArray[AVG_SIZE];
-  static int avgPtr = 0;
-  static float avgSum = 0.0;
-  avgArray[avgPtr] = routeTargetBearing;
-  avgSum += routeTargetBearing;
-  avgSum -= avgArray[(avgPtr + AVG_SIZE - 1) % AVG_SIZE];
-  avgTargetBearing = avgSum / ((float) AVG_SIZE);
-  avgPtr = (avgPtr++ % AVG_SIZE);
-}
-#define LOCK_SIZE 400
-double gLockSum = 0.0;
-int gLockCount = 0;
-/***********************************************************************.
- *  ???LockHeading()
- ***********************************************************************/
-void addLockHeading() {
-  static int gArray[LOCK_SIZE];
-  static int gPtr = 0;
-  int g, gMin, gMax;
-  double gAve;
-
-  gArray[gPtr] = lsm6.g.z;
-  gPtr++;
-  if (gPtr >= LOCK_SIZE) {
-    int gSum = 0;
-    gMax = gMin = gArray[0];
-    for (int i = 0; i < LOCK_SIZE; i++) {
-      g = gArray[i];
-      if (g > gMax)  gMax = g;
-      if (g < gMin) gMin = g;
-      gSum += g;
-    }
-    gAve = ((double) gSum) / ((double) LOCK_SIZE);
-    if ((gMax - gMin) < 90) {
-      gLockSum += gAve;
-      gLockCount++;
-    }
-Serial.print(gMax); Serial.print(tab);
-Serial.print(gMin); Serial.print(tab);
-Serial.print(gAve); Serial.println();
-    gPtr = 0;
-  }
-}
-void resetLockHeading() {
-  timeDriftYaw = 0.0;
-  gLockCount = 0;
-  gLockSum = 0.0;
-  lockStartTicks = tickPosition;
-}
-double setLockDrift() {
-  timeDriftYaw = gLockSum / ((double) gLockCount);
-Serial.print("Drift: "); Serial.println(timeDriftYaw);
-}
-
 
 
 /***********************************************************************.
- *  isReachedTrigger
+    Script parsing routines
  ***********************************************************************/
-boolean isReachedTrigger(double trigger) {
-  double gValue = isGXAxis ? currentMapLoc.x : currentMapLoc.y;
-  targetDistance = trigger - gValue;
-  if (!isRouteTargetIncreasing) targetDistance = -targetDistance;
-  if (targetDistance <= 0.0) return (true);
-  return (false);
-}
-
-
 double readNum() {
   stripWhite();
   double num = stepString.toFloat();
@@ -1079,3 +511,69 @@ char readChar() {
   stepString = stepString.substring(1);
   return c;
 }
+
+
+
+#define LOCK_SIZE 416
+float zLockSum = 0.0;
+float xLockSum = 0.0;
+int gLockCount = 0;
+/***********************************************************************.
+    ???LockHeading()  Average drift in one-second blocks while
+                      in a startup lock condition.
+ ***********************************************************************/
+void addLockHeading() {
+  static int zArray[LOCK_SIZE];
+  static int xArray[LOCK_SIZE];
+  static int gPtr = 0;
+  int z, x, zMin, zMax, xMin, xMax;
+  float zAve, xAve;
+
+  zArray[gPtr] = lsm6.g.z;
+  xArray[gPtr] = lsm6.g.x;
+  gPtr++;
+  if (gPtr >= LOCK_SIZE) {
+    int zSum = 0;
+    int xSum = 0;
+    zMax = zMin = zArray[0];
+    xMax = xMin = xArray[0];
+    for (int i = 0; i < LOCK_SIZE; i++) {
+      z = zArray[i];
+      if (z > zMax)  zMax = z;
+      if (z < zMin)  zMin = z;
+      zSum += z;
+      x = xArray[i];
+      if (x > xMax)  xMax = x;
+      if (x < xMin)  xMin = x;
+      xSum += x;
+    }
+    zAve = ((float) zSum) / ((float) LOCK_SIZE);
+    xAve = ((float) xSum) / ((float) LOCK_SIZE);
+    if (((zMax - zMin) < 90) && ((xMax - xMin) < 90)) {
+      zLockSum += zAve;
+      xLockSum += xAve;
+      gLockCount++;
+    }
+    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f     ", xMax, xMin, xAve);
+    Serial.print(message);
+    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
+    Serial.print(message);
+    gPtr = 0;
+  }
+}
+void resetLockHeading() {
+  timeDriftYaw = 0.0;
+  gLockCount = 0;
+  zLockSum = 0.0;
+  xLockSum = 0.0;
+  lockStartTicks = tickPosition;
+}
+void setLockDrift() {
+  timeDriftYaw = zLockSum / ((float) gLockCount);
+  timeDriftPitch = xLockSum / ((float) gLockCount);
+  sprintf(message, "YawDrift: %5.2f     PitchDrift: %5.2f\n", timeDriftYaw, timeDriftPitch);
+  Serial.print(message);
+}
+
+
+

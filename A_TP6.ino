@@ -28,7 +28,7 @@ void aTp6Run() {
 //  readCompass();
   setHeading(0.0D);
   resetTicks();
-  while(mode == MODE_TP6) { // main loop
+  while(mode == MODE_2P) { // main loop
     commonTasks();
     // Do the timed loop
     timeMicroseconds = micros();
@@ -56,7 +56,8 @@ void aTp6Run() {
 void aTp6() {
   readSpeed();
   // compute the Center of Oscillation Speed (COS)
-  tp6Rotation = 4.8 * (-gyroPitchDelta); // 4.8
+//  tp6Rotation = 6.4 * (-gyroPitchDelta); // 6.4
+  tp6Rotation = 6.4 * (-tgPitchDelta); // 6.4
   tp6Cos = wheelSpeedFps + tp6Rotation; // subtract rotation 
   tp6LpfCos = (tp6LpfCosOld * (1.0 - (*currentValSet).u))  + (tp6Cos  * (*currentValSet).u); // smooth it out a little (0.2)
 //  tp6LpfCos = (tp6LpfCosOld * (1.0 - 0.05)) + (tp6Cos * 0.05); // smooth it out a little (0.2)
@@ -64,13 +65,13 @@ void aTp6() {
   tp6LpfCosOld = tp6LpfCos;
 
    // Do new calculation.  Used for including ticks in pitch estimation.
-  rotation2 = -tgPitchDelta * (*currentValSet).t;  // 7.4
+  rotation2 = -tgPitchDelta * (*currentValSet).t;  // 4.5
   cos2 = wheelSpeedFps + rotation2;
   lpfCos2 = (lpfCosOld2 * .9) + (cos2 * (1.0D - .9));
   lpfCosOld2 = lpfCos2;
 
   if (isRouteInProgress) {
-    tp6ControllerSpeed = routeFps + stickSpeed;
+    tp6ControllerSpeed = routeFps;
   }
   else if (isStand) {
     tp6ControllerSpeed = standFps();
@@ -80,17 +81,17 @@ void aTp6() {
   }
 
   // find the speed error
-//  double tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
-  double tp6SpeedError = tp6ControllerSpeed - lpfCos2;
+  double tp6SpeedError = tp6ControllerSpeed - tp6LpfCos;
+//  double tp6SpeedError = tp6ControllerSpeed - lpfCos2;
 
   // compute a weighted angle to eventually correct the speed error
   if (!isAngleControl) { // TargetAngle set by route() routines?
-    tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //************ Speed error to angle *******************
+    tp6TargetAngle = -(tp6SpeedError * (*currentValSet).v); //** 4.0 ******** Speed error to angle *******************
   }
   
   // Compute maximum angles for the current wheel speed and enforce limits.
-  float fwdA = wheelSpeedFps - 13.0;
-  float bkwdA = wheelSpeedFps + 13.0;
+  float fwdA = wheelSpeedFps - 20.0;
+  float bkwdA = wheelSpeedFps + 20.0;
   if (tp6TargetAngle < fwdA)  tp6TargetAngle = fwdA;
   if (tp6TargetAngle > bkwdA) tp6TargetAngle = bkwdA;
 //  double tp6TargetAngle = tp6SpeedError * 2.0; //********** Speed error to angle *******
@@ -134,8 +135,9 @@ void sendLog() {
   
 //  if ((logLoop % 208) == 5) log2PerSec();
 //  if ((logLoop % 42) == 5) ;  // 10/sec
-  if ((logLoop % 21) == 7) routeLog(); // 20/sec  
-//  log400PerSec();
+  if ((logLoop % 21) == 0) routeLog(); //  
+//  if ((logLoop % 21) == 7) log20PerSec(); // 20/sec  
+//  if (isRouteInProgress  && isRunning)  log416PerSec();
 }
 
 
@@ -155,27 +157,27 @@ void log20PerSec() {
   sprintf(message,  "%5.2f\t%5.2f\t%5.2f\t", sonarLeft, sonarFront, sonarRight);
   sendBMsg(SEND_MESSAGE, message); 
 
-  if (!isRouteInProgress) return;
+  if (!isRunning) return;
   addLog(
         (long) coTickPosition,
-        (short) (currentMapCumHeading * 10.0),
-        (short) (turnTargetCumHeading * 10.0),
+        (short) (gyroCumHeading * 10.0),
+        (short) (mFpsLeft),
+        (short) (mFpsRight),
         (short) (wheelSpeedFps * 100.0),
-        (short) (routeStepPtr),
-        (short) (currentMapLoc.x * 100.0),
-        (short) (currentMapLoc.y * 100.0)
+        (short) (currentLoc.x * 100.0),
+        (short) (currentLoc.y * 100.0)
    );
 }
 
-void log400PerSec() {
+void log416PerSec() {
   addLog(
-        (long) (timeMicroseconds),
-        (short) (controllerY * 100.0),
-        (short) (tp6LpfCos * 100.0),
+        (long) (tickPosition),
+        (short) (routeFps * 100.0),
+        (short) (tp6Fps * 100.0),
         (short) (gaPitch * 100.0),
-        (short) (wheelSpeedFps * 100.0),
-        (short) (0),
-        (short) (0)
+        (short) (gPitch * 100.0),
+        (short) (tPitch * 100.0),
+        (short) (tgPitch * 100.0)
    );
 }
         

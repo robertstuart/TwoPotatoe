@@ -16,8 +16,7 @@ void sendStatusBluePc() {
   switch (part) {
     case 0:
       sendBMsg(SEND_FPS, 2, wheelSpeedFps);
-      sendBMsg(SEND_HEADING, 1, magHeading);
-      break;
+       break;
     case 1:
       sendBMsg(SEND_SONAR_R, 2, sonarRight);
       break;
@@ -36,13 +35,13 @@ void sendStatusXBeeHc() {
   switch (part) {
     case 0:
       sendXMsg(SEND_FPS, 2, wheelSpeedFps);
-      sendXMsg(SEND_HEADING, 1, magHeading);
       break;
     case 1:
-      sendXMsg(SEND_SONAR_R, 2, sonarRight);
+      sendXMsg(SEND_SONAR_L, 2, sonarLeft);
+      sendXMsg(SEND_SONAR_F, 2, sonarFront);
       break;
     case 2:
-      sendXMsg(SEND_SONAR_L, 2, sonarLeft);
+      sendXMsg(SEND_SONAR_R, 2, sonarRight);
       break;
     case 3:
       sendXMsg(SEND_BATT_A, 2, battVolt);

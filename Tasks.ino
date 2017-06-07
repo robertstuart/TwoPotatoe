@@ -88,7 +88,7 @@ void commonTasks() {
  **************************************************************************/
 void setRunningState() {
 
-  if (mode == MODE_TP6) {
+  if (mode == MODE_2P) {
     // Set the runnng bit to control motors
     if ((isRunReady && isUpright) && (!isLifted)) {
       isRunning = true;
@@ -107,7 +107,7 @@ void setRunningState() {
 
   // set red (mode) and yellow (state)
   switch (mode) {
-    case MODE_TP6:
+    case MODE_2P:
       if  (isRouteInProgress) {
         setBlink(YELLOW_LED_PIN, BLINK_FF);
       } else {
@@ -269,10 +269,6 @@ void blinkLed() {
 }
 
 
-void run(boolean b) {
-        isRunReady = b;
-}
-
 
 /**************************************************************************.
  *  setBlink() Set blink patter for led
@@ -382,7 +378,7 @@ void switches() {
   }
 
   // Yellow press transition
-  if (yeState && (!oldYeState)) run(!isRunReady);
+  if (yeState && (!oldYeState)) isRunReady = !isRunReady;
 
   // Red press transition
   if ((reState) && (!oldReState)) setRoute(true);

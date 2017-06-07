@@ -186,7 +186,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_RUN:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        run(intVal != 0);
+        isRunReady = (intVal != 0);
       }
       break;
     case RCV_MODE:
@@ -209,8 +209,8 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         else stopRoute();
       }
       break;
-    case RCV_ROUTE_ES:
-      isEsReceived = true;
+    case RCV_ROUTE_START:
+      isStartReceived = true;
       break;
     case RCV_DUMP_START:
       sendDumpData();
@@ -259,13 +259,13 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_T: // valset t
       if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        if (mode == MODE_TP6) (*currentValSet).t = floatVal;
+        if (mode == MODE_2P) (*currentValSet).t = floatVal;
         else tVal = (int) floatVal;
       } 
       break;
     case RCV_U:  // valset u
       if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        if (mode == MODE_TP6) (*currentValSet).u = floatVal;
+        if (mode == MODE_2P) (*currentValSet).u = floatVal;
         else uVal = (int) floatVal;
       } 
       break;

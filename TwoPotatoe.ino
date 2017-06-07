@@ -12,8 +12,6 @@
 //#define GYRO_SENS 0.0690     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
 #define GYRO_SENS 0.0696     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
 
-//#define TICKS_PER_FOOT 3017.0D  // For G-made inflatable
-//#define TICKS_PER_FOOT 3342.0D // For Pro-Line Masher 2.8" PRO1192-12
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 
 // Values for initial timeDrift???
@@ -47,7 +45,7 @@ const int MOT_LEFT_DIR =     5 ;
 const int MOT_RIGHT_PWMH =   6; 
 const int MOT_LEFT_PWMH =    7;  
 
-const double SPEED_MULTIPLIER = 12.0;
+const double SPEED_MULTIPLIER = 20.0;
 const unsigned int TP_PWM_FREQUENCY = 10000;
 //const unsigned int TP_PWM_FREQUENCY = 1000;
 
@@ -118,7 +116,8 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define TICKS_PER_DEGREE_YAW (TICKS_PER_CIRCLE_YAW / 360.0)
 //#define TICKS_PER_PITCH_DEGREE 20.0
 #define TICKS_PER_PITCH_DEGREE 54.0D
-#define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
+//#define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
+#define GYRO_WEIGHT 0.997    // Weight for gyro compared to accelerometer
 #define DEFAULT_GRID_OFFSET 0.0
 #define SONAR_SENS 0.0385
 
@@ -145,7 +144,7 @@ unsigned int tickArrayPtr = 0;
 
 //int sumYaw = 0;
 
-unsigned int mode = MODE_TP6;
+unsigned int mode = MODE_2P;
 boolean motorMode = MM_DRIVE_BRAKE;  // Can also be MM_DRIVE_COAST
 //unsigned int mode = MODE_TP_SPEED;
 unsigned int oldMode = MODE_TP5;  // Used by PULSE_SEQUENCE
@@ -176,13 +175,13 @@ struct valSet {
 };
 
 struct valSet tp6 = { 
-  6.0,    // t
-  0.1,    // u
-  4.0,    // v - was 2.0, set to 3.0 for low speed
-  0.18,    // w
+  4.5,    // t
+  0.2,    // u
+  4.0,    // v
+  0.12,    // w
   0.05,    // x
  130.0,   // y
- -1.6}; // z accelerometer offset
+ 0.0}; // z accelerometer offset
 
 valSet *currentValSet = &tp6;
 int vSetStatus = VAL_SET_A;
@@ -194,8 +193,9 @@ struct loc {
   double y;
 };
 
-struct loc currentMapLoc;
-struct loc routeTargetLoc;
+struct loc currentLoc;
+struct loc targetLoc;
+struct loc pivotLoc;
 //boolean isFixLoc = false;
 struct loc coSetLoc;
 boolean isFixHeading = false;
@@ -237,32 +237,30 @@ int lockStartTicks = 0;
 
 int routeStepPtr = 0;
 String routeTitle = "No route";
+boolean isDecelPhase = false;    // Reached point where dece starts?
+boolean isDecelActive = false;   // Decelerate for this G or T?
+float decelFps = 0.0;
 
-boolean isTurnDegrees = false;
 double turnTargetCumHeading = 0.0;
-struct loc pivotLoc;
 
 char routeCurrentAction = 0;
-double routeTargetBearing = 0.0;
+double targetBearing = 0.0;
+double targetDistance = 0.0;
 //double phantomTargetBearing = 0.0;
 double routeMagTargetBearing = 0.0;
 boolean isReachedMagHeading = false;
-boolean routeIsRightTurn = true;
+boolean isRightTurn = true;
 long routeTargetTickPosition = 0L;
-double targetDistance = 0.0D;
 double pirouetteFps = 0.0;
-double routeFps = 0.0;
-double stickSpeed = 0.0;
-double routeRadius = 0.0;
+float routeFps = 0.0;
+float routeScriptFps = 0.0;  // The programmed speed from the script.
+float turnRadius = 0.0;
+float pivotBearing = 0.0;
+float endTangentDegrees = 0.0;
 int routeWaitTime = 0L;
-boolean isEsReceived = false;
-boolean isRouteTargetIncreasing = false;
-boolean isGXAxis = false;
-double routeTargetXY = 0.0;
+boolean isStartReceived = false;
 long navOldTickPosition = 0L;
-double currentMapHeading = 0.0;
-double currentMapCumHeading = 0.0;
-double routeTargetXYDistance = 0.0;
+//double routeTargetXYDistance = 0.0;
 int originalAction = 0;
 
 double sumX = 0.0D;
@@ -332,7 +330,7 @@ double fixHeading = 0.0;
 int tickPositionRight = 0;
 int tickPositionLeft = 0;
 long tickPosition;
-int lastTickSet = 0;
+//int lastTickSet = 0;
   
 
 long coTickPosition;
@@ -377,10 +375,12 @@ double fpsLeft = 0.0f;  // left feet per second TODO rename!
 double wheelSpeedFps = 0.0f;
 int mWheelSpeedFps = 0;
 
-unsigned long statusTrigger = 0UL;
-unsigned long oldTimeTrigger = 0UL;
-unsigned long timeMicroseconds = 0UL; // Set in main loop.  Used by several routines.
-unsigned long timeMilliseconds = 0UL; // Set in main loop from above.  Used by several routines.
+unsigned int statusTrigger = 0;
+unsigned int oldTimeTrigger = 0;
+unsigned int timeMicroseconds = 0; // Set in main loop.  Used by several routines.
+unsigned int timeMilliseconds = 0; // Set in main loop from above.  Used by several routines.
+unsigned int timeStart = 0;
+unsigned int timeRun = 0;
 
 int tpState = 0; // contains system state bits
 int cmdState = 0;  // READY, PWR, & HOME command bits
@@ -411,7 +411,6 @@ double gyroPitchRaw;  // Vertical plane parallel to wheels
 double gyroPitchRate;
 double oldGaPitch = 0.0;
 double gyroPitchDelta = 0.0;
-double gyroPitch = 0.0; // not needed
 double timeDriftPitch = PITCH_DRIFT;
 
 double gyroRollRaw = 0;
@@ -527,7 +526,6 @@ unsigned int stopTimeRight = UNSIGNED_LONG_MAX;
 unsigned int stopTimeLeft = UNSIGNED_LONG_MAX;
 
 int motorRightAction;
-int headingSource = HEADING_SOURCE_G;
 boolean isRouteWait = false;
 long standPos = 0;
 int msgCmdX = 0;
@@ -539,7 +537,10 @@ double tp6ControllerSpeed = 0;
 double jumpTarget;
 double jumpFallXY;
 
-double routeTargetMagHeading = 0.0;
+double barrelXCenter = 0.0D;
+double barrelX = 0.0D;
+double barrelYEnd = 0.0D;
+
 char pBuf[100];
 /*********************************************************
  *
@@ -549,17 +550,14 @@ char pBuf[100];
  *
  *********************************************************/
 void setup() {
-  resetIMU();
-  
   XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
   BLUE_SER.begin(115200);  // Bluetooth 
   SONAR_SER.begin(9600);   // Mini-pro sonar controller
   Serial.begin(115200); // for debugging output
    
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
-  pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
-  pinMode(YELLOW_LED_PIN,OUTPUT);
   pinMode(RED_LED_PIN,OUTPUT);
+  pinMode(YELLOW_LED_PIN,OUTPUT);
   pinMode(GREEN_LED_PIN,OUTPUT);
   pinMode(RIGHT_HL_PIN, OUTPUT);
   pinMode(LEFT_HL_PIN, OUTPUT);
@@ -639,7 +637,7 @@ void loop() { //Main Loop
 //  case MODE_TP_SEQUENCE:
 //    aTpSequence();
 //    break;
-  case MODE_TP6:
+  case MODE_2P:
     aTp6Run();
     break;
   default:
@@ -654,29 +652,34 @@ void loop() { //Main Loop
  * aPwmSpeed()
  **************************************************************************/
 void aPwmSpeed() {
-  unsigned long pwmTrigger = 0;
-  unsigned long tt;
+  int loop = 0;
+  float sumRight, sumLeft;
   isRunning = true;
   motorInitTp();
-//  angleInitTp7();
   setBlink(RED_LED_PIN, BLINK_SB);
   
   while (mode == MODE_PWM_SPEED) {
     commonTasks();
-    if (timeMicroseconds > pwmTrigger) {
-      int action = FWD;
-      pwmTrigger = timeMicroseconds + 50000; // 20/sec
-      
-      motorMode = vVal;
-      if (tVal > 0) action = FWD;
+    if (isNewGyro()) {
+      int action = FWD;      
+       if (tVal > 0) action = FWD;
       else action = BKWD;
       setMotor(MOTOR_RIGHT, action, abs(tVal));
       if (uVal > 0) action = FWD;
       else action = BKWD;
       setMotor(MOTOR_LEFT, action, abs(uVal));
-      readSpeed();           
-      sendStatusXBeeHc(); 
-      sendStatusBluePc();
+      readSpeed();  
+      sumRight += fpsRight;
+      sumLeft += fpsLeft;
+      if (!(loop++ % 416)) {  
+        float r = sumRight / 416.0;
+        float l = sumLeft / 416.0;
+        sumRight = sumLeft = 0.0;
+        sprintf(message, "%5.2f   %5.2f", r, l);
+        sendBMsg(SEND_MESSAGE, message);
+        sendStatusXBeeHc(); 
+        sendStatusBluePc();
+      }
       if (isDumpingTicks) dumpTicks();
     } // end timed loop 
   } // while

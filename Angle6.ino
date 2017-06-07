@@ -28,9 +28,17 @@ int yawTempComp = 0;
  *  angleInit6()
  ***********************************************************************/
 void angleInit6() {
+  int success;
+//  resetIMU();
   Wire.begin();
-  if (!lsm6.init()) Serial.println("IMU initialize failed!");
-  else Serial.println("IMU Initialized!****************************");
+  for (int i = 0; i < 100; i++) {
+    success = lsm6.init(); 
+    if (success) break; 
+    Serial.println("IMU initialize failed!");
+    resetIMU();
+    Wire.begin();
+  }
+  if (success) Serial.println("IMU Initialized!****************************");
   lsm6.enableDefault();
   lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Accel data on INT1
   lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
@@ -93,7 +101,7 @@ void setGyroData() {
   double q = tgPitch + qDiff;
   oldTPitch = tPitch;
   tgPitch = (q * TG_PITCH_TC) + (gPitch * (1.0D - TG_PITCH_TC));
-  tgPitchDelta = tgPitch - oldTgPitch;
+  tgPitchDelta = tgPitch - oldTgPitch;  // Used in Algorithm ***************
   oldTgPitch = tgPitch;
 
   // tgaPitch:
@@ -107,8 +115,8 @@ void setGyroData() {
 void setAccelData() {
 
   // Pitch
-  double k8 = 45.5;  // for new MinImu
-  double accelX = lsm6.a.y + (k8 * 1000.0 * tp6LpfCosAccel);
+  double k8 = 000.0;  // 
+  double accelX = lsm6.a.y + (k8 * 1000.0 * tp6LpfCosAccel);  // 
   aPitch = ((atan2(-accelX, lsm6.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
   gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
   if (          (lsm6.a.z > 7000)
@@ -211,16 +219,16 @@ void setNavigation() {
   tickPosition = tickPositionRight + tickPositionLeft;
 
   // Tick bias
-  if ((tickPosition - lastTickSet) > TICK_BIAS_TRIGGER) {
-    lastTickSet = tickPosition;
-    tickPositionRight++;
-    tickPositionLeft--;
-  }
-  if ((lastTickSet - tickPosition) > TICK_BIAS_TRIGGER) {
-    lastTickSet = tickPosition;
-    tickPositionRight--;
-    tickPositionLeft++;
-  }
+//  if ((tickPosition - lastTickSet) > TICK_BIAS_TRIGGER) {
+//    lastTickSet = tickPosition;
+//    tickPositionRight++;
+//    tickPositionLeft--;
+//  }
+//  if ((lastTickSet - tickPosition) > TICK_BIAS_TRIGGER) {
+//    lastTickSet = tickPosition;
+//    tickPositionRight--;
+//    tickPositionLeft++;
+//  }
 
 
   // Tick heading.
@@ -237,34 +245,14 @@ void setNavigation() {
   rotations = (int) ((tmCumHeading + c) / 360.0);
   tmHeading = tmCumHeading - (((double) rotations) * 360.0);
 
-  // Map heading
-  switch (headingSource) {
-    case HEADING_SOURCE_G: // gyro
-      currentMapCumHeading = gyroCumHeading;
-      currentMapHeading = gyroHeading;
-      break;
-    case HEADING_SOURCE_T: // ticks
-      currentMapCumHeading = tickCumHeading;
-      currentMapHeading = tickHeading;
-      break;
-    case HEADING_SOURCE_M: // mag
-      currentMapCumHeading = gridCumHeading;
-      currentMapHeading = magHeading;
-      break;
-    case HEADING_SOURCE_GM: // gyro & mag complementary filtered
-      currentMapCumHeading = gmCumHeading;
-      currentMapHeading = gmHeading;
-      break;
-  }
- 
  // compute the Center of Oscillation Tick Position
   coTickPosition = tickPosition - ((long) (sin(gaPitch * DEG_TO_RAD) * 4000.0));
 
   // Compute the new co position
   double dist = ((double) (coTickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
   navOldTickPosition = coTickPosition;
-  currentMapLoc.x += sin(currentMapHeading * DEG_TO_RAD) * dist;
-  currentMapLoc.y += cos(currentMapHeading * DEG_TO_RAD) * dist;
+  currentLoc.x += sin(gyroHeading * DEG_TO_RAD) * dist;
+  currentLoc.y += cos(gyroHeading * DEG_TO_RAD) * dist;
 
   currentAccelLoc();
 
@@ -309,7 +297,7 @@ void setHeading(double newHeading) {
   tickOffset = newHeading * TICKS_PER_DEGREE_YAW;
   oldGyroCumHeading = oldTickCumHeading = newHeading;
   tickHeading = gyroHeading = newHeading;
-  lastTickSet = 0;
+//  lastTickSet = 0;
   gridRotations = 0.0;
 }
 
