@@ -91,8 +91,8 @@ boolean barrelOne(boolean reset) {
       if (abs(gyroHeading) > 5.0) {
         routeFps = 0.0;
         speedAdjustment = (gyroHeading > 0.0) ? 0.3 : -0.3;
-        tp6FpsRight = tp6Fps + speedAdjustment;
-        tp6FpsLeft = tp6Fps - speedAdjustment;
+        targetFpsRight = targetFps + speedAdjustment;
+        targetFpsLeft = targetFps - speedAdjustment;
      } else {
         if (sonarFront < 2.5) {
           barrelOneState = PLOT_BARREL;
@@ -155,8 +155,8 @@ void plotBarrel(boolean reset) {
       }
       break;
     case PIVOT_RIGHT:
-      tp6FpsRight = tp6Fps - PIVOT_RATE;
-      tp6FpsLeft = tp6Fps + PIVOT_RATE;
+      targetFpsRight = targetFps - PIVOT_RATE;
+      targetFpsLeft = targetFps + PIVOT_RATE;
       if (gyroHeading > 0.0) {
         if (sonarFront > SONAR_EDGE) {
           barrelEdgeAngle = gyroHeading;
@@ -173,8 +173,8 @@ void plotBarrel(boolean reset) {
       }
       break;
     case PIVOT_LEFT:
-      tp6FpsRight = tp6Fps + PIVOT_RATE;
-      tp6FpsLeft = tp6Fps - PIVOT_RATE;
+      targetFpsRight = targetFps + PIVOT_RATE;
+      targetFpsLeft = targetFps - PIVOT_RATE;
       if (gyroHeading < 0.0) {
         if (sonarFront > SONAR_EDGE) {
           barrelEdgeAngle = gyroHeading;
@@ -273,8 +273,8 @@ boolean pedestrian(boolean reset) {
         pedPivotState = PIVOT_RIGHT;
         pivotCount++;
       }
-      tp6FpsRight = tp6Fps + PIVOT_RATE;
-      tp6FpsLeft = tp6Fps - PIVOT_RATE;
+      targetFpsRight = targetFps + PIVOT_RATE;
+      targetFpsLeft = targetFps - PIVOT_RATE;
     } else {
       if (gyroHeading > PED_ANGLE) {
         if ((sonarPedCount == 0) && pivotCount) return true;
@@ -282,8 +282,8 @@ boolean pedestrian(boolean reset) {
         pedPivotState = PIVOT_LEFT;
         pivotCount++;
       }
-      tp6FpsRight = tp6Fps - PIVOT_RATE;
-      tp6FpsLeft = tp6Fps + PIVOT_RATE;
+      targetFpsRight = targetFps - PIVOT_RATE;
+      targetFpsLeft = targetFps + PIVOT_RATE;
     }
   }
   return false;

@@ -271,6 +271,7 @@ double meanY = 0.0D;
 double meanZ = 0.0D;
 
 double gaPitch = 0.0;
+float yAccel = 0.0;
 double gaFullPitch = 0.0;
 double tgaPitch = 0.0;
 double gaRoll = 0.0;
@@ -300,6 +301,10 @@ double rotation2 = 0.0D;
 double cos2 = 0.0D;
 double lpfCos2 = 0.0D;
 double lpfCosOld2 = 0.0D;
+float rotation3 = 0.0D;
+float cos3 = 0.0D;
+float lpfCos3 = 0.0D;
+float lpfCosOld3 = 0.0D;
 double oldGyroCumHeading = 0.0D;
 double oldTickCumHeading = 0.0D;
 
@@ -507,10 +512,8 @@ int purgeFailure = 0;
 double tp5LpfCosAccel = 0.0;
 double tp6LpfCosAccel = 0.0;
 
-double tp5FpsLeft = 0.0f;
-double tp5FpsRight = 0.0f;
-double tp6FpsLeft = 0.0f;
-double tp6FpsRight = 0.0f;
+float targetFpsLeft = 0.0f;
+float targetFpsRight = 0.0f;
 
 int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;
@@ -533,13 +536,15 @@ boolean isDiagnostics = false;
 
 boolean isStepFall = false;
 boolean isOldStepFall = false;
-double tp6ControllerSpeed = 0;
+double tp6ControllerSpeed = 0.0;
+float tp7ControllerSpeed = 0.0;
 double jumpTarget;
 double jumpFallXY;
 
 double barrelXCenter = 0.0D;
 double barrelX = 0.0D;
 double barrelYEnd = 0.0D;
+
 
 char pBuf[100];
 /*********************************************************

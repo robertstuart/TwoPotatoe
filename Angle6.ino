@@ -113,7 +113,7 @@ void setGyroData() {
  *  setAccelData()
  ***********************************************************************/
 void setAccelData() {
-
+  static int lastAccel;
   // Pitch
   double k8 = 000.0;  // 
   double accelX = lsm6.a.y + (k8 * 1000.0 * tp6LpfCosAccel);  // 
@@ -125,6 +125,10 @@ void setAccelData() {
       gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
     }
 
+  // y accel
+  yAccel += lastAccel - lsm6.a.y;
+  lastAccel = lsm6.a.y;
+  
   // Roll
   aRoll =  (atan2(lsm6.a.x, lsm6.a.z) * RAD_TO_DEG);
   gaRoll = (gaRoll * GYRO_WEIGHT) + (aRoll * (1 - GYRO_WEIGHT)); // Weigh factors
@@ -136,65 +140,6 @@ void setAccelData() {
 #define TM_HEADING_TC 0.999D
 
 int magX, magY, magZ;
-
-/***********************************************************************.
- *  readCompass()
- ***********************************************************************/
-//void readCompass() {
-////  double xVec, yVec, zVec;
-//  //  compass.readMag();
-//  if (readHMC()) {
-//    //  if ((compass.m.x != mX) || (compass.m.y != mY) || (compass.m.z != mZ)) {
-//    //    mX = compass.m.x;
-//    //    mY = compass.m.y;
-//    //    mZ = compass.m.z;
-//
-//    // move from HMC
-//    mX = magX;
-//    mY = magY;
-//    mZ = magZ;
-//
-//
-//    xVec = -(((((double) (mX - xMin)) / ((double) (xMax - xMin))) * 2.0) - 1.0);
-//    yVec = -(((((double) (mY - yMin)) / ((double) (yMax - yMin))) * 2.0) - 1.0);
-//    zVec = (((((double) (mZ - zMin)) / ((double) (zMax - zMin))) * 2.0) - 1.0);
-////    Serial.print(xVec); Serial.print("\t");
-////    Serial.print(yVec); Serial.print("\t");
-////    Serial.print(zVec); Serial.println("\t");
-//
-//    headX = xVec;
-//    headY = yVec;
-//
-//    // tilt-compenstate magnetic heading
-//    double gaPitchRad = gaPitch * DEG_TO_RAD;
-//    double gaRollRad = gaRoll * DEG_TO_RAD;
-//    double cosPitch = cos(gaPitchRad);
-//    double sinPitch = sin(gaPitchRad);
-//    double cosRoll = cos(gaRollRad);
-//    double sinRoll = sin(gaRollRad);
-//
-//    headX = (xVec * cosPitch) + (yVec * sinRoll * sinPitch) + (zVec * cosRoll * sinPitch);
-//    headY = (yVec * cosRoll) - (zVec * sinRoll);
-//
-//    magHeading = atan2(-headY, headX) * RAD_TO_DEG;
-//    double oldGridHeading = gridHeading;
-//    gridHeading = rangeAngle(magHeading - gridOffset);
-//    if ((oldGridHeading > 90.0D) && (gridHeading < -90.0D))  gridRotations += 360.0;
-//    else if ((oldGridHeading < -90.0D) && (gridHeading > 90.0D))  gridRotations -= 360.0;
-//    gridCumHeading = gridRotations + gridHeading;
-//
-//    // Since this is 15/sec, we do all of our complementary filtering here
-//
-//    // gmHeading. Complementary filter gyro and mag headings.
-//    gmCumHeading = (gmCumHeading * GM_HEADING_TC) + (gridCumHeading * (1.0 - GM_HEADING_TC));
-//    double c = (gmCumHeading > 0.0) ? 180.0 : -180.0;
-//    double rotations = (int) ((gmCumHeading + c) / 360.0);
-//    gmHeading = gmCumHeading - (((double) rotations) * 360.0);
-//  }
-//}
-
-
-
 /***********************************************************************.
  *  readTemperature()  Read the gyro temperature and set the yawTempComp
  *                     variable 

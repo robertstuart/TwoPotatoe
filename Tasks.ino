@@ -90,7 +90,7 @@ void setRunningState() {
 
   if (mode == MODE_2P) {
     // Set the runnng bit to control motors
-    if ((isRunReady && isUpright) && (!isLifted)) {
+    if ((isRunReady && isUpright) && (!isLifted  || isRouteInProgress)) {
       isRunning = true;
     }
     else {
@@ -171,9 +171,9 @@ void liftJump() {
   static boolean isOldOnGround = false;
   
   forceLeft = analogRead(L_FORCE_PIN);
-//  forceRight = analogRead(R_FORCE_PIN);
-//  isOnGround = (forceLeft < 800) && (forceRight < 950);
-isOnGround = forceLeft < 800; // right not working
+  forceRight = analogRead(R_FORCE_PIN);
+  isOnGround = (forceLeft < 800) && (forceRight < 950);
+//  isOnGround = forceLeft < 800; // right not working
   
   if (!isOnGround) {
     // TP has just left the ground.

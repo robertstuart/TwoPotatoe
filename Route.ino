@@ -49,7 +49,7 @@ void route() {
   boolean isNewRouteStep = false;
   boolean ret;
   timeRun = timeMilliseconds - timeStart;
-  tp6FpsRight = tp6FpsLeft = tp6Fps;
+  targetFpsRight = targetFpsLeft = targetFps;
 
   // See of we need to move to the next route step.
   switch (routeCurrentAction) {
@@ -309,8 +309,8 @@ void steerHeading() {
       speedAdjustment = (abs(aDiff) / 5.0) * speedAdjustment;
     }
   }
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  tp6FpsLeft = tp6Fps + speedAdjustment;
+  targetFpsRight = targetFps - speedAdjustment;
+  targetFpsLeft = targetFps + speedAdjustment;
 }
 
 
@@ -347,8 +347,8 @@ void turn() {
   speedAdjustment = radiusDiff + headingAdjustment + radiusAdjustment;
 //  speedAdjustment = radiusDiff;
 
-  tp6FpsRight = tp6Fps - speedAdjustment;
-  tp6FpsLeft = tp6Fps + speedAdjustment;
+  targetFpsRight = targetFps - speedAdjustment;
+  targetFpsLeft = targetFps + speedAdjustment;
 //    addLog(
 //    (long) (timeMilliseconds),
 //    (short) (currentLoc.x * 100.0),
