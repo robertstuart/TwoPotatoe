@@ -39,17 +39,17 @@ void routeLog() {
 }
 
 /************************************************************************
-    Route() called every loop (400/sec).
+    steerRoute() called every loop (208/sec).
             This is called as the last step in aTp6() for steering.
               1. Check if target reached.
               2. Set currentLoc.
               3. Adjust steering.
  ************************************************************************/
-void route() {
+void steerRoute() {
   boolean isNewRouteStep = false;
   boolean ret;
   timeRun = timeMilliseconds - timeStart;
-  targetFpsRight = targetFpsLeft = targetFps;
+  targetWFpsRight = targetWFpsLeft = targetWFps;
 
   // See of we need to move to the next route step.
   switch (routeCurrentAction) {
@@ -68,14 +68,14 @@ void route() {
 
     case 'G':
       setTarget();
-      ret = setFps();
-      if (!isDecelActive) ret = isTargetReached();
-      if (ret) {
-        isDecelPhase = isDecelActive = false;
-        isNewRouteStep = true;
-      } else {
+//      ret = setFps();
+//      if (!isDecelActive) ret = isTargetReached();
+//      if (ret) {
+//        isDecelPhase = isDecelActive = false;
+//        isNewRouteStep = true;
+//      } else {
         steerHeading();
-      }
+//      }
       break;
 
     case 'K':  // Lock
@@ -302,15 +302,15 @@ void steerHeading() {
     double aDiff = rangeAngle(targetBearing - gyroHeading);
     double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
-    speedAdjustment = (wheelSpeedFps / RAD_TURN) * 0.64 * d;
+    speedAdjustment = (wFps / RAD_TURN) * 0.64 * d;
 
     // Reduce adjustment proportionally if less than X degrees.
     if (abs(aDiff) < 5.0) {
       speedAdjustment = (abs(aDiff) / 5.0) * speedAdjustment;
     }
   }
-  targetFpsRight = targetFps - speedAdjustment;
-  targetFpsLeft = targetFps + speedAdjustment;
+  targetWFpsRight = targetWFps - speedAdjustment;
+  targetWFpsLeft = targetWFps + speedAdjustment;
 }
 
 
@@ -323,7 +323,7 @@ void turn() {
   float xDist, yDist, radiusAngle, targetTurnHeading;
 
   float d = isRightTurn ? 1.0 : -1.0;
-  float radiusDiff = (wheelSpeedFps / turnRadius) * 0.54 * d;
+  float radiusDiff = (wFps / turnRadius) * 0.54 * d;
 
   if (isRightTurn) {
     xDist = (currentLoc.x - pivotLoc.x);
@@ -347,8 +347,8 @@ void turn() {
   speedAdjustment = radiusDiff + headingAdjustment + radiusAdjustment;
 //  speedAdjustment = radiusDiff;
 
-  targetFpsRight = targetFps - speedAdjustment;
-  targetFpsLeft = targetFps + speedAdjustment;
+  targetWFpsRight = targetWFps - speedAdjustment;
+  targetWFpsLeft = targetWFps + speedAdjustment;
 //    addLog(
 //    (long) (timeMilliseconds),
 //    (short) (currentLoc.x * 100.0),
@@ -367,34 +367,35 @@ void turn() {
              Returns true if is decelerating and reached target fps.
  ************************************************************************/
 boolean setFps() {
-  float stopDistance;
-
-  // Check to see if we need to start the decel phase.
-  if (isDecelActive && !isDecelPhase) {
-    stopDistance = (tp6LpfCos * tp6LpfCos) / 5.58;
-    if (targetDistance <= stopDistance) {
-      isDecelPhase = true;
-    }
-  }
-
-  if (isDecelPhase) {
-    if (tp6LpfCos <= 0.0) return true;
-    routeFps = tp6LpfCos - 5.0;
-  } else {
-    if (routeScriptFps < 0.0) {
-      routeFps = routeScriptFps;
-    } else {
-      if (timeRun < 1000) {  // taking off from stand?
-        routeFps = (((float) timeRun) / 200.0) + 0.5;
-      } else {
-        routeFps = tp6LpfCos + 5.0;
-        if (routeFps > (routeScriptFps + 2.5)) {
-          float inc = (routeScriptFps - tp6LpfCos) / 2.0;
-          routeFps = routeScriptFps + inc;
-        }
-      }
-    }
-  }
+//  float stopDistance;
+//
+//  // Check to see if we need to start the decel phase.
+//  if (isDecelActive && !isDecelPhase) {
+//    stopDistance = (fps * fps) / 5.58;
+//    if (targetDistance <= stopDistance) {
+//      isDecelPhase = true;
+//    }
+//  }
+//
+//  if (isDecelPhase) {
+//    if (fps <= 0.0) return true;
+//    routeFps = fps - 5.0;
+//  } else {
+//    if (routeScriptFps < 0.0) {
+//      routeFps = routeScriptFps;
+//    } else { // Going forward
+//      if (timeRun < 1000) {  // taking off from stand?
+//        routeFps = (((float) timeRun) / 200.0) + 0.5;
+//      } else {
+//        routeFps = fps + 5.0;
+//        if (routeFps > (routeScriptFps + 2.5)) {
+//          float inc = (routeScriptFps - fps) / 2.0;
+//          routeFps = routeScriptFps + inc;
+//        }
+//      }
+//    }
+//  }
+  routeFps = routeScriptFps;
   return false;
 }
 

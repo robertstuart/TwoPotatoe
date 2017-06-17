@@ -91,8 +91,8 @@ boolean barrelOne(boolean reset) {
       if (abs(gyroHeading) > 5.0) {
         routeFps = 0.0;
         speedAdjustment = (gyroHeading > 0.0) ? 0.3 : -0.3;
-        targetFpsRight = targetFps + speedAdjustment;
-        targetFpsLeft = targetFps - speedAdjustment;
+        targetWFpsRight = targetWFps + speedAdjustment;
+        targetWFpsLeft = targetWFps - speedAdjustment;
      } else {
         if (sonarFront < 2.5) {
           barrelOneState = PLOT_BARREL;
@@ -155,8 +155,8 @@ void plotBarrel(boolean reset) {
       }
       break;
     case PIVOT_RIGHT:
-      targetFpsRight = targetFps - PIVOT_RATE;
-      targetFpsLeft = targetFps + PIVOT_RATE;
+      targetWFpsRight = targetWFps - PIVOT_RATE;
+      targetWFpsLeft = targetWFps + PIVOT_RATE;
       if (gyroHeading > 0.0) {
         if (sonarFront > SONAR_EDGE) {
           barrelEdgeAngle = gyroHeading;
@@ -173,8 +173,8 @@ void plotBarrel(boolean reset) {
       }
       break;
     case PIVOT_LEFT:
-      targetFpsRight = targetFps + PIVOT_RATE;
-      targetFpsLeft = targetFps - PIVOT_RATE;
+      targetWFpsRight = targetWFps + PIVOT_RATE;
+      targetWFpsLeft = targetWFps - PIVOT_RATE;
       if (gyroHeading < 0.0) {
         if (sonarFront > SONAR_EDGE) {
           barrelEdgeAngle = gyroHeading;
@@ -273,8 +273,8 @@ boolean pedestrian(boolean reset) {
         pedPivotState = PIVOT_RIGHT;
         pivotCount++;
       }
-      targetFpsRight = targetFps + PIVOT_RATE;
-      targetFpsLeft = targetFps - PIVOT_RATE;
+      targetWFpsRight = targetWFps + PIVOT_RATE;
+      targetWFpsLeft = targetWFps - PIVOT_RATE;
     } else {
       if (gyroHeading > PED_ANGLE) {
         if ((sonarPedCount == 0) && pivotCount) return true;
@@ -282,8 +282,8 @@ boolean pedestrian(boolean reset) {
         pedPivotState = PIVOT_LEFT;
         pivotCount++;
       }
-      targetFpsRight = targetFps - PIVOT_RATE;
-      targetFpsLeft = targetFps + PIVOT_RATE;
+      targetWFpsRight = targetWFps - PIVOT_RATE;
+      targetWFpsLeft = targetWFps + PIVOT_RATE;
     }
   }
   return false;

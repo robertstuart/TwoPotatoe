@@ -36,7 +36,7 @@ String avc2017[] =   {  //
   "G    70,47.5      8             ",
   "G    77,42.3      8             ",
   "G 118.5,9.8       8             ",
-  "T   166,32        8   29       0",  // Turn towards barrels
+  "T   166,32        8   29       0",  // Turn toward barrels
   "G   166,51.7      8             ",  // Barrels
   "T 129.5,66.7      8   20    -129",
   "G    59,12        8             ",
@@ -50,7 +50,7 @@ String avc2017[] =   {  //
 String testRun1[] = { 
   "N Test Run 1",
   "KR  0,0     0          ",
-  "G   0,3     3          ",
+  "G   0,3     0.5          ",
   "T    3,5    3   2   90",
   "G    5,5    3          ",
   "F"
@@ -59,13 +59,11 @@ String testRun1[] = {
 String loadedRoute[200]; 
 
 String *routeTable[] = {
+  testRun1,
+  avc2017,
   barrel,
-//  pedestrian1,
-//  avc2017,
-//  avc10,
-  testRun1
-//  testRun3
-//  testRun4
+  pedestrian1,
+  avc10,
 };
 
 int routeTablePtr = 0;

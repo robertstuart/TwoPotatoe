@@ -29,7 +29,6 @@ int yawTempComp = 0;
  ***********************************************************************/
 void angleInit6() {
   int success;
-//  resetIMU();
   Wire.begin();
   for (int i = 0; i < 100; i++) {
     success = lsm6.init(); 
@@ -40,10 +39,12 @@ void angleInit6() {
   }
   if (success) Serial.println("IMU Initialized!****************************");
   lsm6.enableDefault();
-  lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Accel data on INT1
+  lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Accel data ready on INT1
   lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
-  lsm6.writeReg(LSM6::CTRL2_G, 0X6C);   // Gyro 2000fs, 416hz
-  lsm6.writeReg(LSM6::CTRL1_XL, 0X40);  // Accel 2g, 104hz
+  lsm6.writeReg(LSM6::CTRL2_G, 0X5C);   // Gyro 2000fs, 208hz
+  lsm6.writeReg(LSM6::CTRL1_XL, 0X50);  // Accel 2g, 104hz
+//  lsm6.writeReg(LSM6::CTRL2_G, 0X6C);   // Gyro 2000fs, 416hz
+//  lsm6.writeReg(LSM6::CTRL1_XL, 0X40);  // Accel 2g, 104hz
 
   // Set up HMC5883L magnetometer
 //  Wire.beginTransmission(HC_ADDRESS);
@@ -65,7 +66,7 @@ void setGyroData() {
   // Pitch
   gyroPitchRaw = ((double) lsm6.g.x) - timeDriftPitch;
   gyroPitchRate = (((double) gyroPitchRaw) * GYRO_SENS);  // Rate in degreesChange/sec
-  gyroPitchDelta = -gyroPitchRate / 416.0; // degrees changed during period
+  gyroPitchDelta = -gyroPitchRate / 208.0; // degrees changed during period
   gPitch = gPitch + gyroPitchDelta;   // Used by tgPitch & debugging
   gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
   gaFullPitch = gyroPitchDelta + gaFullPitch;
@@ -73,7 +74,7 @@ void setGyroData() {
   // Roll
   gyroRollRaw = ((double) lsm6.g.y) - timeDriftRoll;
   gyroRollRate = (((double) gyroRollRaw) * GYRO_SENS);
-  double gyroRollDelta = gyroRollRate / 416.0;
+  double gyroRollDelta = gyroRollRate / 208.0;
   gRoll = gRoll - gyroRollDelta;
   gaRoll = gaRoll - gyroRollDelta;
 
@@ -119,9 +120,9 @@ void setAccelData() {
   double accelX = lsm6.a.y + (k8 * 1000.0 * tp6LpfCosAccel);  // 
   aPitch = ((atan2(-accelX, lsm6.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
   gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
-  if (          (lsm6.a.z > 7000)
+  if ((          (lsm6.a.z > 7000)
              && ((accelX > -7000) && (accelX < 7000))
-             && ((aPitch > -45.0) && (aPitch < 45.0))) {
+             && ((aPitch > -45.0) && (aPitch < 45.0))) || !isRunning) {
       gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
     }
 

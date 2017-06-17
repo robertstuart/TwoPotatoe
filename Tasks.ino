@@ -192,6 +192,7 @@ void liftJump() {
     liftTimer = 0UL;
   }
   isOldOnGround = isOnGround;
+//isLifted = false;
 }
 
 
@@ -305,35 +306,41 @@ void setBlink(int led, byte* pattern) {
 }
 
 
+
 void beep(int seq[]) {
   beepPtr = 0;
   beepSequence = seq;
-  Timer3.attachInterrupt(beepIsr);
-  setBeep();
+  nextBeep();
 }
 
-void setBeep() {
+void nextBeep() {
   int freq = beepSequence[beepPtr];
   if (freq != 0) {
-    int halfCycle = (1000000 / 2) / freq;
-    int dur = beepSequence[beepPtr + 1];
-    beepCycleCount = (dur * 1000) / halfCycle;
-    Timer3.start(halfCycle);
+    noInterrupts();
+    beepPeriod = 5000 / freq;
+    beepPeriodCount = beepPeriod;
+    beepEnd = (micros() / 1000) + beepSequence[beepPtr + 1];
+    interrupts();
     beepPtr += 2;
-  }
-  else {
-    Timer3.stop();
-    Timer3.detachInterrupt();
-    digitalWrite(SPEAKER_PIN, LOW);
+  } else {
+    beepPeriod = 0;
   }
 }
 
 void beepIsr() {
-  if (--beepCycleCount <= 0) {
-    setBeep();
+  static boolean toggle = HIGH;
+  if (beepPeriod){
+    if (beepPeriodCount-- < 0) {
+      if (timeMilliseconds > beepEnd) {
+        digitalWrite(SPEAKER_PIN, LOW);
+        nextBeep();
+      } else {
+        toggle = (toggle == HIGH) ? LOW : HIGH;
+        digitalWrite(SPEAKER_PIN, toggle);
+        beepPeriodCount = beepPeriod;
+      }
+    } 
   }
-  beepStat = !beepStat;
-  digitalWrite(SPEAKER_PIN, beepStat);
 }
 
 /**************************************************************************.

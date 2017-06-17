@@ -149,7 +149,12 @@ boolean motorMode = MM_DRIVE_BRAKE;  // Can also be MM_DRIVE_COAST
 //unsigned int mode = MODE_TP_SPEED;
 unsigned int oldMode = MODE_TP5;  // Used by PULSE_SEQUENCE
 
-int BEEP_UP [] = {1200, 100, 1500, 100, 0};
+volatile int beepEnd = 0;
+volatile int beepPeriod = 0;
+volatile int beepPeriodCount = 0;
+int BEEP_UP [] = {1200, 100, 1500, 100, 0}; // pitch, time, pitch, time, etc.
+int BEEP_UP2 [] = {1500, 100, 1800, 100, 0}; // pitch, time, pitch, time, etc.
+//int BEEP_UP [] = {600, 400, 800, 400, 1000, 400, 1200, 400, 1400, 400, 1600, 400, 0}; 
 int BEEP_WARBLE[] = {2400, 300, 2600, 300, 
                   2400, 300, 2600, 300, 
                   2400, 300, 2600, 300, 
@@ -165,25 +170,26 @@ byte BLINK_SB[] = {1,1,1,1,0,0,0,0,END_MARKER};  // Slow blink
 byte BLINK_ON[] = {1,END_MARKER};                // On
 
 struct valSet {
-  double t;
-  double u;
-  double v;
-  double w;
-  double x;
-  double y;
-  double z;
+  float t;
+  float u;
+  float v;
+  float w;
+  float x;
+  float y;
+  float z;
 };
 
-struct valSet tp6 = { 
-  4.5,    // t
-  0.2,    // u
-  4.0,    // v
-  0.12,    // w
-  0.05,    // x
- 130.0,   // y
- 0.0}; // z accelerometer offset
+struct valSet tp7 = { 
+  4.5,     // t
+  0.90,    // u
+  0.90,    // v
+  0.98,    // w
+  4.0,     // x
+  0.2,     // y
+  0.0
+}; 
 
-valSet *currentValSet = &tp6;
+valSet *currentValSet = &tp7;
 int vSetStatus = VAL_SET_A;
 int bbb = 42;
  
@@ -331,15 +337,9 @@ double currentY = 0.0;
 int fixPosition = 0;
 double fixHeading = 0.0;
 
-// Speed and position variables
-int tickPositionRight = 0;
-int tickPositionLeft = 0;
-long tickPosition;
-//int lastTickSet = 0;
   
 
 long coTickPosition;
-double tp6LpfCos = 0.0;
 double startDecelSpeed = 0.0;
 
 // System status (used to be status bits
@@ -356,29 +356,35 @@ boolean isHoldHeading = false; //
 boolean isSpin = false; // 
 boolean isStand = false; // 
 
+volatile boolean isNewCheck = false;
+
 boolean isDumpingTicks = false;
 
 int standTPRight = 0;
 int standTPLeft = 0;
 
-unsigned long tickTimeRight = 0UL;  // time for the last interrupt
-unsigned long tickTimeLeft = 0UL;
-long tickPeriodRight = 0L;     // last period. Minus for reverse.
-long tickPeriodLeft = 0L;
-double targetSpeedRight = 0.0;
-double targetSpeedLeft = 0.0;
-long targetTickPeriodRight = 0L;
-long targetMFpsRight = 0L;
-long targetBrakeMFpsRight = 0L;
-long targetRevMFpsRight = 0L;
-long targetMFpsLeft = 0L;
-long targetBrakeMFpsLeft = 0L;
-long targetRevMFpsLeft = 0L;
+// Motor isr variables
+volatile int tickPositionRight = 0;
+volatile int tickPositionLeft = 0;
+int tickPosition = 0;
+volatile unsigned int tickTimeRight = 0UL;  // time for the last interrupt
+volatile unsigned int  tickTimeLeft = 0UL;
+volatile int tickPeriodRight = 0L;     // last period. Minus for reverse.
+volatile int tickPeriodLeft = 0L;
 
-double fpsRight = 0.0f; // right feet per second
-double fpsLeft = 0.0f;  // left feet per second TODO rename!
-double wheelSpeedFps = 0.0f;
-int mWheelSpeedFps = 0;
+int targetMFpsRight = 0;
+int targetMFpsLeft = 0;
+
+// Wheel speed variables
+float wFpsRight = 0.0f; // right feet per second
+float wFpsLeft = 0.0f; // left feet per second
+float wMFpsRight = 0.0f; // right milli-feet per second
+float wMFpsLeft = 0.0f; // left milli-feet per second
+volatile float targetWFpsRight = 0.0;
+volatile float targetWFpsLeft = 0.0;
+float targetWFps = 0.0;
+float wFps = 0.0f;
+int wMFps = 0;
 
 unsigned int statusTrigger = 0;
 unsigned int oldTimeTrigger = 0;
@@ -408,7 +414,6 @@ double pcX = 0.0;
 double pcY = 0.0;
 double controllerX = 0.0; // +1.0 to -1.0 from controller
 double controllerY = 0.0;  // Y value set by message from controller
-//boolean isNewMessage = false;
 char message[100] = "";
 
 float baseGyroTemp = 75.0;
@@ -436,8 +441,14 @@ int gyroErrorY = 0;
 int gyroErrorZ = 0;
 
 float battVolt = 0; // battery 
-int tpDebug = 4241;
-
+volatile int debugInt1 = 42;
+volatile int debugInt2 = 42;
+volatile int debugInt3 = 42;
+volatile int debugInt4 = 42;
+volatile float debugFloat1 = 42.42;
+volatile float debugFloat2 = 42.42;
+volatile float debugFloat3 = 42.42;
+volatile float debugFloat4 = 42.42;
 unsigned long tHc = 0L;  // Time of last Hc packet
 unsigned long tPc = 0L;  // Time of last Pc packet
 
@@ -493,14 +504,14 @@ int xVal = 0;
 int yVal = 0;
 int zVal = 0;
 
+volatile int intrMFpsRightSum = 0;
+volatile int intrMFpsRightCount = 0;
+volatile int intrMFpsLeftSum = 0;
+volatile int intrMFpsLeftCount = 0;
 int wsMFpsRight = 0;
 int wsMFpsLeft = 0;
-int mFpsRight = 0;
-int mFpsLeft = 0;
-long wsMFpsRightSum = 0;
-long wsMFpsLeftSum = 0;
-int wsMFpsRightCount = 0;;
-int wsMFpsLeftCount = 0;;
+int wsFpsRight = 0;
+int wsFpsLeft = 0;
 double airFps = 0.0;
 unsigned long airTrigger = 0L;
 
@@ -511,9 +522,6 @@ int purgeFailure = 0;
 
 double tp5LpfCosAccel = 0.0;
 double tp6LpfCosAccel = 0.0;
-
-float targetFpsLeft = 0.0f;
-float targetFpsRight = 0.0f;
 
 int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;
@@ -612,11 +620,10 @@ void setup() {
     cArray[i] = 4242;
     dArray[i] = i;
   }
-//  zeroGyro();
-//  Serial.println("Gyro zeroed out.");
+  Timer3.attachInterrupt(pollIsr);
+  Timer3.start(100);  // Poll at 10,000/sec.
 //  diagnostics();
   Serial.println("Diagnostics ignored.");
-  beep(BEEP_UP);
   setSonar("LFR");
 } // end setup()
 
@@ -636,14 +643,11 @@ void loop() { //Main Loop
   case MODE_PWM_SPEED:
     aPwmSpeed();
     break;
-//  case MODE_TP_SPEED:
-//    aTpSpeed();
-//    break;
-//  case MODE_TP_SEQUENCE:
-//    aTpSequence();
-//    break;
+  case MODE_TP_SPEED:
+    aTpSpeed();
+    break;
   case MODE_2P:
-    aTp6Run();
+    aTp7Run();
     break;
   default:
     readXBee();
@@ -653,39 +657,41 @@ void loop() { //Main Loop
 
 
 
+/************************************************************************** *
+ * pollIsr()  Called every 100 microSeconds.
+ *            Call the beep and checkMotor() routines.
+ *********************************************************/
+void pollIsr() {
+  beepIsr();
+  checkMotors();
+}
+
+
 /**************************************************************************.
  * aPwmSpeed()
  **************************************************************************/
 void aPwmSpeed() {
   int loop = 0;
   float sumRight, sumLeft;
-  isRunning = true;
-  motorInitTp();
   setBlink(RED_LED_PIN, BLINK_SB);
+  beep(BEEP_UP2);
+  tVal = uVal = 0;
   
   while (mode == MODE_PWM_SPEED) {
     commonTasks();
-    if (isNewGyro()) {
-      int action = FWD;      
-       if (tVal > 0) action = FWD;
-      else action = BKWD;
-      setMotor(MOTOR_RIGHT, action, abs(tVal));
-      if (uVal > 0) action = FWD;
-      else action = BKWD;
-      setMotor(MOTOR_LEFT, action, abs(uVal));
-      readSpeed();  
-      sumRight += fpsRight;
-      sumLeft += fpsLeft;
-      if (!(loop++ % 416)) {  
-        float r = sumRight / 416.0;
-        float l = sumLeft / 416.0;
+    if (isNewCheck) {  // 1000/sec
+      isNewCheck = false;
+      setMotorRight(abs(tVal), (tVal >= 0) ? FWD : BKWD);
+      setMotorLeft(abs(uVal), (uVal >= 0) ? FWD : BKWD);
+      sumRight += wFpsRight;
+      sumLeft += wFpsLeft;
+      if (!(loop++ % 1000)) {  
+        float r = sumRight / 1000.0;
+        float l = sumLeft / 1000.0;
         sumRight = sumLeft = 0.0;
-        sprintf(message, "%5.2f   %5.2f", r, l);
+        sprintf(message, "%5.2f   %5.2f  %5.2f", l, r, wFps);
         sendBMsg(SEND_MESSAGE, message);
-        sendStatusXBeeHc(); 
-        sendStatusBluePc();
       }
-      if (isDumpingTicks) dumpTicks();
     } // end timed loop 
   } // while
 } // aPwmSpeed()
@@ -696,35 +702,26 @@ void aPwmSpeed() {
  * aTpSpeed()
  **************************************************************************/
 void aTpSpeed() {
-  unsigned int loopCount = 0;
-  unsigned long tpTrigger = 0;
-  tVal = 0;
-  uVal = 0;
-  isRunning = true;
-  motorInitTp();
+  unsigned int loop = 0;
+  float sumRight = 0.0, sumLeft = 0.0;
   setBlink(RED_LED_PIN, BLINK_SF);
+  beep(BEEP_UP2);
+  tVal = uVal = 0;
   
   while (mode == MODE_TP_SPEED) {
     commonTasks();
-    if (timeMicroseconds > tpTrigger) {
-      int action = FWD;
-      tpTrigger = timeMicroseconds + 2500; // 400/sec
-      targetMFpsRight = tVal; // 
-      targetMFpsLeft = uVal; // 
-      motorMode = vVal;
-      readSpeedRight();      
-      readSpeedLeft();      
-//      checkMotorRight();
-//      checkMotorLeft();
-      loopCount = ++loopCount % 40; // 1/sec
-      if (loopCount == 0) {
-        mWheelSpeedFps = mFpsRight;
-//        mWheelSpeedFps = mFpsLeft;
-//        sendStatusFrame(XBEE_PC);  // Send status message to controller.
-//        Serial.print("tVal: ");
-//        Serial.print(tVal);
-//        Serial.print("\ttargetMFpsRight: "); 
-//        Serial.println(targetMFpsRight);
+    if (isNewCheck) {
+      isNewCheck = false;
+      targetWFpsRight = ((float) tVal) / 1000.0; // 
+      targetWFpsLeft = ((float) uVal) / 1000.0; // 
+      sumRight += wFpsRight;
+      sumLeft += wFpsLeft;
+      if (!(loop++ % 1000)) {  
+        float r = sumRight / 1000.0;
+        float l = sumLeft / 1000.0;
+        sumRight = sumLeft = 0.0;
+        sprintf(message, "%5.2f   %5.2f", l, r);
+        sendBMsg(SEND_MESSAGE, message);
       }
     } // end timed loop 
   } // while
@@ -748,41 +745,41 @@ void aTpSequence() {
  *
  *********************************************************/
 void aPulseSequence() {
-  pulseIndex = 0;
-  pulseTrigger = 0L;
-  
-  while (mode == MODE_PULSE_SEQUENCE) {
-    timeMicroseconds = micros();
-    if (timeMicroseconds > pulseTrigger) {
-      if (pulseIndex == pulseCount) { // End of sequence      
-        mode = oldMode;
-        if (isPwData) {
-          isPwData = false;
-          sendDumpData();
-        }
-      }
-      else {
-        int motor = motorArray[pulseIndex];
-        int pw = pwArray[pulseIndex];
-        pulseTrigger = timeMicroseconds + pw;
-        pulseIndex++;
-        switch (motor) {
-        case 1: // Coast
-          setMotor(MOTOR_RIGHT, COAST, 0);
-          break;
-        case 2: // Forward
-          setMotor(MOTOR_RIGHT, FWD, 255);
-          break;
-        case 3: // Backwards
-          setMotor(MOTOR_RIGHT, BKWD, 255);
-          break;
-        default: // Brake
-          setMotor(MOTOR_RIGHT, BRAKE, 0);
-          break;
-        }
-      }
-    } 
-  }
+//  pulseIndex = 0;
+//  pulseTrigger = 0L;
+//  
+//  while (mode == MODE_PULSE_SEQUENCE) {
+//    timeMicroseconds = micros();
+//    if (timeMicroseconds > pulseTrigger) {
+//      if (pulseIndex == pulseCount) { // End of sequence      
+//        mode = oldMode;
+//        if (isPwData) {
+//          isPwData = false;
+//          sendDumpData();
+//        }
+//      }
+//      else {
+//        int motor = motorArray[pulseIndex];
+//        int pw = pwArray[pulseIndex];
+//        pulseTrigger = timeMicroseconds + pw;
+//        pulseIndex++;
+//        switch (motor) {
+//        case 1: // Coast
+//          setMotor(MOTOR_RIGHT, COAST, 0);
+//          break;
+//        case 2: // Forward
+//          setMotor(MOTOR_RIGHT, FWD, 255);
+//          break;
+//        case 3: // Backwards
+//          setMotor(MOTOR_RIGHT, BKWD, 255);
+//          break;
+//        default: // Brake
+//          setMotor(MOTOR_RIGHT, BRAKE, 0);
+//          break;
+//        }
+//      }
+//    } 
+//  }
 }
 
 
@@ -801,8 +798,8 @@ void diagnostics() {
   Serial.println("Start diagnositics.");
 
   // Run the motors.
-  setMotor(MOTOR_RIGHT, FWD, 70);
-  setMotor(MOTOR_LEFT, BKWD, 70);
+  setMotorRight(1000, FWD);
+  setMotorLeft(1000, FWD);
   
   while (true) {
     delay(1000);
@@ -837,8 +834,8 @@ void diagnostics() {
     // Motors
     readSpeedRight();
     readSpeedLeft();
-    Serial.print("fpsRight: "); Serial.print(fpsRight); Serial.print("\t");
-    Serial.print("fpsLeft: "); Serial.print(fpsLeft); Serial.println();
+    Serial.print("wFpsRight: "); Serial.print(wFpsRight); Serial.print("\t");
+    Serial.print("wFpsLeft: "); Serial.print(wFpsLeft); Serial.println();
 
     
     // XBee & Bluetooth
