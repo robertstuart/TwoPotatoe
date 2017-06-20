@@ -103,7 +103,7 @@ void checkMotorRight() {
   readSpeedRight();
 
   float wsError = (float) (targetWFpsRight - wFpsRight);       // Wheel speed error
-  if (abs(targetWFpsRight) < 0.5) {
+  if (abs(targetWFpsRight) < 0.5) {  // reduce gain below .5 fps
     motorGain = 1.0 + (abs(targetWFpsRight) * 8.0);
   }
   float wsTarget = targetWFpsRight + (wsError * motorGain);  // Target speed to correct error
@@ -183,12 +183,12 @@ void readSpeedLeft() {
 
 void checkMotors() {
   static unsigned int pollCount;
-  if (!(++pollCount % 10)) {  // Do every 10th call (1000/sec)
+//  if (!(++pollCount % 10)) {  // Do every 10th call (1000/sec)
     checkMotorRight();
     checkMotorLeft();
     wFps = (wFpsLeft + wFpsRight) / 2.0;
     wMFps = (wMFpsRight + wMFpsLeft) / 2;
-    isNewCheck = true;
+//    isNewCheck = true;
 //        addLog(
 //        (long) timeMilliseconds,
 //        (short) (0.0 * 100.0),
@@ -199,7 +199,7 @@ void checkMotors() {
 //        (short) (0.0 * 100.0)
 //   );
 
-  }
+//  }
 }
 
 

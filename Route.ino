@@ -555,7 +555,7 @@ void addLockHeading() {
       xLockSum += xAve;
       gLockCount++;
     }
-    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f     ", xMax, xMin, xAve);
+    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f     %4d  ", xMax, xMin, xAve, isRouteInProgress);
     Serial.print(message);
     sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
     Serial.print(message);

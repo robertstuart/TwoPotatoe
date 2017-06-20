@@ -181,10 +181,10 @@ struct valSet {
 
 struct valSet tp7 = { 
   4.5,     // t
-  0.90,    // u
+  0.98,    // u
   0.90,    // v
   0.98,    // w
-  4.0,     // x
+  2.0,     // x
   0.2,     // y
   0.0
 }; 
@@ -663,7 +663,6 @@ void loop() { //Main Loop
  *********************************************************/
 void pollIsr() {
   beepIsr();
-  checkMotors();
 }
 
 

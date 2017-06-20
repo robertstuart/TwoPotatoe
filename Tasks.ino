@@ -54,8 +54,6 @@ int blinkPtrRed = 0;
  *
  **************************************************************************/
 void commonTasks() {
-  timeMicroseconds = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
   readXBee();  // Read commands from PC or Hand Controller
   readBluetooth();
   readSonar();
@@ -67,6 +65,8 @@ void commonTasks() {
   switches();
   setRunningState();
   gyroTemperature();
+  timeMicroseconds = micros();
+  timeMilliseconds = timeMicroseconds / 1000;
 }
 
 
@@ -92,9 +92,18 @@ void setRunningState() {
     // Set the runnng bit to control motors
     if ((isRunReady && isUpright) && (!isLifted  || isRouteInProgress)) {
       isRunning = true;
-    }
-    else {
+//      if (oldIsRunning == false) {  // State change
+//        oldIsRunning = true;
+//        setGyroDrift();
+//      }
+    } else {
       isRunning = false;
+//      if (oldIsRunning == true) { // State change
+//        startGyroDrift();
+//        oldIsRunning = false;
+//      } else {
+//        doGyroDrift();
+//      }
     }
   }
   else { // For all test modes, just set accoding to ready bit
