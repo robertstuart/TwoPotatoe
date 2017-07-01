@@ -2,8 +2,8 @@
  * ----- TP6 ------
  ***********************************************************************/
 double accelFps = 0.0;
+double coAccelFps = 0.0;
 double lpfAccelFps = 0.0;
-double tpFps = 0.0;
 double lpfTpFps = 0.0;
 float fpsCorrection = 0.0f;
 float fpsLpfCorrectionOld = 0.0;
@@ -26,6 +26,7 @@ void aTp7Run() {
   setHeading(0.0D);
   resetTicks();
   beep(BEEP_UP);
+  startGyroDrift();
   while(mode == MODE_2P) { // main loop
     commonTasks();
     if (timeMicroseconds > loopTrigger) {
@@ -41,6 +42,7 @@ void aTp7Run() {
         reads = 0;
         setNavigation();
         aTp7(); 
+        doGyroDrift();
         sendLog();
         safeAngle();
       }
@@ -57,54 +59,59 @@ const double COMP_TC = 0.98;
 const double ACCEL_TC = 0.90;
 //const float COMP_TC = 0.0; // Cos only
 const double FPS_ACCEL = 0.05;
+const double ZERO_ANGLE = 0.5;
+const double ONE_G_Y = -16530.0D;
+const double ONE_G_Z = 17029.0D;
+const double ACCEL_TO_FPS = 0.06;
 /***********************************************************************.
  *  aTp7() 
  ***********************************************************************/
 void aTp7() {
   static double lpfAccelFpsOld = 0.0;
   static double tp7OldSpeedError = 0.0;
+  static double oldAccelFps = 0.0D;
  
   // Compute Center of Oscillation speed (cos)
   rotation3 = -gyroPitchDelta * (*currentValSet).t;  // 4.5
   cos3 = wFps + rotation3;
   // 0.92 .u value: 0.0 = no hf filtering, large values give slow response
-  lpfCos3 = (lpfCosOld3 * (*currentValSet).u) + (cos3 * (1.0D - (*currentValSet).u));
-//  lpfCos3 = (lpfCosOld3 * 0.98) + (cos3 * (1.0D - 0.98));
-  lpfCosOld3 = lpfCos3;
+  lpfCos3 = (lpfCos3Old * (*currentValSet).u) + (cos3 * (1.0D - (*currentValSet).u));
+  lpfCos3Accel = lpfCos3 - lpfCos3Old;
+  lpfCos3Old = lpfCos3;
 
   // Compute the acceleration speed
-  double yRawAccel = (double) (lsm6.a.y - Y_BIAS); // Subtract out the constant error.
-  double yAccel = yRawAccel - (sin(gaPitch * DEG_TO_RAD) * Y_ONE_G); // Subtract out gravity part
-  double accelFpsDelta = yAccel * ACCEL_TO_SPEED;  // keep for debugging
-  accelFps -= accelFpsDelta;   // get the speed from the accelerometer
-
-static unsigned int loop = 0;
-if (!(loop++ % 100)) Serial.println((int) yAccel);
+  double rad = (gaPitch + ZERO_ANGLE) * DEG_TO_RAD;
+  double yG = ((double) lsm6.a.y) / ONE_G_Y;
+  double zG = ((double) lsm6.a.z) / ONE_G_Z;
+  double yAccel = -(((cos(rad) * yG) + (sin(rad) * zG)) * ACCEL_TO_FPS);
+  accelFps += yAccel;
 
   // lp filter the accel value.
-  double lpfAccelFps = (lpfAccelFpsOld * (*currentValSet).v) + (accelFps * (1.0 - (*currentValSet).v)); // 0.9
-  double lpfAccelFpsDelta = lpfAccelFpsOld - lpfAccelFps;
-  lpfAccelFpsOld = lpfAccelFps;
+//  double lpfAccelFps = (lpfAccelFpsOld * (*currentValSet).a) + (accelFps * (1.0 - (*currentValSet).v)); // 0.9
+//  double lpfAccelFpsDelta = lpfAccelFpsOld - lpfAccelFps;
+//  lpfAccelFpsOld = lpfAccelFps;
   
   if (!isRunning) accelFps = lpfAccelFps = 0.0;
 
-  // Complementary filter with COS. Try to minimize loss of traction effects.
+  // Complementary filter with COS. Try to minimizen jumping & loss of traction effects.
   // 0.98, High value places more emphasis on accel.
-  tpFps -= accelFpsDelta;
-  tpFps =    (tpFps *    (*currentValSet).w) + (lpfCos3 * (1.0 - (*currentValSet).w));
-  lpfTpFps -= lpfAccelFpsDelta;
-  lpfTpFps = (lpfTpFps * (*currentValSet).w) + (lpfCos3 * (1.0 - (*currentValSet).w));
+  double accelFpsDelta = accelFps - oldAccelFps;
+  oldAccelFps = accelFps;
+  coAccelFps += accelFpsDelta;
+  coAccelFps = (coAccelFps * (*currentValSet).w) + (lpfCos3 * (1.0 - (*currentValSet).w));
+//  lpfcoAccelFps -= lpfAccelFpsDelta;
+//  lpfcoAccelFps = (lpfcoAccelFps * (*currentValSet).w) + (lpfCos3 * (1.0 - (*currentValSet).w));
 
   // Choose which of the computations to use.  Uncomment just one.
-  float tpFpsStd = lpfCos3;
-//  float tpFpsStd = tpFps;
-//  float tpFpsStd = lpfTpFps;
+  tpFps = lpfCos3;
+//  float tpFps = coAccelFps;
+//  float tpFps = lpfcoAccelFps;
 
-  if (isRouteInProgress) tp7ControllerSpeed = routeFps;
+  if (isRouteInProgress) tp7ControllerSpeed = getRouteFps();
   else tp7ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
 
   // Find the speed error.  Constrain rate of change.
-  double tp7SpeedError = tp7ControllerSpeed - tpFpsStd;
+  double tp7SpeedError = tp7ControllerSpeed - tpFps;
 //  double speedDiff = tp7SpeedError - tp7OldSpeedError;
 //  if (speedDiff > 0.0D) tp7OldSpeedError += FPS_ACCEL;
 //  else tp7OldSpeedError -= FPS_ACCEL;
@@ -123,23 +130,34 @@ if (!(loop++ % 100)) Serial.println((int) yAccel);
   fpsCorrection = angleError * (*currentValSet).y; // 0.4 ******************* Angle error to speed *******************
 
   // Add the angle error to the base speed to get the target wheel speed.
-  targetWFps = fpsCorrection + tpFpsStd;
+  targetWFps = fpsCorrection + tpFps;
 //  targetWFps = fpsCorrection;
 
   // These routines set the steering values, among other things.
   if (isRouteInProgress) steerRoute();
   else steer(targetWFps);
-  if (isRunning) {
-    addLog(
-        (long)(lpfCos3 * 100.0),
-        (short) (accelFps * 100.0),
-        (short) (lpfAccelFps * 100.0),
-        (short) (tpFps * 100.0),
-        (short) (lpfTpFps * 100.0),
-        (short) (0 * 100.0),
-        (short) (targetWFps * 100.0)
-    );
-  }
+//  if (isRunning) {
+//    addLog(
+//        (long)(gaPitch * 100.0),
+//        (short) (lpfCos3 * 100.0),
+//        (short) (lsm6.a.y),
+//        (short) (lsm6.a.z),
+//        (short) (wFps * 100.0),
+//        (short) (accelFps * 100.0),
+//        (short) (tpFps * 100.0)
+//    );
+//  }
+//static unsigned int loop = 0;
+//static int ySum = 0;
+//static int zSum = 0;
+//static int sumCount = 0;
+//ySum += lsm6.a.y;
+//zSum += lsm6.a.z;
+//if (++sumCount == 200) {
+//  sprintf(message, "y: %7d   z: %7d   ", ySum / 200, zSum / 200);
+//  Serial.println(message);
+//  ySum = zSum = sumCount = 0;
+//}
 } // end aTp7() 
 
 
@@ -165,6 +183,7 @@ void sendLog() {
 //  if ((logLoop % 10) == 7) log20PerSec(); // 20/sec  
 //  if (!(logLoop % 2)) log104PerSec(); // 104/sec  
 //  if (isRouteInProgress  && isRunning)  log208PerSec();
+//  log208PerSec();
 }
 
 void log2PerSec() {
@@ -205,7 +224,7 @@ void log104PerSec() {
 }
 
 
-void log416PerSec() {
+void log208PerSec() {
   addLog(
         (long) (tickPosition),
         (short) (routeFps * 100.0),

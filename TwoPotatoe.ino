@@ -15,9 +15,9 @@
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 
 // Values for initial timeDrift???
-const double PITCH_DRIFT = -16.52;
+const double PITCH_DRIFT = -26.63;
 const double ROLL_DRIFT = 63.60;
-const double YAW_DRIFT = -26.81;
+const double YAW_DRIFT = -23.47;
 
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
@@ -38,8 +38,6 @@ const int MOT_LEFT_ENCB =   25;
 const int MOT_RIGHT_ENCZ =  26; 
 const int MOT_LEFT_ENCZ =   27; 
 
-const int MOT_RIGHT_MODE =  50;   
-const int MOT_LEFT_MODE =   51; 
 const int MOT_RIGHT_DIR =    4;   
 const int MOT_LEFT_DIR =     5 ; 
 const int MOT_RIGHT_PWMH =   6; 
@@ -182,8 +180,8 @@ struct valSet {
 struct valSet tp7 = { 
   4.5,     // t
   0.98,    // u
-  0.90,    // v
-  0.98,    // w
+  2.7,     // v
+  0.95,    // w
   2.0,     // x
   0.2,     // y
   0.0
@@ -246,6 +244,7 @@ String routeTitle = "No route";
 boolean isDecelPhase = false;    // Reached point where dece starts?
 boolean isDecelActive = false;   // Decelerate for this G or T?
 float decelFps = 0.0;
+float tpFps = 0.0;
 
 double turnTargetCumHeading = 0.0;
 
@@ -307,10 +306,11 @@ double rotation2 = 0.0D;
 double cos2 = 0.0D;
 double lpfCos2 = 0.0D;
 double lpfCosOld2 = 0.0D;
-float rotation3 = 0.0D;
-float cos3 = 0.0D;
-float lpfCos3 = 0.0D;
-float lpfCosOld3 = 0.0D;
+float rotation3 = 0.0;
+float cos3 = 0.0;
+float lpfCos3 = 0.0;
+float lpfCos3Old = 0.0;
+float lpfCos3Accel = 0.0;
 double oldGyroCumHeading = 0.0D;
 double oldTickCumHeading = 0.0D;
 
@@ -519,9 +519,6 @@ int ackFrameNumber = 0;
 int ackFailure = 0;
 int ccaFailure = 0;;
 int purgeFailure = 0;
-
-double tp5LpfCosAccel = 0.0;
-double tp6LpfCosAccel = 0.0;
 
 int interruptErrorsRight = 0;
 int interruptErrorsLeft = 0;

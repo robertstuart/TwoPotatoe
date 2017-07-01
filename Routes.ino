@@ -1,4 +1,11 @@
-// Initial test of TwoPotatoe for 2017
+
+String jump1[] = { 
+  "N Jump 1",
+  "KR  0,0     0          ",
+  "G   0,25    3          ",
+  "F"
+};
+
 String barrel[] = {
   "N Barrel Test 1",
   "KR   0,0    0",
@@ -50,7 +57,7 @@ String avc2017[] =   {  //
 String testRun1[] = { 
   "N Test Run 1",
   "KR  0,0     0          ",
-  "G   0,3     0.5          ",
+  "G   0,3     2         ",
   "T    3,5    3   2   90",
   "G    5,5    3          ",
   "F"
@@ -59,6 +66,7 @@ String testRun1[] = {
 String loadedRoute[200]; 
 
 String *routeTable[] = {
+  jump1,
   testRun1,
   avc2017,
   barrel,

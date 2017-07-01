@@ -42,7 +42,7 @@ void angleInit6() {
   lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Accel data ready on INT1
   lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
   lsm6.writeReg(LSM6::CTRL2_G, 0X5C);   // Gyro 2000fs, 208hz
-  lsm6.writeReg(LSM6::CTRL1_XL, 0X50);  // Accel 2g, 104hz
+  lsm6.writeReg(LSM6::CTRL1_XL, 0X50);  // Accel 2g, 208hz
 //  lsm6.writeReg(LSM6::CTRL2_G, 0X6C);   // Gyro 2000fs, 416hz
 //  lsm6.writeReg(LSM6::CTRL1_XL, 0X40);  // Accel 2g, 104hz
 
@@ -116,8 +116,10 @@ void setGyroData() {
 void setAccelData() {
   static int lastAccel;
   // Pitch
-  double k8 = 000.0;  // 
-  double accelX = lsm6.a.y + (k8 * 1000.0 * tp6LpfCosAccel);  // 
+//  double k8 = 2.0;  // 
+  double k8 = (*currentValSet).v;
+  double accelX = lsm6.a.y + (k8 * 100000.0 * lpfCos3Accel);  // 
+//  double accelX = lsm6.a.y;  // 
   aPitch = ((atan2(-accelX, lsm6.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
   gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
   if ((          (lsm6.a.z > 7000)
@@ -298,84 +300,6 @@ boolean readHMC() {
 
 
 /**************************************************************************.
- * zeroGyro()  Take x,y, & z values for ? second.  Compute the value to
- *             cancel out drift.
- **************************************************************************/
-#define GLOOPS 2000  // Number of 400/sec reads
-void zeroGyro() {
-  int loopCount = GLOOPS;
-  int sumPitch = 0;
-  int sumRoll = 0;
-  int sumYaw = 0;
-  int gyroPitchMin, gyroPitchMax;
-  int gyroRollMin, gyroRollMax;
-  int gyroYawMin, gyroYawMax;
-
-  for (int i = 0; i < 100; i++) {
-    lsm6.readGyro();
-    delay(3);
-  }
-  
-  gyroPitchMin = gyroPitchMax = lsm6.g.x;
-  gyroRollMin = gyroRollMax = lsm6.g.y;
-  gyroYawMin = gyroYawMax = lsm6.g.z;
-  while(true) {
-    if (isNewGyro()) {
-      int pitch = lsm6.g.x;
-      sumPitch += pitch;
-      if (pitch > gyroPitchMax) gyroPitchMax = pitch;
-      if (pitch < gyroPitchMin) gyroPitchMin = pitch;
-      
-      int roll = lsm6.g.y;
-      sumRoll += roll;
-      if (roll > gyroRollMax) gyroRollMax = roll;
-      if (roll < gyroRollMin) gyroRollMin = roll;
-
-      int yaw = lsm6.g.z;
-      sumYaw += yaw;
-      if (yaw > gyroYawMax) gyroYawMax = yaw;
-      if (yaw < gyroYawMin) gyroYawMin = yaw;
-      if (--loopCount <= 0) break;
-    }
-  }
-  
-  timeDriftPitch = (((double) sumPitch) / ((double) GLOOPS)) - 0.80; //************* FUDGE! ****************
-  timeDriftRoll = (((double) sumRoll) / ((double) GLOOPS)) + 1.50 ; //************* FUDGE! ****************
-  timeDriftYaw = (((double) sumYaw) / ((double) GLOOPS)) + 0.20; //************* FUDGE! ****************
-  if (     ((gyroPitchMax - gyroPitchMin) < 20)
-        && ((gyroRollMax - gyroRollMin) < 20)
-        && ((gyroYawMax - gyroYawMin) < 20)) {
-    beep(BEEP_UP);
-  } else {
-    timeDriftPitch = PITCH_DRIFT;
-    timeDriftRoll = ROLL_DRIFT;
-    timeDriftYaw = YAW_DRIFT;
-    beep(BEEP_DOWN);
-  }
-
-  Serial.println();
-  Serial.print("pitchDrift: "); Serial.print(timeDriftPitch); Serial.print("\t");
-  Serial.print("rollDrift: "); Serial.print(timeDriftRoll); Serial.print("\t");
-  Serial.print("yawDrift: "); Serial.print(timeDriftYaw); Serial.println();
-  
-  Serial.print("Pitch min: "); Serial.print(gyroPitchMin); Serial.print("\t");
-  Serial.print("Pitch Max: "); Serial.print(gyroPitchMax); Serial.print("\t");
-  Serial.print("Pitch Range: "); Serial.print(gyroPitchMax - gyroPitchMin); Serial.println();
-  
-  Serial.print("Roll min: "); Serial.print(gyroRollMin); Serial.print("\t");
-  Serial.print("Roll Max: "); Serial.print(gyroRollMax); Serial.print("\t");
-  Serial.print("Roll Range: "); Serial.print(gyroRollMax - gyroRollMin); Serial.println();
-  
-  Serial.print("Yaw min: "); Serial.print(gyroYawMin); Serial.print("\t");
-  Serial.print("Yaw Max: "); Serial.print(gyroYawMax); Serial.print("\t");
-  Serial.print("Yaw Range: "); Serial.print(gyroYawMax - gyroYawMin); Serial.println();
-  
-  baseGyroTemp = readFahr();
-}
-
-
-
-/**************************************************************************.
  * isNew???()  Return true if new data has been read.
  **************************************************************************/
 boolean isNewGyro() {
@@ -441,3 +365,93 @@ float readFahr() {
   ret = ((ret * 9.0) / 5) + 32;
   return ret;
 }
+
+
+
+const int DRIFT_SIZE = 204;
+float zDriftSum = 0.0;
+float xDriftSum = 0.0;
+int gDriftCount = 0;
+int gPtr = 0;
+boolean isMeasuringDrift = false;
+/**************************************************************************.
+ * doGyroDrift()  Called 204/sec.  Average gyroDrift for x, y & z
+ *                for one second periods.
+ **************************************************************************/
+void doGyroDrift() {
+  static int zArray[DRIFT_SIZE];
+  static int xArray[DRIFT_SIZE];
+  int z, x;
+
+  if (!isMeasuringDrift) return;
+  zArray[gPtr] = lsm6.g.z;
+  xArray[gPtr] = lsm6.g.x;
+  gPtr++;
+  if (gPtr >= DRIFT_SIZE) {
+    int zSum = 0;
+    int xSum = 0;
+    int xMax = xArray[0];
+    int xMin = xMax;
+    int zMax = zArray[0];
+    int zMin = zMax;
+    for (int i = 0; i < DRIFT_SIZE; i++) {
+      z = zArray[i];
+      if (z > zMax)  zMax = z;
+      if (z < zMin)  zMin = z;
+      zSum += z;
+      x = xArray[i];
+      if (x > xMax)  xMax = x;
+      if (x < xMin)  xMin = x;
+      xSum += x;
+    }
+    float zAve = ((float) zSum) / ((float) DRIFT_SIZE);
+    float xAve = ((float) xSum) / ((float) DRIFT_SIZE);
+    if (((zMax - zMin) < 30) && ((xMax - xMin) < 30)) {
+      zDriftSum += zAve;
+      xDriftSum += xAve;
+      gDriftCount++;
+    }
+//    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMax, xMin, xAve);
+//    Serial.print(message);
+//    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
+//    Serial.print(message);
+    gPtr = 0;
+  }
+}
+
+
+
+/**************************************************************************.
+ * startGyroDrift()  "isRunning" has changed to false.  Initialize the
+ *                   sums for x, y, and z.
+ **************************************************************************/
+void startGyroDrift() {
+  isMeasuringDrift = true;
+  gPtr = 0;
+  xDriftSum = zDriftSum = 0.0;
+  gDriftCount = 0;
+}
+
+
+
+/**************************************************************************.
+ * setGyroDrift()  "isRunning" has changed to true.  Take the averaged 
+ *                 drift values and set the "timeDrift??? values.
+ **************************************************************************/
+void setGyroDrift() {
+  if (gDriftCount > 0) {
+    timeDriftYaw = zDriftSum / ((float) gDriftCount);
+    timeDriftPitch = xDriftSum / ((float) gDriftCount);
+    sprintf(message, "YawDrift: %5.2f     PitchDrift: %5.2f\n", timeDriftYaw, timeDriftPitch);
+    sendBMsg(SEND_MESSAGE, message);
+    Serial.print(message);
+  }
+  isMeasuringDrift = false;
+}
+
+
+
+
+
+ 
+

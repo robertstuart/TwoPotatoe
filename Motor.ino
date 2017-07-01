@@ -8,12 +8,8 @@ void motorInitTp() {
   pwm_setup(MOT_LEFT_PWMH, TP_PWM_FREQUENCY, 1);  // on clock A
 
   // Set motor pins & states
-  pinMode(MOT_RIGHT_MODE, OUTPUT);
-  pinMode(MOT_LEFT_MODE, OUTPUT);
   pinMode(MOT_RIGHT_DIR, OUTPUT);
   pinMode(MOT_LEFT_DIR, OUTPUT);
-  digitalWrite(MOT_RIGHT_MODE, HIGH);  // Drive-brake mode.
-  digitalWrite(MOT_LEFT_MODE, HIGH);  // Drive-brake mode.
   setMotorRight(0, FWD);
   setMotorLeft(0, FWD);
 

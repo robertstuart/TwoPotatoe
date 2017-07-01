@@ -67,21 +67,14 @@ void steerRoute() {
       break;
 
     case 'G':
-      setTarget();
-//      ret = setFps();
-//      if (!isDecelActive) ret = isTargetReached();
-//      if (ret) {
-//        isDecelPhase = isDecelActive = false;
-//        isNewRouteStep = true;
-//      } else {
-        steerHeading();
-//      }
+      if (isTargetReached()) isNewRouteStep = true;
+      else steerHeading();
       break;
 
     case 'K':  // Lock
       if (isStartReceived) {
         isNewRouteStep = true;
-        setLockDrift();
+        setGyroDrift();
         setHeading(rangeAngle(startOrientation));
         currentLoc = startLoc;
         timeStart = timeMilliseconds;
@@ -90,7 +83,6 @@ void steerRoute() {
       }
       else {
         routeFps = 0.0;
-        addLockHeading();
       }
       break;
 
@@ -101,15 +93,8 @@ void steerRoute() {
       break;
 
     case 'T': // Turn
-      setTarget();
-      ret = setFps();
-      if (!isDecelActive) ret = isTargetReached();
-      if (ret) {
-        isDecelPhase = isDecelActive = false;
-        isNewRouteStep = true; 
-      } else {
-        turn();
-      }
+      if (isTargetReached()) isNewRouteStep = true; 
+      else turn();
       break;
 
     default:
@@ -214,7 +199,7 @@ boolean interpretRouteLine(String ss) {
       startOrientation = readNum();
       Serial.print(startOrientation); Serial.print("   ");
       if ((startOrientation < -180.0D) || (startOrientation > 180.0)) return false;
-      resetLockHeading();
+      startGyroDrift();
       isStartReceived = false;
       break;
 
@@ -361,64 +346,57 @@ void turn() {
 }
 
 /************************************************************************
-    setFps() Limit acceleration to prevent too rapid acceleration--
-             particularly when starting from zero from the stand.
-             Also starts deceleration at end of step.
-             Returns true if is decelerating and reached target fps.
+    getRouteFps() Limit acceleration to prevent too rapid acceleration--
+                  particularly when starting from zero from the stand.
+                  Also starts deceleration at end of step.
+                  Returns true if is decelerating and reached target fps.
  ************************************************************************/
-boolean setFps() {
-//  float stopDistance;
-//
-//  // Check to see if we need to start the decel phase.
-//  if (isDecelActive && !isDecelPhase) {
-//    stopDistance = (fps * fps) / 5.58;
-//    if (targetDistance <= stopDistance) {
-//      isDecelPhase = true;
-//    }
-//  }
-//
-//  if (isDecelPhase) {
-//    if (fps <= 0.0) return true;
-//    routeFps = fps - 5.0;
-//  } else {
-//    if (routeScriptFps < 0.0) {
-//      routeFps = routeScriptFps;
-//    } else { // Going forward
-//      if (timeRun < 1000) {  // taking off from stand?
-//        routeFps = (((float) timeRun) / 200.0) + 0.5;
-//      } else {
-//        routeFps = fps + 5.0;
-//        if (routeFps > (routeScriptFps + 2.5)) {
-//          float inc = (routeScriptFps - fps) / 2.0;
-//          routeFps = routeScriptFps + inc;
-//        }
-//      }
-//    }
-//  }
-  routeFps = routeScriptFps;
-  return false;
-}
+float getRouteFps() {
+  float stopDistance;
 
+  // Check to see if we need to start the decel phase.
+  if (isDecelActive && !isDecelPhase) {
+    stopDistance = (tpFps * tpFps) / 5.58;
+    if (targetDistance <= stopDistance) {
+      isDecelPhase = true;
+    }
+  }
 
+  if (isDecelPhase) {
+    routeFps = tpFps - 5.0;
+  } else {
+    if (routeScriptFps < 0.0) {
+      routeFps = routeScriptFps;
+    } else { // Going forward. Check if starting from stand.
+      if (timeRun < 1000) {  // taking off from stand?
+        routeFps = (((float) timeRun) / 200.0) + 0.5; // Accelerate to 5.5 in 1 sec
+        if (routeFps > routeScriptFps) routeFps = routeScriptFps;
+      } else { // Accelerate to target speed.
+        float inc = (routeScriptFps - tpFps) * 2.0;
+        inc = constrain(inc, -5.0, 5.0);
+        routeFps = tpFps + inc;
+      }
+    }
+  }
+      addLog(
+      (long) (timeRun),
+      (short) (currentLoc.x * 100.0),
+      (short) (currentLoc.y * 100.0),
+      (short) (routeScriptFps * 100.0),
+      (short) (routeFps * 100.0),
+      (short) (tpFps * 100.0),
+      (short) (0)
+    );
 
-/************************************************************************
-    setTarget() Set the new targetBearing and targetDistance from
-                the currentLoc.
- ************************************************************************/
-void setTarget() {
-  double x =  targetLoc.x - currentLoc.x;
-  double y = targetLoc.y - currentLoc.y;
-  targetBearing = atan2(x, y) * RAD_TO_DEG;
-  double xTargetDist = currentLoc.x - targetLoc.x;
-  double yTargetDist = currentLoc.y - targetLoc.y;
-  targetDistance = sqrt((xTargetDist * xTargetDist) + (yTargetDist * yTargetDist));
+  return routeFps;
 }
 
 
 
 /***********************************************************************.
-    isTargetReached()  Return true if within 1 ft of target and is
-                       moving away from the target.
+ *  isTargetReached()  Return true if within 1 ft of target and is
+ *                     moving away from the target.
+ *                     Return true if at end of decel.
  ***********************************************************************/
 boolean isTargetReached() {
   const int RETREAT_TIMES = 10;
@@ -428,6 +406,11 @@ boolean isTargetReached() {
   static double lastTargetDist = 10000.0D;
   static int timesReached = 0;
 
+  if (isDecelActive && isDecelPhase && (tpFps <= 0.0)) {
+    isDecelActive = isDecelPhase = false;
+    return true;
+  }
+  setTarget();
   if (targetDistance < RETREAT_DISTANCE) {
     boolean isCloser = ((lastTargetDist - targetDistance) >= 0.0D);
     lastTargetDist = targetDistance;
@@ -448,6 +431,22 @@ boolean isTargetReached() {
   }
   return false;
 }
+
+
+
+/************************************************************************
+    setTarget() Set the new targetBearing and targetDistance from
+                the currentLoc.
+ ************************************************************************/
+void setTarget() {
+  double x =  targetLoc.x - currentLoc.x;
+  double y = targetLoc.y - currentLoc.y;
+  targetBearing = atan2(x, y) * RAD_TO_DEG;
+  double xTargetDist = currentLoc.x - targetLoc.x;
+  double yTargetDist = currentLoc.y - targetLoc.y;
+  targetDistance = sqrt((xTargetDist * xTargetDist) + (yTargetDist * yTargetDist));
+}
+
 
 
 /***********************************************************************.
@@ -515,66 +514,62 @@ char readChar() {
 
 
 
-#define LOCK_SIZE 416
-float zLockSum = 0.0;
-float xLockSum = 0.0;
-int gLockCount = 0;
 /***********************************************************************.
     ???LockHeading()  Average drift in one-second blocks while
                       in a startup lock condition.
  ***********************************************************************/
-void addLockHeading() {
-  static int zArray[LOCK_SIZE];
-  static int xArray[LOCK_SIZE];
-  static int gPtr = 0;
-  int z, x, zMin, zMax, xMin, xMax;
-  float zAve, xAve;
-
-  zArray[gPtr] = lsm6.g.z;
-  xArray[gPtr] = lsm6.g.x;
-  gPtr++;
-  if (gPtr >= LOCK_SIZE) {
-    int zSum = 0;
-    int xSum = 0;
-    zMax = zMin = zArray[0];
-    xMax = xMin = xArray[0];
-    for (int i = 0; i < LOCK_SIZE; i++) {
-      z = zArray[i];
-      if (z > zMax)  zMax = z;
-      if (z < zMin)  zMin = z;
-      zSum += z;
-      x = xArray[i];
-      if (x > xMax)  xMax = x;
-      if (x < xMin)  xMin = x;
-      xSum += x;
-    }
-    zAve = ((float) zSum) / ((float) LOCK_SIZE);
-    xAve = ((float) xSum) / ((float) LOCK_SIZE);
-    if (((zMax - zMin) < 90) && ((xMax - xMin) < 90)) {
-      zLockSum += zAve;
-      xLockSum += xAve;
-      gLockCount++;
-    }
-    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f     %4d  ", xMax, xMin, xAve, isRouteInProgress);
-    Serial.print(message);
-    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
-    Serial.print(message);
-    gPtr = 0;
-  }
-}
-void resetLockHeading() {
-  timeDriftYaw = 0.0;
-  gLockCount = 0;
-  zLockSum = 0.0;
-  xLockSum = 0.0;
-  lockStartTicks = tickPosition;
-}
-void setLockDrift() {
-  timeDriftYaw = zLockSum / ((float) gLockCount);
-  timeDriftPitch = xLockSum / ((float) gLockCount);
-  sprintf(message, "YawDrift: %5.2f     PitchDrift: %5.2f\n", timeDriftYaw, timeDriftPitch);
-  Serial.print(message);
-}
+//void addLockHeading() {
+//  static int zArray[LOCK_SIZE];
+//  static int xArray[LOCK_SIZE];
+//  static int gPtr = 0;
+//  int z, x, zMin, zMax, xMin, xMax;
+//  float zAve, xAve;
+//
+//  zArray[gPtr] = lsm6.g.z;
+//  xArray[gPtr] = lsm6.g.x;
+//  gPtr++;
+//  if (gPtr >= LOCK_SIZE) {
+//    int zSum = 0;
+//    int xSum = 0;
+//    zMax = zMin = zArray[0];
+//    xMax = xMin = xArray[0];
+//    for (int i = 0; i < LOCK_SIZE; i++) {
+//      z = zArray[i];
+//      if (z > zMax)  zMax = z;
+//      if (z < zMin)  zMin = z;
+//      zSum += z;
+//      x = xArray[i];
+//      if (x > xMax)  xMax = x;
+//      if (x < xMin)  xMin = x;
+//      xSum += x;
+//    }
+//    zAve = ((float) zSum) / ((float) LOCK_SIZE);
+//    xAve = ((float) xSum) / ((float) LOCK_SIZE);
+//    if (((zMax - zMin) < 90) && ((xMax - xMin) < 90)) {
+//      zLockSum += zAve;
+//      xLockSum += xAve;
+//      gLockCount++;
+//    }
+//    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f     %4d  ", xMax, xMin, xAve, isRouteInProgress);
+//    Serial.print(message);
+//    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
+//    Serial.print(message);
+//    gPtr = 0;
+//  }
+//}
+//void resetLockHeading() {
+//  timeDriftYaw = 0.0;
+//  gLockCount = 0;
+//  zLockSum = 0.0;
+//  xLockSum = 0.0;
+//  lockStartTicks = tickPosition;
+//}
+//void setLockDrift() {
+//  timeDriftYaw = zLockSum / ((float) gLockCount);
+//  timeDriftPitch = xLockSum / ((float) gLockCount);
+//  sprintf(message, "YawDrift: %5.2f     PitchDrift: %5.2f\n", timeDriftYaw, timeDriftPitch);
+//  Serial.print(message);
+//}
 
 
 

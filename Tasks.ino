@@ -78,7 +78,6 @@ void commonTasks() {
  *         TP_STATE_RUN_READY is true
  *         TP_STATE_UPRIGHT is true
  *         TP_STATE_ON_GROUND or isJump is true
- *         TP_STATE_MOTOR_FAULT ????
  *
  *      Set x and y to zero if there is no connection to
  *      a controller or STATE_MOTOR_FAULT is true.
@@ -87,23 +86,22 @@ void commonTasks() {
  *
  **************************************************************************/
 void setRunningState() {
+  static boolean oldIsRunning = true;
 
   if (mode == MODE_2P) {
     // Set the runnng bit to control motors
     if ((isRunReady && isUpright) && (!isLifted  || isRouteInProgress)) {
       isRunning = true;
-//      if (oldIsRunning == false) {  // State change
-//        oldIsRunning = true;
-//        setGyroDrift();
-//      }
+      if (oldIsRunning == false) {  // State change
+        oldIsRunning = true;
+        setGyroDrift();
+      }
     } else {
       isRunning = false;
-//      if (oldIsRunning == true) { // State change
-//        startGyroDrift();
-//        oldIsRunning = false;
-//      } else {
-//        doGyroDrift();
-//      }
+      if (oldIsRunning == true) { // State change
+        startGyroDrift();
+        oldIsRunning = false;
+      } 
     }
   }
   else { // For all test modes, just set accoding to ready bit
