@@ -1,3 +1,27 @@
+const float SEEK_FPS = 2.0;
+const float TURN_FPS = 3.0;
+// Barrel strategy
+const int BARREL_STRATEGY1 = 0;
+const int BARREL_STRATEGY2 = 1;
+int barrelStrategyState = BARREL_STRATEGY1;
+
+// Barrel states
+const int SEEK_BARREL = 0;
+const int PLOT_BARREL = 1;
+const int CIRCLE_BARREL = 2;
+int barrelOneState = SEEK_BARREL;
+
+// Plot states
+const int PIVOT_SETTLE = 0;
+const int PIVOT_LEFT = 1;
+const int PIVOT_RIGHT = 2;
+int plotState = PIVOT_SETTLE;
+
+// Circle states
+const int CIRCLE_ORIENT = 0;
+const int CIRCLE_TURN = 2;
+int circleState = CIRCLE_ORIENT;
+
 #define STEP_ERROR -42.42
 int originalStepStringPtr = 0;
 struct loc savedOrientationLoc;
@@ -31,9 +55,9 @@ void routeLog() {
       (short) (currentLoc.x * 100.0),
       (short) (currentLoc.y * 100.0),
       (short) (gyroHeading * 100.0),
-      (short) (sonarFront * 100.0),
-      (short) (barrelX * 100.0),
-      (short) (routeStepPtr - isDecelPhase)
+      (short) (routeStepPtr),
+      (short) (barrelOneState),
+      (short) (plotState)
     );
   }
 }
@@ -146,8 +170,7 @@ boolean interpretRouteLine(String ss) {
       barrelYEnd = readNum();
       Serial.print(barrelYEnd); Serial.print("   ");
       if (barrelYEnd == STEP_ERROR) return false;
-      setSonar("lFr");
-      barrels(true); // Reset
++      barrels(true); // Reset
       break;
 
     case 'C': // Charted object
@@ -185,6 +208,8 @@ boolean interpretRouteLine(String ss) {
       routeFps = routeScriptFps = readNum();
       Serial.print(routeFps);  Serial.print("   ");
       if (routeFps == STEP_ERROR) return false;
+      isDecelPhase = false;
+      setTarget();
       break;
 
     case 'K': // Lock bearing at start
@@ -256,6 +281,7 @@ boolean interpretRouteLine(String ss) {
       sprintf(message, "      pivotLoc.: %5.2f,%5.2f", pivotLoc.x, pivotLoc.y);
       sendBMsg(SEND_MESSAGE, message);
       Serial.print(message);
+      setTarget();
       break;
 
     default:
@@ -354,40 +380,49 @@ void turn() {
 float getRouteFps() {
   float stopDistance;
 
-  // Check to see if we need to start the decel phase.
-  if (isDecelActive && !isDecelPhase) {
-    stopDistance = (tpFps * tpFps) / 5.58;
-    if (targetDistance <= stopDistance) {
-      isDecelPhase = true;
-    }
-  }
-
-  if (isDecelPhase) {
-    routeFps = tpFps - 5.0;
-  } else {
-    if (routeScriptFps < 0.0) {
-      routeFps = routeScriptFps;
-    } else { // Going forward. Check if starting from stand.
-      if (timeRun < 1000) {  // taking off from stand?
-        routeFps = (((float) timeRun) / 200.0) + 0.5; // Accelerate to 5.5 in 1 sec
-        if (routeFps > routeScriptFps) routeFps = routeScriptFps;
-      } else { // Accelerate to target speed.
-        float inc = (routeScriptFps - tpFps) * 2.0;
-        inc = constrain(inc, -5.0, 5.0);
-        routeFps = tpFps + inc;
+  switch (routeCurrentAction) {
+    case 'G':
+    case 'T':
+      // Check to see if we need to start the decel phase.
+      if (isDecelActive && !isDecelPhase) {
+        stopDistance = (tpFps * tpFps) / 5.58;
+        if (targetDistance <= stopDistance) {
+          isDecelPhase = true;
+        }
       }
-    }
-  }
-      addLog(
-      (long) (timeRun),
-      (short) (currentLoc.x * 100.0),
-      (short) (currentLoc.y * 100.0),
-      (short) (routeScriptFps * 100.0),
-      (short) (routeFps * 100.0),
-      (short) (tpFps * 100.0),
-      (short) (0)
-    );
+    
+      if (isDecelPhase) {
+        routeFps = tpFps - 5.0;
+      } else {
+        if (routeScriptFps < 0.0) {
+          routeFps = routeScriptFps;
+        } else { // Going forward. Check if starting from stand.
+          if (timeRun < 1000) {  // taking off from stand?
+            routeFps = (((float) timeRun) / 200.0) + 0.5; // Accelerate to 5.5 in 1 sec
+            if (routeFps > routeScriptFps) routeFps = routeScriptFps;
+          } else { // Accelerate to target speed.
+            float inc = (routeScriptFps - tpFps) * 2.0;
+            inc = constrain(inc, -5.0, 5.0);
+            routeFps = tpFps + inc;
+          }
+        }
+      }
+      break;
 
+      case 'B':
+        if (barrelOneState == SEEK_BARREL) {
+          if (abs(gyroHeading) > 5.0)  holdY();
+          else routeFps = SEEK_FPS;
+        } else if (barrelOneState == PLOT_BARREL) {
+          holdY();
+        } else {  // Circle barrel
+          routeFps = TURN_FPS;
+        }   
+        break;
+
+      case 'P':
+        break;
+  }
   return routeFps;
 }
 

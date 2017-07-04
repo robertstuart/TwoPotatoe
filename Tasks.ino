@@ -418,6 +418,7 @@ void readSonar() {
  
   while (SONAR_SER.available()) {
     byte b = SONAR_SER.read();
+    Serial.print(b);
     if (isMsgInProgress) {
       if (b == 13) {
         int e = sscanf(msgStr, "%f", &distance);

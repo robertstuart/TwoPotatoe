@@ -133,9 +133,10 @@ void aTp7() {
   targetWFps = fpsCorrection + tpFps;
 //  targetWFps = fpsCorrection;
 
-  // These routines set the steering values, among other things.
+  // These routines set the steering values.
   if (isRouteInProgress) steerRoute();
   else steer(targetWFps);
+  
 //  if (isRunning) {
 //    addLog(
 //        (long)(gaPitch * 100.0),
@@ -158,6 +159,7 @@ void aTp7() {
 //  Serial.println(message);
 //  ySum = zSum = sumCount = 0;
 //}
+
 } // end aTp7() 
 
 
@@ -179,7 +181,7 @@ void sendLog() {
   
 //  if ((logLoop % 104) == 5) log2PerSec();
 //  if ((logLoop % 21) == 5) ;  // 10/sec
-//  if ((logLoop % 10) == 0) routeLog(); //  
+  if (!(logLoop % 10)) routeLog(); //  20/sec
 //  if ((logLoop % 10) == 7) log20PerSec(); // 20/sec  
 //  if (!(logLoop % 2)) log104PerSec(); // 104/sec  
 //  if (isRouteInProgress  && isRunning)  log208PerSec();
@@ -187,7 +189,7 @@ void sendLog() {
 }
 
 void log2PerSec() {
-  sprintf(message, "gPitch %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gPitch, aPitch, gaPitch);
+  sprintf(message, "gyroHeading %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gyroHeading, aPitch, gaPitch);
   sendBMsg(SEND_MESSAGE, message);
   Serial.print(forceLeft);
   Serial.print(tab);

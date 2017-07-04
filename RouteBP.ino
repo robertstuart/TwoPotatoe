@@ -1,40 +1,3 @@
-const float SEEK_FPS = 2.0;
-const float TURN_FPS = 3.0;
-// Barrel strategy
-const int BARREL_STRATEGY1 = 0;
-const int BARREL_STRATEGY2 = 1;
-int barrelStrategyState = BARREL_STRATEGY1;
-
-// Barrel states
-const int SEEK_BARREL = 0;
-const int PLOT_BARREL = 1;
-const int CIRCLE_BARREL = 2;
-int barrelOneState = SEEK_BARREL;
-
-// Pivot states
-const int PIVOT_SETTLE = 0;
-const int PIVOT_LEFT = 1;
-const int PIVOT_RIGHT = 2;
-int plotState = PIVOT_SETTLE;
-
-// Circle states
-const int CIRCLE_ORIENT = 0;
-const int CIRCLE_TURN = 2;
-int circleState = CIRCLE_ORIENT;
-
-struct sonarPoint {
-  float head;
-  float distance;
-};
-
-const int SONAR_SIZE = 200;
-struct sonarPoint sonarPoints[SONAR_SIZE];
-int sonarPtr = 0;
-int sonarEnd = 0;
-struct sonarPoint sonarA = { 0.0, 0.0 };
-struct sonarPoint sonarB = { 0.0, 0.0 };
-
-struct loc barrelLoc;
 float barrelHead = 0.0;
 float barrelDist = 0.0;
 struct loc seekLoc;
@@ -78,10 +41,9 @@ boolean barrelOne(boolean reset) {
 //  );
   
   if (reset) {
-    barrelX = currentLoc.x;
-    barrelOneState = SEEK_BARREL;
-    routeFps = 1.0;
     barrelX = currentLoc.x;   // Use arrival X
+    barrelOneState = SEEK_BARREL;
+    setSonar("lFr");
     return false;
   }
   
@@ -89,16 +51,15 @@ boolean barrelOne(boolean reset) {
     case SEEK_BARREL:
       if (currentLoc.y > barrelYEnd) return true;
       if (abs(gyroHeading) > 5.0) {
-        routeFps = 0.0;
         speedAdjustment = (gyroHeading > 0.0) ? 0.3 : -0.3;
         targetWFpsRight = targetWFps + speedAdjustment;
         targetWFpsLeft = targetWFps - speedAdjustment;
      } else {
         if (sonarFront < 2.5) {
           barrelOneState = PLOT_BARREL;
+          seekLoc = currentLoc;
           plotBarrel(true);  //reset
         } else {
-          routeFps = SEEK_FPS;
           targetLoc.x = barrelX;
           targetLoc.y = currentLoc.y + 2.0;
           setTarget();
@@ -127,10 +88,9 @@ const float PIVOT_RATE = 0.3;
 const float HEADING_LIMIT = 45.0;
 const float SONAR_EDGE = 4.0;
 /************************************************************************.
- *  plotBarrel()
+ *  plotBarrel()  A barrel has been detected.  Look left and right.
  ************************************************************************/
 void plotBarrel(boolean reset) {
-  static boolean isSonarA = false;
   static int startTime = 0;
   static int pivotCount = 0;
 
@@ -139,14 +99,9 @@ void plotBarrel(boolean reset) {
     plotState = PIVOT_SETTLE;
     seekLoc = currentLoc;
     startTime = timeMilliseconds;
-    sonarEnd = 0;
-    sonarA.distance = 0.0;
-    sonarB.distance = 0.0;
     pivotCount = 0;
     return;
   }
-
-  holdY();
 
   switch (plotState) {
     case PIVOT_SETTLE: 
@@ -220,7 +175,6 @@ void circleBarrel(boolean reset) {
       pivotLoc.x = currentLoc.x - displacement;
       targetLoc.x = pivotLoc.x -+ PIVOT_TARGET_X;
     }
-    routeFps = TURN_FPS;
     sprintf(message, "displacement: %5.2f   barrelEdgeAngle: %5.2f   pivotBearing: %5.2f", displacement, barrelEdgeAngle, pivotBearing);
     sendBMsg(SEND_MESSAGE, message);
     sprintf(message, "targetLoc.x: %5.2f   targetLoc.y: %5.2f   turnRadius: %5.2f", targetLoc.x, targetLoc.y, turnRadius);
@@ -232,7 +186,7 @@ void circleBarrel(boolean reset) {
   } else {
     setTarget();
     if (isTargetReached()) {
-      plotBarrel(true); // reset
+      barrelOne(true); // reset
       barrelOneState = SEEK_BARREL;
     } else {
       turn();
@@ -302,6 +256,9 @@ boolean barrelTwo(boolean reset) {
 
 const float HOLD_LIMIT = 0.1;
 const float HOLD_SPEED = 0.2;
+/************************************************************************.
+    holdY() Set routeFps to seek to y value of seekLoc.
+ ************************************************************************/
 void holdY() {
   float yError = seekLoc.y - currentLoc.y;
   if (yError < (-HOLD_LIMIT * 2.0)) routeFps = -HOLD_SPEED * 3.0;

@@ -10,8 +10,8 @@ String barrel[] = {
   "N Barrel Test 1",
   "KR   0,0    0",
   "D           0",
-  "G   0,2     2",
-  "B   1      18",
+  "G   0,10    4",
+  "B   1      25",
   "F"
 };
 
@@ -28,12 +28,12 @@ String pedestrian1[] = {
 String avc10[] =   {  // 1/10 scale
   "N AVC 1/10",
   "KR  5.9,4.8     127          ",
-  "G  11.2,0.8       5          ",
-  "T  16.0,3.0       5   3     0",
-  "T  11.2,5.4       5   3  -127",
-  "G   4.8,0.8       5          ",
-  "T   0.0,3.0       5   3     0",
-  "T   4.8,5.4       5   3   127",
+  "G  11.2,0.8       3          ",
+  "T  16.0,3.0       3   3     0",
+  "T  11.2,5.4       3   3  -127",
+  "G   4.8,0.8       3          ",
+  "T   0.0,3.0       3   3     0",
+  "T   4.8,5.4       3   3   127",
   "F"
 };
 
@@ -56,20 +56,20 @@ String avc2017[] =   {  //
 
 String testRun1[] = { 
   "N Test Run 1",
-  "KR  0,0     0          ",
-  "G   0,3     2         ",
+  "KR   0,0    0         ",
+  "G    0,3    3         ",
   "T    3,5    3   2   90",
-  "G    5,5    3          ",
+  "G    5,5    3         ",
   "F"
 };
 
 String loadedRoute[200]; 
 
 String *routeTable[] = {
+  barrel,
   jump1,
   testRun1,
   avc2017,
-  barrel,
   pedestrian1,
   avc10,
 };
@@ -127,7 +127,7 @@ void startRoute() {
   }
   // It made it here.  Therefore run it.
   routeStepPtr = 0;
-  isDecelActive = isDecelPhase = false;
+  isDecelActive = false;
   interpretRouteLine(getNextStepString()); // Load the first line.
   isRouteInProgress = true;
   coPtr = coEnd = 0;

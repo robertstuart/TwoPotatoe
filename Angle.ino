@@ -83,7 +83,7 @@ void setGyroData() {
 //sumYaw += lsm6.g.z;
   gyroYawRaw = ((double) lsm6.g.z) - timeDriftYaw; 
   gyroYawRate = ((double) gyroYawRaw) * GYRO_SENS;  // Rate in degreesChange/sec
-  double gyroYawDelta = -gyroYawRate / 416.0; // degrees changed during period
+  double gyroYawDelta = -gyroYawRate / 208.0; // degrees changed during period
   gYaw += gyroYawDelta;
   gyroCumHeading += gyroYawDelta;   //
   double tc = (gyroCumHeading > 0.0) ? 180.0 : -180.0;

@@ -9,8 +9,10 @@
 // One screw turn on the stand produces 4" change at 100'
 
 // Decrease this value to get greater turn for a given angle
-//#define GYRO_SENS 0.0690     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
-#define GYRO_SENS 0.0696     // Multiplier to get degree. subtract 1.8662% * 8 for 2000d/sec
+//#define GYRO_SENS 0.0690
+//#define GYRO_SENS 0.0696     
+const float GYRO_SENS = 0.0696;      // Multiplier to get degrees. 
+
 
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 
