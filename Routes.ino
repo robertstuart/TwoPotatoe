@@ -1,4 +1,58 @@
 
+String stop4[] = { 
+  "N Stop 4",
+  "KR  0,0     0          ",
+  "D                      ",
+  "G   0,80    4          ",
+  "B   1     100          ",
+  "F"
+};
+
+String stop6[] = { 
+  "N Stop 6",
+  "KR  0,0     0          ",
+  "D                      ",
+  "G   0,80    6          ",
+  "B   1     100          ",
+  "F"
+};
+
+String stop8[] = { 
+  "N Stop 8",
+  "KR  0,0     0          ",
+  "D                      ",
+  "G   0,80    8          ",
+  "B   1     100          ",
+  "F"
+};
+
+String stop10[] = { 
+  "N Stop 10",
+  "KR  0,0     0          ",
+  "D                      ",
+  "G   0,80    10          ",
+  "B   1     100          ",
+  "F"
+};
+
+String stop12[] = { 
+  "N Stop 12",
+  "KR  0,0     0          ",
+  "D                      ",
+  "G   0,80    12          ",
+  "B   1     100          ",
+  "F"
+};
+
+String stop14[] = { 
+  "N Stop 14",
+  "KR  0,0     0          ",
+  "D                      ",
+  "G   0,80    14          ",
+  "B   1     100          ",
+  "F"
+};
+
 String jump1[] = { 
   "N Jump 1",
   "KR  0,0     0          ",
@@ -11,7 +65,7 @@ String barrel[] = {
   "KR   0,0    0",
   "D           0",
   "G   0,10    4",
-  "B   1      25",
+  "B   1      32",
   "F"
 };
 
@@ -66,6 +120,12 @@ String testRun1[] = {
 String loadedRoute[200]; 
 
 String *routeTable[] = {
+  stop4,
+  stop6,
+  stop8,
+  stop10,
+  stop12,
+  stop14,
   barrel,
   jump1,
   testRun1,
@@ -127,7 +187,7 @@ void startRoute() {
   }
   // It made it here.  Therefore run it.
   routeStepPtr = 0;
-  isDecelActive = false;
+  isDecelActive = isDecelPhase = false;
   interpretRouteLine(getNextStepString()); // Load the first line.
   isRouteInProgress = true;
   coPtr = coEnd = 0;

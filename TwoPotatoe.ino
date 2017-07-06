@@ -242,7 +242,9 @@ boolean isLockStand = true;
 int lockStartTicks = 0;
 
 int routeStepPtr = 0;
-String routeTitle = "No route";
+String routeTitle = "no title                ";
+int dum1 = 2;
+int dum2 = 3;
 boolean isDecelPhase = false;    // Reached point where dece starts?
 boolean isDecelActive = false;   // Decelerate for this G or T?
 float decelFps = 0.0;

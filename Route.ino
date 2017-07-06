@@ -12,10 +12,10 @@ const int CIRCLE_BARREL = 2;
 int barrelOneState = SEEK_BARREL;
 
 // Plot states
-const int PIVOT_SETTLE = 0;
-const int PIVOT_LEFT = 1;
-const int PIVOT_RIGHT = 2;
-int plotState = PIVOT_SETTLE;
+const int PLOT_SETTLE = 0;
+const int PLOT_LEFT = 1;
+const int PLOT_RIGHT = 2;
+int plotState = PLOT_SETTLE;
 
 // Circle states
 const int CIRCLE_ORIENT = 0;
@@ -51,13 +51,13 @@ struct loc startLoc;
 void routeLog() {
   if (isRouteInProgress && isRunning) {
     addLog(
-      (long) (timeRun),
+      (long) (timeMilliseconds),
       (short) (currentLoc.x * 100.0),
       (short) (currentLoc.y * 100.0),
+      (short) (gaPitch * 100.0),
       (short) (gyroHeading * 100.0),
-      (short) (routeStepPtr),
-      (short) (barrelOneState),
-      (short) (plotState)
+      (short) (wFps * 100.0),
+      (short) (tpFps * 100.0)
     );
   }
 }
@@ -117,7 +117,7 @@ void steerRoute() {
       break;
 
     case 'T': // Turn
-      if (isTargetReached()) isNewRouteStep = true; 
+      if (isTargetReached()) isNewRouteStep = true;
       else turn();
       break;
 
@@ -134,7 +134,7 @@ void steerRoute() {
     interpretRouteLine(getNextStepString());
     sprintf(message, "Step %d: %c", routeStepPtr, routeCurrentAction);
     sendBMsg(SEND_MESSAGE, message);
-    sendXMsg(SEND_MESSAGE, message);
+//    sendXMsg(SEND_MESSAGE, message);
 
   }
 }
@@ -170,7 +170,7 @@ boolean interpretRouteLine(String ss) {
       barrelYEnd = readNum();
       Serial.print(barrelYEnd); Serial.print("   ");
       if (barrelYEnd == STEP_ERROR) return false;
-+      barrels(true); // Reset
+      +      barrels(true); // Reset
       break;
 
     case 'C': // Charted object
@@ -193,6 +193,7 @@ boolean interpretRouteLine(String ss) {
       Serial.print(decelFps); Serial.print("   ");
       if (decelFps == STEP_ERROR) return false;
       isDecelActive = true;
+      isDecelPhase = false;
       break;
 
     case 'F':  // Fini
@@ -319,6 +320,11 @@ void steerHeading() {
     if (abs(aDiff) < 5.0) {
       speedAdjustment = (abs(aDiff) / 5.0) * speedAdjustment;
     }
+
+    // Reduce speed adjustment as speed increases
+    if (tpFps > 11.0) speedAdjustment *= 0.3;
+    else if (tpFps > 8.0) speedAdjustment *= 0.5;
+    else if (tpFps > 5.0) speedAdjustment *= 0.7;
   }
   targetWFpsRight = targetWFps - speedAdjustment;
   targetWFpsLeft = targetWFps + speedAdjustment;
@@ -353,22 +359,22 @@ void turn() {
   float radiusError = sqrt((xDist * xDist) + (yDist * yDist)) - turnRadius;
   float radiusAdjustment = radiusError * 0.8 * d;
   float headingAdjustment = -headingError * 0.03;
-//  float radiusAdjustment = radiusError * 0.2 * d;
-//  float headingAdjustment = -headingError * 0.02;
+  //  float radiusAdjustment = radiusError * 0.2 * d;
+  //  float headingAdjustment = -headingError * 0.02;
   speedAdjustment = radiusDiff + headingAdjustment + radiusAdjustment;
-//  speedAdjustment = radiusDiff;
+  //  speedAdjustment = radiusDiff;
 
   targetWFpsRight = targetWFps - speedAdjustment;
   targetWFpsLeft = targetWFps + speedAdjustment;
-//    addLog(
-//    (long) (timeMilliseconds),
-//    (short) (currentLoc.x * 100.0),
-//    (short) (currentLoc.y * 100.0),
-//    (short) (targetDistance * 100.0),
-//    (short) (gyroHeading * 100.0),
-//    (short) (speedAdjustment * 100.0),
-//    (short) (sonarFront)
-//  );
+  //    addLog(
+  //    (long) (timeMilliseconds),
+  //    (short) (currentLoc.x * 100.0),
+  //    (short) (currentLoc.y * 100.0),
+  //    (short) (targetDistance * 100.0),
+  //    (short) (gyroHeading * 100.0),
+  //    (short) (speedAdjustment * 100.0),
+  //    (short) (sonarFront)
+  //  );
 }
 
 /************************************************************************
@@ -390,7 +396,7 @@ float getRouteFps() {
           isDecelPhase = true;
         }
       }
-    
+
       if (isDecelPhase) {
         routeFps = tpFps - 5.0;
       } else {
@@ -409,19 +415,20 @@ float getRouteFps() {
       }
       break;
 
-      case 'B':
-        if (barrelOneState == SEEK_BARREL) {
-          if (abs(gyroHeading) > 5.0)  holdY();
-          else routeFps = SEEK_FPS;
-        } else if (barrelOneState == PLOT_BARREL) {
-          holdY();
-        } else {  // Circle barrel
-          routeFps = TURN_FPS;
-        }   
-        break;
+    case 'B':
+      if (barrelOneState == SEEK_BARREL) {
+        if (abs(gyroHeading) > 5.0)  holdY();
+        else routeFps = SEEK_FPS;
+      } else if (barrelOneState == PLOT_BARREL) {
+        holdY();
+      } else {  // Circle barrel
+        routeFps = TURN_FPS;
+      }
+      break;
 
-      case 'P':
-        break;
+    case 'P':
+      routeFps = 0.0;
+      break;
   }
   return routeFps;
 }
@@ -429,40 +436,39 @@ float getRouteFps() {
 
 
 /***********************************************************************.
- *  isTargetReached()  Return true if within 1 ft of target and is
- *                     moving away from the target.
- *                     Return true if at end of decel.
+    isTargetReached()  Return true if within 1 ft of target and is
+                       moving away from the target.
+                       Return true if at end of decel.
  ***********************************************************************/
 boolean isTargetReached() {
   const int RETREAT_TIMES = 10;
   const int RETREAT_DISTANCE = 2.0;
-  static double lastX = 0.0D;
-  static double lastY = 0.0D;
   static double lastTargetDist = 10000.0D;
   static int timesReached = 0;
 
-  if (isDecelActive && isDecelPhase && (tpFps <= 0.0)) {
-    isDecelActive = isDecelPhase = false;
-    return true;
-  }
-  setTarget();
-  if (targetDistance < RETREAT_DISTANCE) {
-    boolean isCloser = ((lastTargetDist - targetDistance) >= 0.0D);
-    lastTargetDist = targetDistance;
-    lastX = currentLoc.x;
-    lastY = currentLoc.y;
-    if (isCloser) { // Getting closer?
-      timesReached = 0;
-    } else {
-      timesReached++;
-      // Return true after Nth time.
-      if (timesReached > RETREAT_TIMES) {
-        timesReached = 0;
-        return true;
-      }
+  if (isDecelActive && isDecelPhase) {
+    if (wFps <= 0.8) {
+      isDecelActive = isDecelPhase = false;
+      return true;
     }
   } else {
-    timesReached = 0;
+    setTarget();
+    if (targetDistance < RETREAT_DISTANCE) {
+      boolean isCloser = ((lastTargetDist - targetDistance) >= 0.0D);
+      lastTargetDist = targetDistance;
+      if (isCloser) { // Getting closer?
+        timesReached = 0;
+      } else {
+        timesReached++;
+        // Return true after Nth time.
+        if (timesReached > RETREAT_TIMES) {
+          timesReached = 0;
+          return true;
+        }
+      }
+    } else {
+      timesReached = 0;
+    }
   }
   return false;
 }
@@ -546,65 +552,3 @@ char readChar() {
   stepString = stepString.substring(1);
   return c;
 }
-
-
-
-/***********************************************************************.
-    ???LockHeading()  Average drift in one-second blocks while
-                      in a startup lock condition.
- ***********************************************************************/
-//void addLockHeading() {
-//  static int zArray[LOCK_SIZE];
-//  static int xArray[LOCK_SIZE];
-//  static int gPtr = 0;
-//  int z, x, zMin, zMax, xMin, xMax;
-//  float zAve, xAve;
-//
-//  zArray[gPtr] = lsm6.g.z;
-//  xArray[gPtr] = lsm6.g.x;
-//  gPtr++;
-//  if (gPtr >= LOCK_SIZE) {
-//    int zSum = 0;
-//    int xSum = 0;
-//    zMax = zMin = zArray[0];
-//    xMax = xMin = xArray[0];
-//    for (int i = 0; i < LOCK_SIZE; i++) {
-//      z = zArray[i];
-//      if (z > zMax)  zMax = z;
-//      if (z < zMin)  zMin = z;
-//      zSum += z;
-//      x = xArray[i];
-//      if (x > xMax)  xMax = x;
-//      if (x < xMin)  xMin = x;
-//      xSum += x;
-//    }
-//    zAve = ((float) zSum) / ((float) LOCK_SIZE);
-//    xAve = ((float) xSum) / ((float) LOCK_SIZE);
-//    if (((zMax - zMin) < 90) && ((xMax - xMin) < 90)) {
-//      zLockSum += zAve;
-//      xLockSum += xAve;
-//      gLockCount++;
-//    }
-//    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f     %4d  ", xMax, xMin, xAve, isRouteInProgress);
-//    Serial.print(message);
-//    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
-//    Serial.print(message);
-//    gPtr = 0;
-//  }
-//}
-//void resetLockHeading() {
-//  timeDriftYaw = 0.0;
-//  gLockCount = 0;
-//  zLockSum = 0.0;
-//  xLockSum = 0.0;
-//  lockStartTicks = tickPosition;
-//}
-//void setLockDrift() {
-//  timeDriftYaw = zLockSum / ((float) gLockCount);
-//  timeDriftPitch = xLockSum / ((float) gLockCount);
-//  sprintf(message, "YawDrift: %5.2f     PitchDrift: %5.2f\n", timeDriftYaw, timeDriftPitch);
-//  Serial.print(message);
-//}
-
-
-

@@ -182,7 +182,7 @@ void sendLog() {
 //  if ((logLoop % 104) == 5) log2PerSec();
 //  if ((logLoop % 21) == 5) ;  // 10/sec
   if (!(logLoop % 10)) routeLog(); //  20/sec
-//  if ((logLoop % 10) == 7) log20PerSec(); // 20/sec  
+//  if (!(logLoop % 10)) log20PerSec(); // 20/sec  
 //  if (!(logLoop % 2)) log104PerSec(); // 104/sec  
 //  if (isRouteInProgress  && isRunning)  log208PerSec();
 //  log208PerSec();
@@ -198,19 +198,19 @@ void log2PerSec() {
 }
 
 void log20PerSec() {
-  sprintf(message,  "%5.2f\t%5.2f\t%5.2f\t", sonarLeft, sonarFront, sonarRight);
-  sendBMsg(SEND_MESSAGE, message); 
+//  sprintf(message,  "%5.2f\t%5.2f\t%5.2f\t", sonarLeft, sonarFront, sonarRight);
+//  sendBMsg(SEND_MESSAGE, message); 
 
   if (!isRunning) return;
   addLog(
-        (long) coTickPosition,
-        (short) (gyroCumHeading * 10.0),
-        (short) (wMFpsLeft),
-        (short) (wMFpsRight),
+       (long) (tickPosition),
+        (short) (routeFps * 100.0),
+        (short) (targetWFps * 100.0),
+        (short) (tpFps * 100.0),
         (short) (wFps * 100.0),
-        (short) (currentLoc.x * 100.0),
+        (short) (gaPitch * 100.0),
         (short) (currentLoc.y * 100.0)
-   );
+    );
 }
 
 void log104PerSec() {
@@ -226,15 +226,15 @@ void log104PerSec() {
 }
 
 
-void log208PerSec() {
+void log28PerSec() {
   addLog(
         (long) (tickPosition),
         (short) (routeFps * 100.0),
         (short) (targetWFps * 100.0),
+        (short) (tpFps * 100.0),
+        (short) (wFps * 100.0),
         (short) (gaPitch * 100.0),
-        (short) (gPitch * 100.0),
-        (short) (tPitch * 100.0),
-        (short) (tgPitch * 100.0)
+        (short) (0 * 100.0)
    );
 }
         
