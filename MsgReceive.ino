@@ -99,10 +99,6 @@ void interpretRcvDataFrame() {
     case 0x97:           // Remote Command Response
       break;
     case 0x8B:           // Transmit Status
-//      for (int i = 1; i < 8; i++) {
-//        Serial.print(rcvDataFrame[i], HEX); Serial.print(" ");
-//      }
-//      Serial.println();
       break;
     case 0x90:           // Receive Packet (A0=0)
       doRFData();
@@ -115,18 +111,12 @@ void interpretRcvDataFrame() {
 }
 
 void doRFData() {
-//  for (int i = 0; i < 16; i++) {
-//    Serial.print(rcvDataFrame[i + 4], HEX); Serial.print(" ");
-//  }
-//  Serial.println();
   static int cmd;
   int rfPtr = 12;
   char msgVal[100];
   int msgValPtr = 0;
-//Serial.print(rcvDataFrameLength); Serial.print("\t");
   while (rfPtr < rcvDataFrameLength) {
     byte b = rcvDataFrame[rfPtr];
-//Serial.print(b, HEX); Serial.print(" ");
     if (b < 128) {
       msgVal[msgValPtr++] = b;
     }
@@ -149,13 +139,9 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   int intVal;
   float floatVal;
   boolean booleanVal;
-//  int x = 0;
   String ss;
   
   msgStr[count] = 0; // Just to be sure.
-//  if ((cmd != RCV_JOYX) && (cmd != RCV_JOYY)) {
-//    Serial.print(cmd); Serial.print("  "); Serial.println(msgStr);
-//  }
  
   switch(cmd) {
     case RCV_JOYX:
@@ -192,7 +178,6 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
     case RCV_MODE:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         mode = intVal;
-        Serial.print("Mode: "); Serial.println(mode);
       }
       break;
     case RCV_LIGHTS:
@@ -249,12 +234,12 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case SEND_XPOS:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        Serial.print(floatVal); Serial.print(tab);
+        ;
       }
       break;
     case SEND_YPOS:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        Serial.println(floatVal);
+        ;
       }
       break;
     case RCV_T: // valset t

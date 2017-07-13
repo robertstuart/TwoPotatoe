@@ -87,6 +87,7 @@ void commonTasks() {
  **************************************************************************/
 void setRunningState() {
   static boolean oldIsRunning = true;
+  byte *pattern;
 
   if (mode == MODE_2P) {
     // Set the runnng bit to control motors
@@ -109,19 +110,25 @@ void setRunningState() {
   }
 
   // Set the blue route led
-  if (isRouteInProgress) setBlink(BLUE_LED_PIN, BLINK_ON);
+  if (isRouteInProgress && isRunning) setBlink(BLUE_LED_PIN, BLINK_ON);
+  else if (isRouteInProgress && !isRunning) setBlink(BLUE_LED_PIN, BLINK_FF);
   else setBlink(BLUE_LED_PIN, BLINK_OFF);
 
-  // set red (mode) and yellow (state)
+  // set yellow (state)
   switch (mode) {
     case MODE_2P:
-      if  (isRouteInProgress) {
-        setBlink(YELLOW_LED_PIN, BLINK_FF);
+      if (isRouteInProgress) {
+        if (isRunning) {
+          setBlink(YELLOW_LED_PIN, BLINK_ON);
+        } else {
+          setBlink(YELLOW_LED_PIN, BLINK_FF);
+        }
+      } else if (isRunReady && isRunning) {
+        setBlink(YELLOW_LED_PIN, BLINK_ON);
       } else {
-        if (isRunning)         setBlink(YELLOW_LED_PIN, BLINK_ON);
-        else if (isRunReady)   setBlink(YELLOW_LED_PIN, BLINK_FF);
-        else                   setBlink(YELLOW_LED_PIN, BLINK_SF);
+        setBlink(YELLOW_LED_PIN, BLINK_FF);
       }
+      
       if ((!isHcActive) && (!isPcActive)) {
         controllerX = controllerY = 0.0f;
       }
@@ -135,9 +142,10 @@ void setRunningState() {
       }
       break;
     default:
-      setBlink(RED_LED_PIN, BLINK_SF);
-      if (isRunReady) setBlink(YELLOW_LED_PIN, BLINK_SF);
-      else setBlink(YELLOW_LED_PIN, BLINK_ON);
+      pattern = (isRunning) ? BLINK_ON : BLINK_FF;
+      setBlink(BLUE_LED_PIN, pattern);
+      setBlink(YELLOW_LED_PIN, pattern);
+      setBlink(RED_LED_PIN, pattern);
       break;
   }
 }
@@ -252,10 +260,13 @@ void blinkLed() {
   if (timeMilliseconds > blinkTrigger) {
     blinkTrigger = timeMilliseconds + 100;  // 10 per second
 
+    // Blink the Blue and Green
     int b = (patternBlue[blinkPtrBlue++] == 1) ? HIGH : LOW;
     if (patternBlue[blinkPtrBlue] == END_MARKER) blinkPtrBlue = 0;
     digitalWrite(BLUE_LED_PIN, b);
     digitalWrite(GREEN_LED_PIN, b);
+
+    // Blink the Yellow
     b = (patternYellow[blinkPtrYellow++] == 1) ? HIGH : LOW;
     if (patternYellow[blinkPtrYellow] == END_MARKER) blinkPtrYellow = 0;
     digitalWrite(YELLOW_LED_PIN, b);
@@ -283,7 +294,7 @@ void blinkLed() {
  **************************************************************************/
 void setBlink(int led, byte* pattern) {
   switch (led) {
-    case BLUE_LED_PIN:
+    case BLUE_LED_PIN:  // Also blinks the green
       if (patternBlue != pattern) {
         patternBlue = pattern;
         blinkPtrBlue = 0;
@@ -367,6 +378,10 @@ void switches() {
   static boolean reState = false;
   static boolean oldReState = false;
   
+  static unsigned int gnTimer = 0;
+  static boolean gnState = false;
+  static boolean oldGnState = false;
+  
   // Debounce Blue
   boolean bu = digitalRead(BU_SW_PIN) == LOW;
   if (bu) buTimer = timeMilliseconds;
@@ -385,21 +400,31 @@ void switches() {
   if ((timeMilliseconds - reTimer) > 50) reState = false;
   else reState = true;
 
-  // Blue press transition
-  if (buState && (!oldBuState)) {
+  // Debounce Green (back switch)
+  boolean gn = digitalRead(GN_SW_PIN) == LOW;
+  if (gn) gnTimer = timeMilliseconds;
+  if ((timeMilliseconds - gnTimer) > 50) gnState = false;
+  else gnState = true;
+
+  // Blue or Green press transition
+  if ((buState && (!oldBuState)) || (gnState && (!oldGnState))) {
     if (isRouteInProgress) stopRoute();
     else startRoute();
   }
 
   // Yellow press transition
-  if (yeState && (!oldYeState)) isRunReady = !isRunReady;
+  if (yeState && (!oldYeState)) {
+    if (isRouteInProgress)  isStartReceived = true;
+    else isRunReady = !isRunReady;
+  }
 
   // Red press transition
-  if ((reState) && (!oldReState)) setRoute(true);
+  if (reState && (!oldReState)) setRoute(true);
 
   oldBuState = buState;
   oldYeState = yeState;
   oldReState = reState;
+  oldGnState = gnState; 
 }
 
 
@@ -418,7 +443,6 @@ void readSonar() {
  
   while (SONAR_SER.available()) {
     byte b = SONAR_SER.read();
-    Serial.print(b);
     if (isMsgInProgress) {
       if (b == 13) {
         int e = sscanf(msgStr, "%f", &distance);

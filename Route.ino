@@ -1,15 +1,17 @@
 const float SEEK_FPS = 2.0;
 const float TURN_FPS = 3.0;
-// Barrel strategy
-const int BARREL_STRATEGY1 = 0;
-const int BARREL_STRATEGY2 = 1;
-int barrelStrategyState = BARREL_STRATEGY1;
 
 // Barrel states
 const int SEEK_BARREL = 0;
 const int PLOT_BARREL = 1;
 const int CIRCLE_BARREL = 2;
+const int RECOVER_BARREL = 3;
 int barrelOneState = SEEK_BARREL;
+
+// Seek states
+const int SEEK_SETTLE = 0;
+const int SEEK_FWD = 1;
+int seekState = SEEK_SETTLE;
 
 // Plot states
 const int PLOT_SETTLE = 0;
@@ -47,6 +49,9 @@ double avgTargetBearing = 0.0;
 //double reFactor = 0.0;  // From hous3
 double startOrientation = 0.0;
 struct loc startLoc;
+float targetHeading = 0.0;
+int jumpTicksEnd = 0;
+float jumpCompFps = 0.0;
 
 void routeLog() {
   if (isRouteInProgress && isRunning) {
@@ -54,10 +59,10 @@ void routeLog() {
       (long) (timeMilliseconds),
       (short) (currentLoc.x * 100.0),
       (short) (currentLoc.y * 100.0),
-      (short) (gaPitch * 100.0),
       (short) (gyroHeading * 100.0),
-      (short) (wFps * 100.0),
-      (short) (tpFps * 100.0)
+      (short) (targetWFps * 100.0),
+      (short) (tpFps * 100.0),
+      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
     );
   }
 }
@@ -92,7 +97,12 @@ void steerRoute() {
 
     case 'G':
       if (isTargetReached()) isNewRouteStep = true;
-      else steerHeading();
+      else steerTarget();
+      break;
+
+    case 'J':
+      if (tickPosition > jumpTicksEnd) isNewRouteStep = true;
+      else jump(false);
       break;
 
     case 'K':  // Lock
@@ -170,7 +180,7 @@ boolean interpretRouteLine(String ss) {
       barrelYEnd = readNum();
       Serial.print(barrelYEnd); Serial.print("   ");
       if (barrelYEnd == STEP_ERROR) return false;
-      +      barrels(true); // Reset
+      barrels(true); // Reset
       break;
 
     case 'C': // Charted object
@@ -211,6 +221,19 @@ boolean interpretRouteLine(String ss) {
       if (routeFps == STEP_ERROR) return false;
       isDecelPhase = false;
       setTarget();
+      break;
+
+    case 'J':  // Jump
+      targetHeading = readNum();
+      Serial.print(targetHeading); Serial.print("   ");
+      if (targetHeading == STEP_ERROR) return false;
+      routeFps = routeScriptFps = readNum();
+      Serial.print(routeFps); Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      jumpCompFps = readNum();
+      Serial.print(jumpCompFps); Serial.print("   ");
+      if (jumpCompFps == STEP_ERROR) return false;
+      jump(true); // reset
       break;
 
     case 'K': // Lock bearing at start
@@ -301,11 +324,11 @@ boolean interpretRouteLine(String ss) {
 #define RAD_TURN 4.0
 #define END_STEER 0.5
 /************************************************************************
-    steerHeading() Find the correct heading to the target and adjust the
+    steerTarget() Find the correct heading to the target and adjust the
                  wheel speeds to turn toward the target.  As tp approaches
                  the target, use the originalTargetBearing.
  ************************************************************************/
-void steerHeading() {
+void steerTarget() {
   double speedAdjustment;
 
   if (targetDistance < 1.0) {
@@ -326,6 +349,33 @@ void steerHeading() {
     else if (tpFps > 8.0) speedAdjustment *= 0.5;
     else if (tpFps > 5.0) speedAdjustment *= 0.7;
   }
+  targetWFpsRight = targetWFps - speedAdjustment;
+  targetWFpsLeft = targetWFps + speedAdjustment;
+}
+
+
+/***********************************************************************.
+ *  steerHeading() Adjust the wheel speeds to turn toward the 
+ *                 targetHeading. 
+ ***********************************************************************/
+void steerHeading() {
+  double speedAdjustment;
+
+  double aDiff = rangeAngle(targetHeading - gyroHeading);
+  double d = (aDiff > 0.0) ? 1.0 : -1.0;
+
+  speedAdjustment = (wFps / RAD_TURN) * 0.64 * d;
+
+  // Reduce adjustment proportionally if less than X degrees.
+  if (abs(aDiff) < 5.0) {
+    speedAdjustment = (abs(aDiff) / 5.0) * speedAdjustment;
+  }
+
+  // Reduce speed adjustment as speed increases
+  if (tpFps > 11.0) speedAdjustment *= 0.3;
+  else if (tpFps > 8.0) speedAdjustment *= 0.5;
+  else if (tpFps > 5.0) speedAdjustment *= 0.7;
+    
   targetWFpsRight = targetWFps - speedAdjustment;
   targetWFpsLeft = targetWFps + speedAdjustment;
 }
@@ -357,7 +407,8 @@ void turn() {
   }
 
   float radiusError = sqrt((xDist * xDist) + (yDist * yDist)) - turnRadius;
-  float radiusAdjustment = radiusError * 0.8 * d;
+//  float radiusAdjustment = radiusError * 0.8 * d;
+  float radiusAdjustment = radiusError * 0.3 * d;
   float headingAdjustment = -headingError * 0.03;
   //  float radiusAdjustment = radiusError * 0.2 * d;
   //  float headingAdjustment = -headingError * 0.02;
@@ -415,14 +466,20 @@ float getRouteFps() {
       }
       break;
 
+    case 'J':
+      routeFps = routeScriptFps;
+      break;
+
     case 'B':
       if (barrelOneState == SEEK_BARREL) {
-        if (abs(gyroHeading) > 5.0)  holdY();
+        if (seekState == SEEK_SETTLE) holdY();
         else routeFps = SEEK_FPS;
       } else if (barrelOneState == PLOT_BARREL) {
         holdY();
-      } else {  // Circle barrel
+      } else if (barrelOneState == CIRCLE_BARREL) {  // Circle barrel
         routeFps = TURN_FPS;
+      } else { //RECOVER_BARREL
+        routeFps = -3.0;
       }
       break;
 

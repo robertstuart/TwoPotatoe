@@ -8,64 +8,21 @@ String stop4[] = {
   "F"
 };
 
-String stop6[] = { 
-  "N Stop 6",
-  "KR  0,0     0          ",
-  "D                      ",
-  "G   0,80    6          ",
-  "B   1     100          ",
-  "F"
-};
 
-String stop8[] = { 
-  "N Stop 8",
+String jump4[] = { 
+  "N Jump 4",
   "KR  0,0     0          ",
-  "D                      ",
-  "G   0,80    8          ",
-  "B   1     100          ",
-  "F"
-};
-
-String stop10[] = { 
-  "N Stop 10",
-  "KR  0,0     0          ",
-  "D                      ",
-  "G   0,80    10          ",
-  "B   1     100          ",
-  "F"
-};
-
-String stop12[] = { 
-  "N Stop 12",
-  "KR  0,0     0          ",
-  "D                      ",
-  "G   0,80    12          ",
-  "B   1     100          ",
-  "F"
-};
-
-String stop14[] = { 
-  "N Stop 14",
-  "KR  0,0     0          ",
-  "D                      ",
-  "G   0,80    14          ",
-  "B   1     100          ",
-  "F"
-};
-
-String jump1[] = { 
-  "N Jump 1",
-  "KR  0,0     0          ",
-  "G   0,25    3          ",
+  "G   0,4     4          ",
+  "J     0     4         4",
   "F"
 };
 
 String barrel[] = {
-  "N Barrel Test 1",
+  "N Barrel Test",
   "KR   0,0    0",
   "D           0",
   "G   0,10    4",
-  "B   1      32",
+  "B   1      25",
   "F"
 };
 
@@ -73,9 +30,9 @@ String pedestrian1[] = {
   "N Pedestrian Test 1",
   "KR   0,0    0",
   "D           0",
-  "G   0,3     3",
+  "G   0,10    5",
   "P",
-  "G  0,12      5",
+  "G  0,20     5",
   "F"
 };
 
@@ -91,20 +48,46 @@ String avc10[] =   {  // 1/10 scale
   "F"
 };
 
-String avc2017[] =   {  // 
-  "N AVC 2017",
-  "KR  61.5,54.5   129             ",
-  "G    70,47.5      8             ",
-  "G    77,42.3      8             ",
-  "G 118.5,9.8       8             ",
-  "T   166,32        8   29       0",  // Turn toward barrels
-  "G   166,51.7      8             ",  // Barrels
-  "T 129.5,66.7      8   20    -129",
-  "G    59,12        8             ",
-  "T     8,34        8   32.7    -7",
-  "G     8,44        8             ",
-  "T    59,64        8   33      129",
-  "G    75,51        8              ",
+String avc2017_hr[] =   {  // hoop + ramp
+  "N AVC 2017-HR",
+  "KR  65,59             129        ",
+  "G  118,11        12              ",
+  "D                       0        ",
+  "T   166,32       12    29      0 ",  // Turn toward barrels
+  "B   166          52              ",  // Barrels
+  "T   118,68       12    32   -129 ",  // Leave barrels
+  "G   101,55        8              ",
+  "J  -129           4     4        ",  // Jump
+  "G    79,37        4              ",  // Approach hoop
+  "T    76,31        4    10   -173 ",  // Turn into hoop
+  "T    69,20        5    17   -129 ",  // Turn out of hoop
+  "G    59,12       12              ",
+  "D                 0              ",
+  "T     8,34       12    32     -7 ",  // Turn toward pedestrian
+  "P                                ",
+  "T    53,69       12    32    129 ",
+  "G    75,51        4              ",
+  "F"
+};
+
+String avc2017_h[] =   {  // hoop, no ramp
+  "N AVC 2017-H",
+  "KR  65,59             129        ",
+  "G  118,11        12              ",
+  "D                       0        ",
+  "T   166,32       12    29      0 ",  // Turn toward barrels
+  "B   166          52              ",  // Barrels
+  "T   127,64       10    25   -129 ",  // Leave barrels
+  "G   112,52        8              ",
+  "G    81,37        6              ",  // Turn toward hoop
+  "T    76,31        4     8   -173 ",  // Turn into hoop
+  "T    69,20        5    17   -129 ",  // Turn out of hoop
+  "G    59,12       12              ",
+  "D                 0              ",
+  "T     8,34       12    32     -7 ",  // Turn toward pedestrian
+  "P                                ",
+  "T    53,69       12    32    129 ",
+  "G    75,51        4              ",
   "F"
 };
 
@@ -120,17 +103,12 @@ String testRun1[] = {
 String loadedRoute[200]; 
 
 String *routeTable[] = {
-  stop4,
-  stop6,
-  stop8,
-  stop10,
-  stop12,
-  stop14,
   barrel,
-  jump1,
-  testRun1,
-  avc2017,
+  avc2017_hr,
+  avc2017_h,
   pedestrian1,
+  stop4,
+  testRun1,
   avc10,
 };
 
@@ -199,6 +177,7 @@ void startRoute() {
   coSetLoc = currentLoc;
   timeStart = timeMilliseconds;
   timeRun = 0;
+  isBackLeft = false;
 }
 
 

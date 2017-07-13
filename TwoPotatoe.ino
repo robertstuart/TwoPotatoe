@@ -1,7 +1,6 @@
 /* ---------------------- TwoPotatoe ----------------------- */
 
 #include "Common.h"
-#include "pwm01.h"
 #include <DueTimer.h>
 #include <Wire.h>
 #include <LSM6.h>
@@ -359,6 +358,9 @@ boolean isDumpingData = false; // Dumping data
 boolean isHoldHeading = false; // 
 boolean isSpin = false; // 
 boolean isStand = false; // 
+
+boolean isBackLeft = false;
+
 
 volatile boolean isNewCheck = false;
 

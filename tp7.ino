@@ -1,5 +1,5 @@
 /***********************************************************************.
- * ----- TP6 ------
+ * ----- TP7 ------
  ***********************************************************************/
 double accelFps = 0.0;
 double coAccelFps = 0.0;
@@ -226,15 +226,15 @@ void log104PerSec() {
 }
 
 
-void log28PerSec() {
+void log208PerSec() {
   addLog(
-        (long) (tickPosition),
-        (short) (routeFps * 100.0),
-        (short) (targetWFps * 100.0),
-        (short) (tpFps * 100.0),
-        (short) (wFps * 100.0),
+        (long) (timeMilliseconds),
         (short) (gaPitch * 100.0),
-        (short) (0 * 100.0)
+        (short) (targetWFps * 100.0),
+        (short) (wFps * 100.0),
+        (short) (isOnGround),
+        (short) (lsm6.a.y),
+        (short) (lsm6.a.z)
    );
 }
         
