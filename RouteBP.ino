@@ -67,7 +67,8 @@ void seekBarrel(boolean reset) {
     seekState = SEEK_SETTLE;
     seekLoc = currentLoc;
     settle(true); // reset
-    endTime = timeMilliseconds + 10000; // 10 seconds before recovery
+    endTime = timeMilliseconds + 20000; // 20 seconds before recovery
+    // Set to feet progressed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   } else {
     switch(seekState) {
       case SEEK_SETTLE:
@@ -104,6 +105,16 @@ void plotBarrel(boolean reset) {
   static int startTime = 0;
   static int pivotCount = 0;
   static int endTime = 0;
+
+    addLog(
+      (long) (timeMilliseconds),
+      (short) (currentLoc.x * 100.0),
+      (short) (currentLoc.y * 100.0),
+      (short) (gyroHeading * 100.0),
+      (short) (targetWFps * 100.0),
+      (short) (tpFps * 100.0),
+      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
+    );
 
   if (reset) {
     barrelOneState = PLOT_BARREL;
@@ -175,6 +186,16 @@ void circleBarrel(boolean reset) {
   static int endTime = 0;
   float displacement;
 
+    addLog(
+      (long) (timeMilliseconds),
+      (short) (currentLoc.x * 100.0),
+      (short) (currentLoc.y * 100.0),
+      (short) (gyroHeading * 100.0),
+      (short) (targetWFps * 100.0),
+      (short) (tpFps * 100.0),
+      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
+    );
+
   if (reset) { // set isRightTurn, turnRadius, pivotLoc, targetLoc
     barrelOneState = CIRCLE_BARREL;
     endTime = timeMilliseconds + 7000;  // Seconds to finish.
@@ -236,7 +257,6 @@ boolean pedestrian(boolean reset) {
         sonarFront = 0.0;
       }
     }
-    holdY();
     if (pedPivotState == PLOT_LEFT) {
       if ((pivotCount > 10) && (gyroHeading < 0.0)) return true;
       if (gyroHeading < -PED_ANGLE) {

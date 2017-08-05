@@ -107,7 +107,7 @@ void aTp7() {
 //  float tpFps = coAccelFps;
 //  float tpFps = lpfcoAccelFps;
 
-  if (isRouteInProgress) tp7ControllerSpeed = getRouteFps();
+  if (isRouteInProgress)  tp7ControllerSpeed = getRouteFps();
   else tp7ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
 
   // Find the speed error.  Constrain rate of change.
@@ -179,9 +179,10 @@ void sendLog() {
     if ((logLoop % 4) == 0)  dumpTicks();
   }
   
-//  if ((logLoop % 104) == 5) log2PerSec();
-//  if ((logLoop % 21) == 5) ;  // 10/sec
+//  if (!(logLoop % 104)) log2PerSec();
+//  if (!(logLoop % 21)) ;  // 10/sec
   if (!(logLoop % 10)) routeLog(); //  20/sec
+//  routeLog(); //  208/sec
 //  if (!(logLoop % 10)) log20PerSec(); // 20/sec  
 //  if (!(logLoop % 2)) log104PerSec(); // 104/sec  
 //  if (isRouteInProgress  && isRunning)  log208PerSec();
@@ -189,12 +190,14 @@ void sendLog() {
 }
 
 void log2PerSec() {
-  sprintf(message, "gyroHeading %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gyroHeading, aPitch, gaPitch);
-  sendBMsg(SEND_MESSAGE, message);
-  Serial.print(forceLeft);
-  Serial.print(tab);
-  Serial.print(forceRight);
-  Serial.println();
+  sprintf(message, " gaRoll: %4.2f", gaRoll);
+  sendXMsg(SEND_MESSAGE, message);
+//  sprintf(message, "gyroHeading %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gyroHeading, aPitch, gaPitch);
+//  sendBMsg(SEND_MESSAGE, message);
+//  Serial.print(forceLeft);
+//  Serial.print(tab);
+//  Serial.print(forceRight);
+//  Serial.println();
 }
 
 void log20PerSec() {
@@ -230,8 +233,8 @@ void log208PerSec() {
   addLog(
         (long) (timeMilliseconds),
         (short) (gaPitch * 100.0),
-        (short) (targetWFps * 100.0),
-        (short) (wFps * 100.0),
+        (short) (gPitch * 100.0),
+        (short) (aPitch * 100.0),
         (short) (isOnGround),
         (short) (lsm6.a.y),
         (short) (lsm6.a.z)

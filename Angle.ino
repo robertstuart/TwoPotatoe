@@ -90,31 +90,34 @@ void setGyroData() {
   int rotations = (int) ((gyroCumHeading + tc) / 360.0);
   gyroHeading = gyroCumHeading - (((double) rotations) * 360.0);
 
-  // Yaw for gmHeading
-  gmCumHeading += gyroYawDelta;
-  tc = (gmCumHeading > 0.0) ? 180 : - 180;
-  rotations = (int) ((gmCumHeading + tc) / 360.0);
-  gmHeading = gmCumHeading - (((double) rotations) * 360.0);
+//  // Yaw for gmHeading
+//  gmCumHeading += gyroYawDelta;
+//  tc = (gmCumHeading > 0.0) ? 180 : - 180;
+//  rotations = (int) ((gmCumHeading + tc) / 360.0);
+//  gmHeading = gmCumHeading - (((double) rotations) * 360.0);
 
   // Rotation rate: complementary filtered gPitch and tPitch
-  tPitch = (double) tickPosition / TICKS_PER_PITCH_DEGREE;
-  double qDiff = tPitch - oldTPitch;
-  double q = tgPitch + qDiff;
-  oldTPitch = tPitch;
-  tgPitch = (q * TG_PITCH_TC) + (gPitch * (1.0D - TG_PITCH_TC));
-  tgPitchDelta = tgPitch - oldTgPitch;  // Used in Algorithm ***************
-  oldTgPitch = tgPitch;
-
-  // tgaPitch:
-  q = tgaPitch + qDiff;
-  tgaPitch = (q * TG_PITCH_TC) + (gaPitch * (1.0D - TG_PITCH_TC));
+//  tPitch = (double) tickPosition / TICKS_PER_PITCH_DEGREE;
+//  double qDiff = tPitch - oldTPitch;
+//  double q = tgPitch + qDiff;
+//  oldTPitch = tPitch;
+//  tgPitch = (q * TG_PITCH_TC) + (gPitch * (1.0D - TG_PITCH_TC));
+//  tgPitchDelta = tgPitch - oldTgPitch;  // Used in Algorithm ***************
+//  oldTgPitch = tgPitch;
+//
+//  // tgaPitch:
+//  q = tgaPitch + qDiff;
+//  tgaPitch = (q * TG_PITCH_TC) + (gaPitch * (1.0D - TG_PITCH_TC));
 }
 
+
+static double APITCH_TC = 0.99;
 /***********************************************************************.
  *  setAccelData()
  ***********************************************************************/
 void setAccelData() {
   static int lastAccel;
+  double oldLpfAPitch = 0;
   // Pitch
 //  double k8 = 2.0;  // 
   double k8 = (*currentValSet).v;
@@ -124,9 +127,11 @@ void setAccelData() {
   gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
   if ((          (lsm6.a.z > 7000)
              && ((accelX > -7000) && (accelX < 7000))
-             && ((aPitch > -45.0) && (aPitch < 45.0))) || !isRunning) {
+             && ((aPitch > -45.0) && (aPitch < 45.0)))/* || !isRunning */ ) {
       gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
     }
+  lpfAPitch = (oldLpfAPitch * APITCH_TC) + (aPitch * (1.0 - APITCH_TC));
+  oldLpfAPitch = lpfAPitch;
 
   // y accel
   yAccel += lastAccel - lsm6.a.y;
@@ -159,39 +164,13 @@ int magX, magY, magZ;
  
 /***********************************************************************.
  *  setNavigation() Set gmHeading, tmHeading, tickHeading, currentLoc
- *                  Called 400/sec (every read of gyro).
+ *                  Called 208/sec (every read of gyro).
  ***********************************************************************/
 #define TICK_BIAS_TRIGGER 500
 void setNavigation() {
-  
+  static int navOldTickPosition = 0;
+
   tickPosition = tickPositionRight + tickPositionLeft;
-
-  // Tick bias
-//  if ((tickPosition - lastTickSet) > TICK_BIAS_TRIGGER) {
-//    lastTickSet = tickPosition;
-//    tickPositionRight++;
-//    tickPositionLeft--;
-//  }
-//  if ((lastTickSet - tickPosition) > TICK_BIAS_TRIGGER) {
-//    lastTickSet = tickPosition;
-//    tickPositionRight--;
-//    tickPositionLeft++;
-//  }
-
-
-  // Tick heading.
-  tickCumHeading =  ((double) (tickOffset + tickPositionLeft - tickPositionRight)) / TICKS_PER_DEGREE_YAW;
-  double c = (tickCumHeading > 0.0) ? 180.0 : -180.0;
-  int rotations = (int) ((tickCumHeading + c) / 360.0); 
-  tickHeading = tickCumHeading - (((double) rotations) * 360.0);
-  
-  // tmHeading.  Complementary filter tick and mag headings.
-  tmCumHeading += tickCumHeading - oldTickCumHeading;
-  oldTickCumHeading = tickCumHeading;
-  tmCumHeading = (tmCumHeading * TM_HEADING_TC) + (gridCumHeading * (1.0 - TM_HEADING_TC));
-  c = (tmCumHeading > 0.0) ? 180.0 : -180.0;
-  rotations = (int) ((tmCumHeading + c) / 360.0);
-  tmHeading = tmCumHeading - (((double) rotations) * 360.0);
 
  // compute the Center of Oscillation Tick Position
   coTickPosition = tickPosition - ((long) (sin(gaPitch * DEG_TO_RAD) * 4000.0));
@@ -203,8 +182,6 @@ void setNavigation() {
   currentLoc.y += cos(gyroHeading * DEG_TO_RAD) * dist;
 
   currentAccelLoc();
-
-  
 }
 
 
@@ -241,17 +218,11 @@ void currentAccelLoc() {
  *              be lost.
  **************************************************************************/
 void setHeading(double newHeading) {
-  gmCumHeading = tmCumHeading = gyroCumHeading = tickCumHeading = gridCumHeading = newHeading;
-  tickOffset = newHeading * TICKS_PER_DEGREE_YAW;
-  oldGyroCumHeading = oldTickCumHeading = newHeading;
-  tickHeading = gyroHeading = newHeading;
-//  lastTickSet = 0;
-  gridRotations = 0.0;
+  gyroCumHeading = gyroHeading = newHeading;
 }
 
 void resetTicks() {
-  tickPosition = tickPositionRight = tickPositionLeft = navOldTickPosition = coTickPosition = 0;
-  oldTPitch = 0.0D;
+  tickPosition = tickPositionRight = tickPositionLeft = coTickPosition = 0;
 }
 
 

@@ -7,9 +7,9 @@ int rfDataPtr = 0;
 int dumpPtr, dumpEnd;
 int tickDumpPtr, tickDumpEnd;
 
-/*********************************************************
+/***********************************************************************.
  * SendStatus??() 
- *********************************************************/
+ ***********************************************************************/
 void sendStatusBluePc() {
   static int part = 0;
   part = ++part % 4;
@@ -75,17 +75,31 @@ int getState() {
 }
 
 
-/*********************************************************
+/***********************************************************************.
  * dumpData() Set up to start a data dump.
- *********************************************************/
+ ***********************************************************************/
 void sendDumpData() {
   dumpEnd = dumpPtr =  dataArrayPtr;
+  BLUE_SER.write(SEND_DUMP_DATA);
+  BLUE_SER.print(message1);
+  BLUE_SER.write((byte) 0);
+  BLUE_SER.write(SEND_DUMP_DATA);
+  BLUE_SER.print(message2);
+  BLUE_SER.write((byte) 0);
+  BLUE_SER.write(SEND_DUMP_DATA);
+  BLUE_SER.print(message3);
+  BLUE_SER.write((byte) 0);
+  BLUE_SER.write(SEND_DUMP_DATA);
+  BLUE_SER.print(message4);
+  BLUE_SER.write((byte) 0);
   isDumpingData = true;
 }
 
-/*********************************************************
+
+
+/***********************************************************************.
  * dumpTicks() Set up to start a tick dump.
- *********************************************************/
+ ***********************************************************************/
 void sendDumpTicks() {
   tickDumpEnd = tickDumpPtr =  tickArrayPtr;
   isDumpingTicks = true;
@@ -93,9 +107,9 @@ void sendDumpTicks() {
 
 
 
-/*********************************************************
+/***********************************************************************.
  * dumpData()
- *********************************************************/
+ ***********************************************************************/
 void dumpData() {
   BLUE_SER.write(SEND_DUMP_DATA);
   dumpPtr = (dumpPtr + 1) %  DATA_ARRAY_SIZE;
@@ -107,8 +121,7 @@ void dumpData() {
     BLUE_SER.print(eArray[dumpPtr]); BLUE_SER.print(",");
     BLUE_SER.print(fArray[dumpPtr]); BLUE_SER.print(",");
     BLUE_SER.print(gArray[dumpPtr]);
-  }
-  else {
+  } else {
     BLUE_SER.print("12345678");
     isDumpingData = false;
   }

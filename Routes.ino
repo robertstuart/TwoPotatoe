@@ -1,10 +1,11 @@
 
-String stop4[] = { 
-  "N Stop 4",
-  "KR  0,0     0          ",
-  "D                      ",
-  "G   0,80    4          ",
-  "B   1     100          ",
+String hug[] = { 
+  "N Hug",
+  "KR  120,70     -129             ",
+  "G   116.2,66.9      3             ",
+//  "G 108.5,60.5      3             ",
+  "HR 108.5,60.5     3   2.0  -129 ",
+  "G   104,51       3              ",
   "F"
 };
 
@@ -48,15 +49,39 @@ String avc10[] =   {  // 1/10 scale
   "F"
 };
 
+String gyroTest[] =   {  // run to hoop
+  "N Gyro Test",
+  "KR   65,59             129        ",
+  "G   117,11       12              ",
+  "D                       0        ",
+  "T   167,32       12    29      0 ",  // Turn toward barrels
+  "B   167          52              ",  // Barrels
+  "G   140,67       10              ",  // Leave barrels
+  "T   122,68        8    19     -129 ",  
+//  "C  -129         8     2.4   0.0",
+  "G    79,38        5              ",  // Approach hoop
+  "T    76,32        5    10   -173 ",  // Turn into hoop
+  "F"
+};
+
+String gyroTest2[] =   {  // inside wall
+  "N Gyro Test 2",
+  "KR  100,0     -90            ",
+  "G    95,0       3            ",
+  "C   -90         3   2.0  7.2 ",    
+  "G    83,0       3            ",
+  "F"
+};
+
 String avc2017_hr[] =   {  // hoop + ramp
   "N AVC 2017-HR",
-  "KR  65,59             129        ",
-  "G  118,11        12              ",
+  "KR   65,59             129        ",
+  "G   118,11       12              ",
   "D                       0        ",
   "T   166,32       12    29      0 ",  // Turn toward barrels
-  "B   166          52              ",  // Barrels
+  "B   167          52              ",  // Barrels
   "T   118,68       12    32   -129 ",  // Leave barrels
-  "G   101,55        8              ",
+  "G   101,55        6              ",
   "J  -129           4     4        ",  // Jump
   "G    79,37        4              ",  // Approach hoop
   "T    76,31        4    10   -173 ",  // Turn into hoop
@@ -65,7 +90,7 @@ String avc2017_hr[] =   {  // hoop + ramp
   "D                 0              ",
   "T     8,34       12    32     -7 ",  // Turn toward pedestrian
   "P                                ",
-  "T    53,69       12    32    129 ",
+  "T    58,64       12    33    129 ",
   "G    75,51        4              ",
   "F"
 };
@@ -103,12 +128,13 @@ String testRun1[] = {
 String loadedRoute[200]; 
 
 String *routeTable[] = {
-  barrel,
+  hug,
+  gyroTest,
+  gyroTest2,
   avc2017_hr,
+  barrel,
   avc2017_h,
   pedestrian1,
-  stop4,
-  testRun1,
   avc10,
 };
 
@@ -123,9 +149,9 @@ String getNextStepString() {
 
 
 
-/************************************************************************
+/***********************************************************************.
  *  setRoute()
- ************************************************************************/
+ ***********************************************************************/
 void setRoute(boolean increment) {
   int nRoutes = (sizeof(routeTable) / sizeof(int));
   
@@ -145,9 +171,9 @@ void setRoute(boolean increment) {
   sendBMsg(SEND_MESSAGE, routeTitle); 
 }
 
-/************************************************************************
+/***********************************************************************.
  *  startRoute()
- ************************************************************************/
+ ***********************************************************************/
 void startRoute() {
   isRunReady = false;
   routeStepPtr = 0;
@@ -156,9 +182,10 @@ void startRoute() {
   while (true) {
     if (!interpretRouteLine(getNextStepString())) {
       isRouteInProgress = false;
-      sprintf(message, "Error step %d!", routeStepPtr - 1);
+      sprintf(message, "Error step %d!", routeStepPtr);
       sendXMsg(SEND_MESSAGE, message);
       sendBMsg(SEND_MESSAGE, message);
+      Serial.println(message);
       return;
     }
     if (!isRouteInProgress) break;
@@ -168,8 +195,7 @@ void startRoute() {
   isDecelActive = isDecelPhase = false;
   interpretRouteLine(getNextStepString()); // Load the first line.
   isRouteInProgress = true;
-  coPtr = coEnd = 0;
-  setSonar("lFr");
+  setSonar("lfR");
   setHeading(0.0D);
   resetTicks();
   currentLoc.x = 0.0D;
@@ -182,9 +208,9 @@ void startRoute() {
 
 
 
-/************************************************************************
+/***********************************************************************.
  *  stopRoute()
- ************************************************************************/
+ ***********************************************************************/
 void stopRoute() {
   isRouteInProgress = false;
   setHeading(0.0);
@@ -193,9 +219,9 @@ void stopRoute() {
 
 
 
-/************************************************************************
+/***********************************************************************.
  *  loadRouteLine()  Call when route string arrives from PC
- ************************************************************************/
+ ***********************************************************************/
 void loadRouteLine(String routeLine) {
   static int loadStepPtr = 0;
   Serial.print("S: "); Serial.print(loadStepPtr); Serial.print("\t");

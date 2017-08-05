@@ -24,7 +24,7 @@ const int CIRCLE_ORIENT = 0;
 const int CIRCLE_TURN = 2;
 int circleState = CIRCLE_ORIENT;
 
-#define STEP_ERROR -42.42
+const float STEP_ERROR = -42.42;
 int originalStepStringPtr = 0;
 struct loc savedOrientationLoc;
 struct loc savedPositionLoc;
@@ -40,39 +40,56 @@ float barrelXAxis = 0.0;
 char axisC = ' ';
 double dDiff = 0.0D;
 
+float targetBearing = 0.0;
+float targetDistance = 0.0;
 double degreesPerTick;
 double turnStartBearing;
 int startTurnTick;
-double avgTargetBearing = 0.0;
-//double reFactor = 1.0;  // From tests at 3.5fps, 1.5 radius
-//double reFactor = 2.0;  // From hous3
-//double reFactor = 0.0;  // From hous3
 double startOrientation = 0.0;
 struct loc startLoc;
-float targetHeading = 0.0;
 int jumpTicksEnd = 0;
 float jumpCompFps = 0.0;
 
+float coArray[50];
+int coPtr = 0;
+float coDist = 0.0;
+float coHCorrection = 0.0;
+
+boolean isHugRight = true;
+float hugHeading = 0.0;
+float hugDist = 0.0;
+float hugWallDistance = 0.0;
+float hugWallAngle = 0.0;
+int hugStartTick = 0;
+int hugEndTick = 0; 
+const int HUG_ARRAY_SIZE = 100;
+float hugSonarArray[HUG_ARRAY_SIZE] = {1.2, 3.5, 4.0, 5.0, 6.7, 8.9};
+float hugDistArray[HUG_ARRAY_SIZE] =  {3.4, 3.7, 3.0, 2.7, 2.4, 2.5};
+int hugPtr = 6;
+float hugYEnd = 0.0;
+
 void routeLog() {
   if (isRouteInProgress && isRunning) {
-    addLog(
-      (long) (timeMilliseconds),
-      (short) (currentLoc.x * 100.0),
-      (short) (currentLoc.y * 100.0),
-      (short) (gyroHeading * 100.0),
-      (short) (targetWFps * 100.0),
-      (short) (tpFps * 100.0),
-      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
-    );
+//    if (routeStepPtr == 5) {
+      addLog(
+        (long) (timeMilliseconds),
+        (short) (currentLoc.x * 100.0),
+        (short) (currentLoc.y * 100.0),
+        (short) (sonarRightKeep * 100.0),
+        (short) (gyroHeading * 100.0),
+        (short) (targetBearing * 100.0),
+        (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
+      );
+//    }
   }
 }
 
 /************************************************************************
-    steerRoute() called every loop (208/sec).
-            This is called as the last step in aTp6() for steering.
-              1. Check if target reached.
-              2. Set currentLoc.
-              3. Adjust steering.
+ *  steerRoute() called every loop (208/sec).
+ *          This is called as the last step in aTp7() for steering.
+ *            1. Check if target reached.
+ *            2. Set currentLoc.
+ *            3. Adjust steering.
  ************************************************************************/
 void steerRoute() {
   boolean isNewRouteStep = false;
@@ -82,10 +99,8 @@ void steerRoute() {
 
   // See of we need to move to the next route step.
   switch (routeCurrentAction) {
-    case 'C':
     case 'E':
     case 'L':
-    case 'M':
     case 'N':
     case 'D':
       isNewRouteStep = true;
@@ -94,10 +109,31 @@ void steerRoute() {
     case 'B':
       if (barrels(false)) isNewRouteStep = true;
       break;
-
+      
+    case 'C':
+      if (sonarRight > 0.1) {
+        coArray[coPtr++] = sonarRight;
+        sonarRight = 0.0;
+        if (coPtr > 5) {
+          coCorrect();
+          isNewRouteStep = true;
+        }
+      } else {
+        steerHeading();
+      }
+      break;
     case 'G':
       if (isTargetReached()) isNewRouteStep = true;
       else steerTarget();
+      break;
+
+    case 'H':
+      if (tickPosition > hugEndTick) {
+        hugCorrect();
+        isNewRouteStep = true;
+      } else {
+        steerHug();
+      }
       break;
 
     case 'J':
@@ -152,15 +188,15 @@ void steerRoute() {
 
 
 /************************************************************************
-    interpretRouteLine()
-        Called every time the end criterion for a route step is reached.
-        Read the new route step and set the values.
+ *  interpretRouteLine()
+ *      Called every time the end criterion for a route step is reached.
+ *      Read the new route step and set the values.
  ************************************************************************/
 boolean interpretRouteLine(String ss) {
   double pivotDir, dblVal, aDiff;
+  float hugX, hugY, hugDist;
   int retInt;
   char char1, char2;
-  struct chartedObject co;
 
   stepString = ss;
   isSaveOrientation = isSavePosition = isFixOrientation = false;
@@ -184,18 +220,21 @@ boolean interpretRouteLine(String ss) {
       break;
 
     case 'C': // Charted object
-      char1 = stepString.charAt(0);
-      if (char1 == 'R') co.isRightSonar = true;
-      else if (char1 == 'L') co.isRightSonar = false;
-      else return false;
-      stepString = stepString.substring(1);
-      co.trigger = readNum();
-      Serial.print(co.trigger); Serial.print("   ");
-      if (co.trigger == STEP_ERROR) return false;
-      co.surface = readNum();
-      Serial.print(co.surface); Serial.print("   ");
-      if (co.surface == STEP_ERROR) return false;
-      chartedObjects[coEnd++] = co;
+      targetBearing = readNum();
+      Serial.print(targetBearing); Serial.print("   ");
+      if (targetBearing == STEP_ERROR) return false;
+      routeFps = routeScriptFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      coDist = readNum();
+      Serial.print(coDist); Serial.print("   ");
+      if (coDist == STEP_ERROR) return false;
+      coHCorrection = readNum();
+      Serial.print(coHCorrection); Serial.print("   ");
+      if (coHCorrection == STEP_ERROR) return false;
+      sonarRight = 0.0;
+      coPtr = 0;
+      setSonar("lfR");
       break;
 
     case 'D':  // Decelerate
@@ -211,8 +250,6 @@ boolean interpretRouteLine(String ss) {
       break;
 
     case 'G':  // Go to the next waypoint
-      lsPtr = 0;
-      isHug = false;
       targetLoc = readLoc();
       Serial.print(targetLoc.x); Serial.print("  "); Serial.print(targetLoc.y); Serial.print("   ");
       if (targetLoc.y == STEP_ERROR) return false;
@@ -223,10 +260,44 @@ boolean interpretRouteLine(String ss) {
       setTarget();
       break;
 
+    case 'H':  // Hug a wall & correct heading and position.
+      char1 = stepString.charAt(0);
+      if (char1 == 'R') isHugRight = true;
+      else if (char1 == 'L') isHugRight = false;
+      else return false;
+      stepString = stepString.substring(1);
+      targetLoc = readLoc(); 
+      Serial.print(targetLoc.x); Serial.print("  "); Serial.print(targetLoc.y); Serial.print("   ");
+      if (targetLoc.y == STEP_ERROR) return false;
+      routeFps = routeScriptFps = readNum();
+      Serial.print(routeFps);  Serial.print("   ");
+      if (routeFps == STEP_ERROR) return false;
+      hugWallDistance = readNum(); 
+      Serial.print(hugWallDistance); Serial.print("   ");
+      if (hugWallDistance == STEP_ERROR) return false;
+      hugWallAngle = readNum(); 
+      Serial.print(hugWallAngle); Serial.print("   ");
+      if (hugWallAngle == STEP_ERROR) return false;
+      
+      if (isHugRight) setSonar("Rfl");
+      else setSonar("rfL");
+      // Compute hugHeading & hugEndTick;
+      hugStartLoc = currentLoc;
+      hugX =  targetLoc.x  -currentLoc.x;
+      hugY =  targetLoc.y - currentLoc.y;
+      hugDist = sqrt((hugX * hugX) + (hugY * hugY));
+      hugStartTick = tickPosition;
+      hugEndTick = ((int) (TICKS_PER_FOOT * hugDist)) + hugStartTick; 
+      hugHeading = atan2(hugX, hugY) * RAD_TO_DEG;
+      hugPtr = 0;
+      sonarRight = 0.0;
+      sonarLeft = 0.0;
+      break;
+
     case 'J':  // Jump
-      targetHeading = readNum();
-      Serial.print(targetHeading); Serial.print("   ");
-      if (targetHeading == STEP_ERROR) return false;
+      targetBearing = readNum();
+      Serial.print(targetBearing); Serial.print("   ");
+      if (targetBearing == STEP_ERROR) return false;
       routeFps = routeScriptFps = readNum();
       Serial.print(routeFps); Serial.print("   ");
       if (routeFps == STEP_ERROR) return false;
@@ -252,22 +323,12 @@ boolean interpretRouteLine(String ss) {
       isStartReceived = false;
       break;
 
-    case 'M':
-      char1 = stepString.charAt(0);
-      if      (char1 == 'R') setSonar("lfR");
-      else if (char1 == 'F') setSonar("lFr");
-      else if (char1 == 'L') setSonar("Lfr");
-      else if (char1 == 'A') setSonar("LFR");
-      else if (char1 == 'N') setSonar("lfr");
-      else return false;
-      break;
-
     case 'N':  // Name of route
       stripWhite();
       routeTitle = stepString;
       break;
 
-    case 'P':  // Pedestrian, place holder
+    case 'P':  // Pedestrian
       pedestrian(true);
       break;
 
@@ -319,14 +380,13 @@ boolean interpretRouteLine(String ss) {
 
 
 
-
 //#define RAD_TURN 10.0
 #define RAD_TURN 4.0
 #define END_STEER 0.5
 /************************************************************************
-    steerTarget() Find the correct heading to the target and adjust the
-                 wheel speeds to turn toward the target.  As tp approaches
-                 the target, use the originalTargetBearing.
+ *  steerTarget() Find the correct heading to the target and adjust the
+ *               wheel speeds to turn toward the target.  As tp approaches
+ *               the target, use the originalTargetBearing.
  ************************************************************************/
 void steerTarget() {
   double speedAdjustment;
@@ -361,7 +421,7 @@ void steerTarget() {
 void steerHeading() {
   double speedAdjustment;
 
-  double aDiff = rangeAngle(targetHeading - gyroHeading);
+  double aDiff = rangeAngle(targetBearing - gyroHeading);
   double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
   speedAdjustment = (wFps / RAD_TURN) * 0.64 * d;
@@ -383,7 +443,7 @@ void steerHeading() {
 
 
 /***********************************************************************.
-    turn() Turn with a given radius.
+ *  turn() Turn with a given radius.
  ************************************************************************/
 void turn() {
   float speedAdjustment, headingError;
@@ -429,15 +489,19 @@ void turn() {
 }
 
 /************************************************************************
-    getRouteFps() Limit acceleration to prevent too rapid acceleration--
-                  particularly when starting from zero from the stand.
-                  Also starts deceleration at end of step.
-                  Returns true if is decelerating and reached target fps.
+ *  getRouteFps() Limit acceleration to prevent too rapid acceleration--
+ *                particularly when starting from zero from the stand.
+ *                Also starts deceleration at end of step.
+ *                Returns true if is decelerating and reached target fps.
  ************************************************************************/
 float getRouteFps() {
   float stopDistance;
 
   switch (routeCurrentAction) {
+    case 'C':
+      routeFps = routeScriptFps;
+      break;
+      
     case 'G':
     case 'T':
       // Check to see if we need to start the decel phase.
@@ -453,22 +517,20 @@ float getRouteFps() {
       } else {
         if (routeScriptFps < 0.0) {
           routeFps = routeScriptFps;
-        } else { // Going forward. Check if starting from stand.
+        } else { // Going forward.
           if (timeRun < 1000) {  // taking off from stand?
             routeFps = (((float) timeRun) / 200.0) + 0.5; // Accelerate to 5.5 in 1 sec
             if (routeFps > routeScriptFps) routeFps = routeScriptFps;
           } else { // Accelerate to target speed.
-            float inc = (routeScriptFps - tpFps) * 2.0;
-            inc = constrain(inc, -5.0, 5.0);
-            routeFps = tpFps + inc;
+//            float inc = (routeScriptFps - tpFps) * 2.0;
+//            inc = constrain(inc, -5.0, 5.0);
+//            routeFps = tpFps + inc;
+              routeFps = routeScriptFps;
           }
         }
       }
       break;
 
-    case 'J':
-      routeFps = routeScriptFps;
-      break;
 
     case 'B':
       if (barrelOneState == SEEK_BARREL) {
@@ -484,8 +546,15 @@ float getRouteFps() {
       break;
 
     case 'P':
-      routeFps = 0.0;
+      holdY();
       break;
+
+    case 'H':
+    case 'J':
+    default:
+      routeFps = routeScriptFps;
+      break;
+   
   }
   return routeFps;
 }
@@ -493,9 +562,9 @@ float getRouteFps() {
 
 
 /***********************************************************************.
-    isTargetReached()  Return true if within 1 ft of target and is
-                       moving away from the target.
-                       Return true if at end of decel.
+ *  isTargetReached()  Return true if within 1 ft of target and is
+ *                     moving away from the target.
+ *                     Return true if at end of decel.
  ***********************************************************************/
 boolean isTargetReached() {
   const int RETREAT_TIMES = 10;
@@ -532,9 +601,155 @@ boolean isTargetReached() {
 
 
 
-/************************************************************************
-    setTarget() Set the new targetBearing and targetDistance from
-                the currentLoc.
+/***********************************************************************.
+ *  coCorrect() Correct the X,Y? & gyroHeading values given the sonar
+ *  readings from the hay bales.
+ ************************************************************************/
+void coCorrect() {
+  float sum = 0.0;
+  
+    // Find the average.
+//  for (int i = 0; i < coPtr; i++) sum += coArray[i];
+//  float avg = sum / ((float) coPtr);
+//  float correction = coDist - avg;\
+
+  // Find the median, Bubble Sort
+  boolean swapped;
+  while (true) {
+    swapped = false;
+    for (int i = 1; i < coPtr; i++) {
+      float a = coArray[i - 1];
+      float b = coArray[i];
+      if (a > b) {
+        coArray[i - 1] = b;
+        coArray[i] = a;
+        swapped = true;
+      }
+    }
+    if (!swapped) break;
+  }
+  float correction = coDist - coArray[2];
+
+  currentLoc.y += correction;
+  gyroCumHeading += (correction * coHCorrection);
+}
+
+
+/***********************************************************************.
+ *  steerHug() 
+ ************************************************************************/
+void steerHug() {
+  static float sonar = 3.0;
+  boolean isReading = false;
+
+  // Read the sonar
+  if (isHugRight) {
+    if (sonarRight > 0.0) {
+      sonar = sonarRight;
+      sonarRight = 0.0;
+      isReading = true;
+    }
+  } else {
+    if (sonarLeft > 0.0) {
+      sonar = sonarLeft;
+      sonarLeft = 0.0;
+      isReading = true;
+    }
+  }
+  if (isReading) {
+    isReading = false;
+    if (sonar < 7.0) {
+      hugSonarArray[hugPtr] = sonar;
+      hugDistArray[hugPtr] = ((float) (tickPosition - hugStartTick)) / TICKS_PER_FOOT;
+    }
+    if (hugPtr < HUG_ARRAY_SIZE) hugPtr++;
+  }
+  
+  float error = sonar - hugWallDistance;
+  float correction = error * 20.0;
+  correction = constrain(correction, -30.0, 30.0);
+  targetBearing = hugHeading + correction;
+  steerHeading();
+}
+
+
+
+/***********************************************************************.
+ *  hugCorrect()  At end of Hug, correct the heading and X,Y.
+ ************************************************************************/
+void hugCorrect() {
+  float x = currentLoc.x - hugStartLoc.x;
+  float y = currentLoc.y - hugStartLoc.y;
+  float realizedHeading = atan2(x,y) * RAD_TO_DEG; // Heading from dead reckoning
+  float ss = sonarSlope();          // from the sonar
+  float sa = atan(ss) * RAD_TO_DEG;
+  float correction = hugHeading - realizedHeading - sa;
+  float finalHeading = gyroHeading + correction; 
+
+  sprintf(message1, "startLoc: %5.2f;%5.2f   currentLoc: %5.2f;%5.2f", hugStartLoc.x, hugStartLoc.y, currentLoc.x, currentLoc.y);
+  sendBMsg(SEND_MESSAGE, message);  
+  sprintf(message2, "hugHeading: %5.2f   hugWallAngle: %5.2f", hugHeading, hugWallAngle);
+  sendBMsg(SEND_MESSAGE, message);  
+  sprintf(message3, "realizedHeading: %5.2f   sonarSlope %5.2f    sonarAngle: %5.2f", realizedHeading, ss, sa);
+  sendBMsg(SEND_MESSAGE, message);  
+  sprintf(message4, "correction:   %5.2f    finalHeading: %5.2f  ", correction, finalHeading);
+  sendBMsg(SEND_MESSAGE, message);  
+
+  // Set the heading.
+  setHeading(finalHeading);
+
+  // Set the cartesian coordinates.
+  currentLoc.x = targetLoc.x;
+  if (abs(sonarRightKeep - hugWallDistance) < 1.0) {
+    currentLoc.y = targetLoc.y - (0.78 * (sonarRightKeep - hugWallDistance));
+  } else {
+    currentLoc.y = targetLoc.y;
+  }
+//  currentLoc = targetLoc;  // Assume we are now at the correct target.
+}
+
+
+
+/***********************************************************************.
+ *  sonarSlope()  Slope of least squares regression line.  
+ ************************************************************************/
+float sonarSlope() {
+  float df = (float) (hugPtr - 1);
+  float sumX = 0.0F;
+  float sumY = 0.0F;
+  float sumSqX = 0.0F;
+  float sumSqY = 0.0F;
+  float sumXY = 0.0F;
+  float meanX, meanY;
+  float diffX, diffY, sigmaX, sigmaY;
+  float r, slope, intercept;
+  float angleCorrection;
+
+  for (int i = 0; i < hugPtr; i++) sumX += hugDistArray[i];
+  for (int i = 0; i < hugPtr; i++) sumY += hugSonarArray[i];
+  meanX = sumX / ((float) hugPtr);
+  meanY = sumY / ((float) hugPtr);
+  for (int i = 0; i < hugPtr; i++) {
+    diffX = meanX - hugDistArray[i];
+    sumSqX += diffX * diffX;
+    diffY = meanY - hugSonarArray[i];
+    sumSqY += diffY * diffY;
+    sumXY += (diffX * diffY);
+  }
+  sigmaX = sqrt(sumSqX / df);
+  sigmaY = sqrt(sumSqY / df);
+  r = (sumXY / (sigmaY * sigmaX)) / df;
+  slope = r * (sigmaY / sigmaX);
+  double bearing = atan(slope) * RAD_TO_DEG;
+  intercept = meanY - (slope * meanX);
+//  sprintf(message, "slope: %5.2f   intercept: %5.2f   heading: %5.2f", slope, intercept, bearing);
+//  sendBMsg(SEND_MESSAGE, message); 
+  return slope;
+}
+
+/************************************************************************.
+ *  setTarget() Set the new targetBearing and targetDistance from
+ *              the currentLoc.
  ************************************************************************/
 void setTarget() {
   double x =  targetLoc.x - currentLoc.x;
@@ -548,7 +763,7 @@ void setTarget() {
 
 
 /***********************************************************************.
-    Script parsing routines
+ *  Script parsing routines
  ***********************************************************************/
 double readNum() {
   stripWhite();

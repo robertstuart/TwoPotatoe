@@ -87,7 +87,8 @@ void commonTasks() {
  **************************************************************************/
 void setRunningState() {
   static boolean oldIsRunning = true;
-  byte *pattern;
+  byte *bluePattern;
+  byte *yellowPattern;
 
   if (mode == MODE_2P) {
     // Set the runnng bit to control motors
@@ -104,29 +105,25 @@ void setRunningState() {
         oldIsRunning = false;
       } 
     }
-  }
-  else { // For all test modes, just set accoding to ready bit
+  } else { // For all test modes, just set accoding to ready bit
     isRunning = isRunReady;
   }
 
   // Set the blue route led
-  if (isRouteInProgress && isRunning) setBlink(BLUE_LED_PIN, BLINK_ON);
-  else if (isRouteInProgress && !isRunning) setBlink(BLUE_LED_PIN, BLINK_FF);
-  else setBlink(BLUE_LED_PIN, BLINK_OFF);
+  if (isRouteInProgress) bluePattern = (isRunning) ? BLINK_ON : BLINK_FF;
+  else bluePattern = BLINK_OFF;
 
   // set yellow (state)
   switch (mode) {
     case MODE_2P:
-      if (isRouteInProgress) {
-        if (isRunning) {
-          setBlink(YELLOW_LED_PIN, BLINK_ON);
-        } else {
-          setBlink(YELLOW_LED_PIN, BLINK_FF);
-        }
+      if (isRouteInProgress){
+        yellowPattern = (isRunning) ? BLINK_ON : BLINK_FF;
       } else if (isRunReady && isRunning) {
-        setBlink(YELLOW_LED_PIN, BLINK_ON);
+        yellowPattern = BLINK_ON;
+      } else if (isRunReady && !isRunning) {
+        yellowPattern = BLINK_FF;
       } else {
-        setBlink(YELLOW_LED_PIN, BLINK_FF);
+        yellowPattern = BLINK_SB;
       }
       
       if ((!isHcActive) && (!isPcActive)) {
@@ -141,13 +138,12 @@ void setRunningState() {
         pcY = 0.0;
       }
       break;
-    default:
-      pattern = (isRunning) ? BLINK_ON : BLINK_FF;
-      setBlink(BLUE_LED_PIN, pattern);
-      setBlink(YELLOW_LED_PIN, pattern);
-      setBlink(RED_LED_PIN, pattern);
+    default: // All test modes
+      bluePattern = yellowPattern = (isRunning) ? BLINK_ON : BLINK_FF;
       break;
   }
+  setBlink(BLUE_LED_PIN, bluePattern);
+  setBlink(YELLOW_LED_PIN, yellowPattern);
 }
 
 
@@ -193,16 +189,16 @@ void liftJump() {
   if (!isOnGround) {
     // TP has just left the ground.
     if (isOldOnGround) {  // Just left the ground?
-      isStepFall = true; // Used by jump().
       liftTimer = timeMilliseconds + 400;  // .4 sec
-    } 
-    else { // In the air.
+    } else { // In the air.
       if (timeMilliseconds > liftTimer) { // In air > .4 sec?
         isLifted = true;
       }
     }
-  }
-  else { // On the ground.    
+  } else { // On the ground.    
+    if (isLifted) { // Transition?
+      if (!isRouteInProgress) gPitch = gaPitch = lpfAPitch;
+    }
     isLifted = false;
     liftTimer = 0UL;
   }
@@ -406,10 +402,16 @@ void switches() {
   if ((timeMilliseconds - gnTimer) > 50) gnState = false;
   else gnState = true;
 
-  // Blue or Green press transition
-  if ((buState && (!oldBuState)) || (gnState && (!oldGnState))) {
+  // Blue press transition
+  if (buState && (!oldBuState)) {
     if (isRouteInProgress) stopRoute();
     else startRoute();
+  }
+
+  // Green press transition
+  if (gnState && (!oldGnState)) {
+    if (isRouteInProgress)  isStartReceived = true;
+    else isRunReady = !isRunReady;
   }
 
   // Yellow press transition
@@ -474,30 +476,13 @@ void readSonar() {
  *           Called for every sonar reading.
  **************************************************************************/
 void doSonar(float distance, char dir) {
-
-  // Collect data for Charted Object measurements. 
   if (dir == 'R') {     
-    sonarRightArray[sonarRightArrayPtr] = (distance * 100.0);
-    sonarRightArrayPtr = ++sonarRightArrayPtr % SONAR_ARRAY_SIZE;
-    sonarRight = distance;
+    sonarRight = sonarRightKeep = distance;
   } else if (dir == 'L') {
-    sonarLeftArray[sonarLeftArrayPtr] = (int) (distance * 100.0);
-    sonarLeftArrayPtr = ++sonarLeftArrayPtr % SONAR_ARRAY_SIZE;
-    sonarLeft = distance;
+    sonarLeft = sonarLeftKeep = distance;
   } else {
-    sonarFront = distance;
+    sonarFront = sonarFrontKeep = distance;
   }
-//  if (isRouteInProgress) {
-//    addLog(
-//        (long) timeMilliseconds,
-//        (short) (currentMapLoc.x * 100.0),
-//        (short) (currentMapLoc.y * 100.0),
-//        (short) (sonarRight * 100.0),
-//        (short) (sonarLeft * 100.0),
-//        (short) (0),
-//        (short) (routeStepPtr)
-//    );
-//  }
 }
 
 

@@ -12,7 +12,6 @@
 //#define GYRO_SENS 0.0696     
 const float GYRO_SENS = 0.0696;      // Multiplier to get degrees. 
 
-
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 
 // Values for initial timeDrift???
@@ -26,7 +25,7 @@ const double YAW_DRIFT = -23.47;
 
 //#define TICKS_PER_CIRCLE_YAW  11900.0  // For Pro-Line Masher 2.8" PRO1192-12
 //#define TICKS_PER_CIRCLE_YAW  7816.0  // For Losi DB XL 1/5 scale
-#define TICKS_PER_CIRCLE_YAW  7428.0  // For Losi DB XL 1/5 scale
+//#define TICKS_PER_CIRCLE_YAW  7428.0  // For Losi DB XL 1/5 scale
 
 LSM6 lsm6;
 
@@ -110,11 +109,7 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define LONG_MAX  2147483647L
 #define LONG_MIN -2147483648L
 
-//#define TICKS_PER_FOOT 1536.0D
-//#define TICKS_PER_RADIAN_YAW (TICKS_PER_CIRCLE_YAW / TWO_PI)
-#define TICKS_PER_DEGREE_YAW (TICKS_PER_CIRCLE_YAW / 360.0)
-//#define TICKS_PER_PITCH_DEGREE 20.0
-#define TICKS_PER_PITCH_DEGREE 54.0D
+//#define TICKS_PER_PITCH_DEGREE 54.0D
 //#define GYRO_WEIGHT 0.98    // Weight for gyro compared to accelerometer
 #define GYRO_WEIGHT 0.997    // Weight for gyro compared to accelerometer
 #define DEFAULT_GRID_OFFSET 0.0
@@ -123,8 +118,8 @@ const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 #define INVALID_VAL -123456.78D
 
 // Due has 96 kbytes sram
+//#define DATA_ARRAY_SIZE 4000
 #define DATA_ARRAY_SIZE 2500
-//#define DATA_ARRAY_SIZE 20
 // Arrays to save data to be dumped in blocks.
 long  aArray[ DATA_ARRAY_SIZE];
 short bArray[ DATA_ARRAY_SIZE];
@@ -135,7 +130,6 @@ short fArray[ DATA_ARRAY_SIZE];
 short gArray[ DATA_ARRAY_SIZE];
 unsigned int dataArrayPtr = 0;
 
-//#define TICK_ARRAY_SIZE 10300
 #define TICK_ARRAY_SIZE 1030
 short tArray[TICK_ARRAY_SIZE]; // Period in usec
 short uArray[TICK_ARRAY_SIZE]; // State of rotation tick
@@ -194,51 +188,28 @@ int bbb = 42;
  
 
 struct loc {
-  double x;
-  double y;
+  float x;
+  float y;
 };
 
 struct loc currentLoc;
 struct loc targetLoc;
 struct loc pivotLoc;
+struct loc hugStartLoc;
 //boolean isFixLoc = false;
 struct loc coSetLoc;
 boolean isFixHeading = false;
 boolean isAngleControl = false;
 boolean decelStopped = false;
 
-struct chartedObject {
-  boolean isRightSonar;
-  char type;            // 'S', 'H', or ' ',
-  double trigger;
-  double surface;
-};
-
-#define SONAR_ARRAY_SIZE 100
-int sonarRightArray[SONAR_ARRAY_SIZE];
-int sonarLeftArray[SONAR_ARRAY_SIZE];
-int sonarRightArrayPtr = 0;
-int sonarLeftArrayPtr = 0;
-
-#define CO_SIZE 10
-struct chartedObject chartedObjects[CO_SIZE];
-int coPtr = 0;
-int coEnd = 0;
-
-#define LS_ARRAY_SIZE 1000
-unsigned int lsPtr = 0;
-float lsXArray[LS_ARRAY_SIZE] = {5,7,9,12,15};
-float lsYLArray[LS_ARRAY_SIZE] = {2,2.2,2.5,2.6,3};
-float lsSArray[LS_ARRAY_SIZE] = {1.9,2.1,2.6,2.7,3.2};
-double lsXYSurface = 0;
-double hugXYRhumb = 0.0D;
-double hugXYSurface = 0.0D;
-double hugSonarDistance = 0.0D;
-double hugBearing = 0.0D;
-char hugDirection = 'N';
-boolean isHug = false;
+//double lsXYSurface = 0;
+//double hugXYRhumb = 0.0D;
+//double hugXYSurface = 0.0D;
+//double hugSonarDistance = 0.0D;
+//double hugBearing = 0.0D;
+//char hugDirection = 'N';
+//boolean isHug = false;
 boolean isLockStand = true;
-int lockStartTicks = 0;
 
 int routeStepPtr = 0;
 String routeTitle = "no title                ";
@@ -252,14 +223,7 @@ float tpFps = 0.0;
 double turnTargetCumHeading = 0.0;
 
 char routeCurrentAction = 0;
-double targetBearing = 0.0;
-double targetDistance = 0.0;
-//double phantomTargetBearing = 0.0;
-double routeMagTargetBearing = 0.0;
-boolean isReachedMagHeading = false;
 boolean isRightTurn = true;
-long routeTargetTickPosition = 0L;
-double pirouetteFps = 0.0;
 float routeFps = 0.0;
 float routeScriptFps = 0.0;  // The programmed speed from the script.
 float turnRadius = 0.0;
@@ -267,21 +231,13 @@ float pivotBearing = 0.0;
 float endTangentDegrees = 0.0;
 int routeWaitTime = 0L;
 boolean isStartReceived = false;
-long navOldTickPosition = 0L;
 //double routeTargetXYDistance = 0.0;
 int originalAction = 0;
-
-double sumX = 0.0D;
-double sumY = 0.0D;
-double sumZ = 0.0D;
-double meanX = 0.0D;
-double meanY = 0.0D;
-double meanZ = 0.0D;
 
 double gaPitch = 0.0;
 float yAccel = 0.0;
 double gaFullPitch = 0.0;
-double tgaPitch = 0.0;
+double lpfAPitch = 0.0;
 double gaRoll = 0.0;
 
 double aPitch = 0.0;
@@ -294,17 +250,6 @@ double gYaw = 0.0;
 double gyroCumHeading = 0.0;
 double gyroHeading = 0;
 
-double tPitch = 0.0D;
-double oldTPitch = 0.0D;
-double tgPitch = 0.0D;
-double tgPitchDelta = 0.0D;
-double oldTgPitch = 0.0D;
-
-double accelFpsSelfX = 0.0;
-double accelFpsSelfY = 0.0;
-double accelFpsMapX = 0.0;
-double accelFpsMapY = 0.0;
-
 double rotation2 = 0.0D;
 double cos2 = 0.0D;
 double lpfCos2 = 0.0D;
@@ -314,38 +259,11 @@ float cos3 = 0.0;
 float lpfCos3 = 0.0;
 float lpfCos3Old = 0.0;
 float lpfCos3Accel = 0.0;
-double oldGyroCumHeading = 0.0D;
-double oldTickCumHeading = 0.0D;
-
-double headX, headY;
-
-int16_t mX, mY, mZ;
-
-double xVec, yVec, zVec;
-boolean isMagAdjust = true;
-double magHeading = 0.0;
-double gridOffset = 0.0;
-double gridHeading = 0.0;
-double gridCumHeading = 0.0;
-double gridRotations = 0.0;
-double tickHeading = 0.0;
-double tickCumHeading = 0.0;
-int tickOffset = 0;
-double tmHeading = 0.0;
-double tmCumHeading = 0.0;
-double gmHeading = 0.0;
-double gmCumHeading = 0.0;
-double currentX = 0.0;
-double currentY = 0.0;
-int fixPosition = 0;
-double fixHeading = 0.0;
-
-  
 
 long coTickPosition;
 double startDecelSpeed = 0.0;
 
-// System status (used to be status bits
+// System status 
 boolean isRunReady = false;   // Reflects the Run command
 boolean isRunning = false;
 boolean isUpright = false;
@@ -405,13 +323,11 @@ int cmdState = 0;  // READY, PWR, & HOME command bits
 unsigned int forceRight = 0; // force sensor value
 unsigned int forceLeft = 0; // force sensor value
 float sonarLeft = 0.0;
-float sonarLeftMin = 0.0;
+float sonarLeftKeep = 0.0;
 float sonarFront = 0.0;
-float sonarLeftFront = 0.0;
+float sonarFrontKeep = 0.0;
 float sonarRight = 0.0;
-float sonarRightMin = 0.0;
-double sonarMin = 0.0D;
-double sonarMax = 100.0D;
+float sonarRightKeep = 0.0;
 
 unsigned int actualLoopTime; // Time since the last
 double hcX = 0.0;
@@ -421,7 +337,10 @@ double pcY = 0.0;
 double controllerX = 0.0; // +1.0 to -1.0 from controller
 double controllerY = 0.0;  // Y value set by message from controller
 char message[100] = "";
-
+char message1[80] = "message 1";
+char message2[80] = "message 2";
+char message3[80] = "message 3";
+char message4[80] = "message 4";
 float baseGyroTemp = 75.0;
 double gyroPitchRaw;  // Vertical plane parallel to wheels
 double gyroPitchRate;
@@ -545,19 +464,17 @@ long standPos = 0;
 int msgCmdX = 0;
 boolean isDiagnostics = false;
 
-boolean isStepFall = false;
-boolean isOldStepFall = false;
 double tp6ControllerSpeed = 0.0;
 float tp7ControllerSpeed = 0.0;
 double jumpTarget;
 double jumpFallXY;
 
-double barrelXCenter = 0.0D;
-double barrelX = 0.0D;
-double barrelYEnd = 0.0D;
-
+float barrelXCenter = 0.0D;
+float barrelX = 0.0D;
+float barrelYEnd = 0.0D;
 
 char pBuf[100];
+
 /*********************************************************
  *
  * setup()
@@ -628,6 +545,7 @@ void setup() {
 //  diagnostics();
   Serial.println("Diagnostics ignored.");
   setSonar("LFR");
+  sonarSlope();
 } // end setup()
 
 
