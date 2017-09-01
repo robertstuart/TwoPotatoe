@@ -173,6 +173,15 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
     case RCV_RUN:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         isRunReady = (intVal != 0);
+  addLog(
+       (long) (tickPosition),
+        (short) (6 * 100.0),
+        (short) (6 * 100.0),
+        (short) (6 * 100.0),
+        (short) (6 * 100.0),
+        (short) (6 * 100.0),
+        (short) (6 * 100.0)
+    );
       }
       break;
     case RCV_MODE:

@@ -75,9 +75,9 @@ void routeLog() {
         (long) (timeMilliseconds),
         (short) (currentLoc.x * 100.0),
         (short) (currentLoc.y * 100.0),
-        (short) (sonarRightKeep * 100.0),
-        (short) (gyroHeading * 100.0),
-        (short) (targetBearing * 100.0),
+        (short) (gcYaw * 100.0),
+        (short) (gHeading * 100.0),
+        (short) (sonarFrontKeep * 100.0),
         (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
       );
 //    }
@@ -290,8 +290,8 @@ boolean interpretRouteLine(String ss) {
       hugEndTick = ((int) (TICKS_PER_FOOT * hugDist)) + hugStartTick; 
       hugHeading = atan2(hugX, hugY) * RAD_TO_DEG;
       hugPtr = 0;
-      sonarRight = 0.0;
-      sonarLeft = 0.0;
+      sonarRight = sonarRightKeep = 0.0;
+      sonarLeft = sonarLeftKeep = 0.0;
       break;
 
     case 'J':  // Jump
@@ -337,7 +337,7 @@ boolean interpretRouteLine(String ss) {
       Serial.print(targetLoc.x); Serial.print("  "); Serial.print(targetLoc.y); Serial.print("   ");
       if (targetLoc.y == STEP_ERROR) return false;
       setTarget();
-      aDiff = rangeAngle(targetBearing - gyroHeading);
+      aDiff = rangeAngle(targetBearing - gHeading);
       isRightTurn = aDiff > 0.0;
 
       routeFps = routeScriptFps = readNum();
@@ -394,7 +394,7 @@ void steerTarget() {
   if (targetDistance < 1.0) {
     speedAdjustment = 0.0;
   } else {
-    double aDiff = rangeAngle(targetBearing - gyroHeading);
+    double aDiff = rangeAngle(targetBearing - gHeading);
     double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
     speedAdjustment = (wFps / RAD_TURN) * 0.64 * d;
@@ -421,7 +421,7 @@ void steerTarget() {
 void steerHeading() {
   double speedAdjustment;
 
-  double aDiff = rangeAngle(targetBearing - gyroHeading);
+  double aDiff = rangeAngle(targetBearing - gHeading);
   double d = (aDiff > 0.0) ? 1.0 : -1.0;
 
   speedAdjustment = (wFps / RAD_TURN) * 0.64 * d;
@@ -457,13 +457,13 @@ void turn() {
     yDist = (currentLoc.y - pivotLoc.y);
     radiusAngle = atan2(xDist, yDist) * RAD_TO_DEG;
     targetTurnHeading = rangeAngle(radiusAngle + 90.0);
-    headingError = rangeAngle(gyroHeading - targetTurnHeading);
+    headingError = rangeAngle(gHeading - targetTurnHeading);
   } else {
     xDist = (currentLoc.x - pivotLoc.x);
     yDist = (currentLoc.y - pivotLoc.y);
     radiusAngle = atan2(xDist, yDist) * RAD_TO_DEG;
     targetTurnHeading = rangeAngle(radiusAngle - 90.0);
-    headingError = rangeAngle(gyroHeading - targetTurnHeading);
+    headingError = rangeAngle(gHeading - targetTurnHeading);
   }
 
   float radiusError = sqrt((xDist * xDist) + (yDist * yDist)) - turnRadius;
@@ -534,10 +534,10 @@ float getRouteFps() {
 
     case 'B':
       if (barrelOneState == SEEK_BARREL) {
-        if (seekState == SEEK_SETTLE) holdY();
+        if (seekState == SEEK_SETTLE) routeFps = holdY();
         else routeFps = SEEK_FPS;
       } else if (barrelOneState == PLOT_BARREL) {
-        holdY();
+        routeFps = holdY();
       } else if (barrelOneState == CIRCLE_BARREL) {  // Circle barrel
         routeFps = TURN_FPS;
       } else { //RECOVER_BARREL
@@ -546,7 +546,7 @@ float getRouteFps() {
       break;
 
     case 'P':
-      holdY();
+      routeFps = holdY();
       break;
 
     case 'H':
@@ -631,7 +631,7 @@ void coCorrect() {
   float correction = coDist - coArray[2];
 
   currentLoc.y += correction;
-  gyroCumHeading += (correction * coHCorrection);
+  gHeading += (correction * coHCorrection);
 }
 
 
@@ -684,7 +684,7 @@ void hugCorrect() {
   float ss = sonarSlope();          // from the sonar
   float sa = atan(ss) * RAD_TO_DEG;
   float correction = hugHeading - realizedHeading - sa;
-  float finalHeading = gyroHeading + correction; 
+  float finalHeading = gHeading + correction; 
 
   sprintf(message1, "startLoc: %5.2f;%5.2f   currentLoc: %5.2f;%5.2f", hugStartLoc.x, hugStartLoc.y, currentLoc.x, currentLoc.y);
   sendBMsg(SEND_MESSAGE, message);  

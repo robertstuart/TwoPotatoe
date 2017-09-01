@@ -26,6 +26,7 @@ boolean barrelOne(boolean reset) {
     barrelOneState = SEEK_BARREL;
     barrelX = currentLoc.x;   // Use arrival X
     setSonar("lFr");
+    sonarFront = sonarFrontKeep = 0.0;
     seekBarrel(true);
     return false;
   }
@@ -58,14 +59,13 @@ boolean barrelOne(boolean reset) {
 
 
 /************************************************************************.
- *  seekBarrel()  A barrel has been detected.  Look left and right.
+ *  seekBarrel()  Move forward looking for a barrel.
  ************************************************************************/
 void seekBarrel(boolean reset) {
   static int endTime = 0;
   if (reset) {
     barrelOneState = SEEK_BARREL;
     seekState = SEEK_SETTLE;
-    seekLoc = currentLoc;
     settle(true); // reset
     endTime = timeMilliseconds + 20000; // 20 seconds before recovery
     // Set to feet progressed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -106,22 +106,21 @@ void plotBarrel(boolean reset) {
   static int pivotCount = 0;
   static int endTime = 0;
 
-    addLog(
-      (long) (timeMilliseconds),
-      (short) (currentLoc.x * 100.0),
-      (short) (currentLoc.y * 100.0),
-      (short) (gyroHeading * 100.0),
-      (short) (targetWFps * 100.0),
-      (short) (tpFps * 100.0),
-      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
-    );
+//    addLog(
+//      (long) (timeMilliseconds),
+//      (short) (currentLoc.x * 100.0),
+//      (short) (currentLoc.y * 100.0),
+//      (short) (gyroHeading * 100.0),
+//      (short) (targetWFps * 100.0),
+//      (short) (tpFps * 100.0),
+//      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
+//    );
 
   if (reset) {
     barrelOneState = PLOT_BARREL;
     plotState = PLOT_SETTLE;
     endTime = timeMilliseconds + 15000; // End seconds.
     pivotCount = 0;
-    seekLoc = currentLoc;
     startTime = timeMilliseconds;
     settle(true);  // reset
     return;
@@ -136,14 +135,14 @@ void plotBarrel(boolean reset) {
       case PLOT_RIGHT:
         targetWFpsRight = targetWFps - PIVOT_RATE;
         targetWFpsLeft = targetWFps + PIVOT_RATE;
-        if (gyroHeading > 10.0) {
+        if (gHeading > 10.0) {
           if (sonarFront > SONAR_EDGE) {
-            barrelEdgeAngle = gyroHeading;        
+            barrelEdgeAngle = gHeading;        
             circleBarrel(true); // reset
           }
         } 
-        if ((pivotCount > PIVOT_LIMIT) && (gyroHeading > 0.0)) recover(true);
-        if (gyroHeading > HEADING_LIMIT) {
+        if ((pivotCount > PIVOT_LIMIT) && (gHeading > 0.0)) recover(true);
+        if (gHeading > HEADING_LIMIT) {
           pivotCount++;
           plotState = PLOT_LEFT;
         }
@@ -151,14 +150,14 @@ void plotBarrel(boolean reset) {
       case PLOT_LEFT:
         targetWFpsRight = targetWFps + PIVOT_RATE;
         targetWFpsLeft = targetWFps - PIVOT_RATE;
-        if (gyroHeading < 10.0) {
+        if (gHeading < 10.0) {
           if (sonarFront > SONAR_EDGE) {
-            barrelEdgeAngle = gyroHeading;
+            barrelEdgeAngle = gHeading;
             circleBarrel(true); // reset
           }
         } 
-        if ((pivotCount > PIVOT_LIMIT) && (gyroHeading < 0.0)) recover(true);
-        if (gyroHeading < -HEADING_LIMIT) {
+        if ((pivotCount > PIVOT_LIMIT) && (gHeading < 0.0)) recover(true);
+        if (gHeading < -HEADING_LIMIT) {
           pivotCount++;
           plotState = PLOT_RIGHT;
         }
@@ -186,15 +185,15 @@ void circleBarrel(boolean reset) {
   static int endTime = 0;
   float displacement;
 
-    addLog(
-      (long) (timeMilliseconds),
-      (short) (currentLoc.x * 100.0),
-      (short) (currentLoc.y * 100.0),
-      (short) (gyroHeading * 100.0),
-      (short) (targetWFps * 100.0),
-      (short) (tpFps * 100.0),
-      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
-    );
+//    addLog(
+//      (long) (timeMilliseconds),
+//      (short) (currentLoc.x * 100.0),
+//      (short) (currentLoc.y * 100.0),
+//      (short) (gyroHeading * 100.0),
+//      (short) (targetWFps * 100.0),
+//      (short) (tpFps * 100.0),
+//      (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
+//    );
 
   if (reset) { // set isRightTurn, turnRadius, pivotLoc, targetLoc
     barrelOneState = CIRCLE_BARREL;
@@ -250,6 +249,8 @@ boolean pedestrian(boolean reset) {
     sonarPedCount = 0;
     pivotCount = 0;
     pedPivotState = PLOT_LEFT;
+    setSonar("lFr");
+    sonarFront = sonarFrontKeep = 0.0;
   } else {
     if (sonarFront > 0.1) {
       if (sonarFront < PED_SONAR_LIMIT) {
@@ -258,8 +259,8 @@ boolean pedestrian(boolean reset) {
       }
     }
     if (pedPivotState == PLOT_LEFT) {
-      if ((pivotCount > 10) && (gyroHeading < 0.0)) return true;
-      if (gyroHeading < -PED_ANGLE) {
+      if ((pivotCount > 10) && (gHeading < 0.0)) return true;
+      if (gHeading < -PED_ANGLE) {
         if ((sonarPedCount == 0) && pivotCount) return true;
         sonarPedCount = 0;
         pedPivotState = PLOT_RIGHT;
@@ -268,7 +269,7 @@ boolean pedestrian(boolean reset) {
       targetWFpsRight = targetWFps + PIVOT_RATE;
       targetWFpsLeft = targetWFps - PIVOT_RATE;
     } else {
-      if (gyroHeading > PED_ANGLE) {
+      if (gHeading > PED_ANGLE) {
         if ((sonarPedCount == 0) && pivotCount) return true;
         sonarPedCount = 0;;
         pedPivotState = PLOT_LEFT;
@@ -283,18 +284,24 @@ boolean pedestrian(boolean reset) {
 
 
 
-const float HOLD_LIMIT = 0.05;
-const float HOLD_SPEED = 0.25;
+//const float HOLD_LIMIT = 0.05;
+//const float HOLD_SPEED = 0.25;
+const float K_HOLD_SPEED = 5.0;
+const float K_HOLD_LIM = 1.88;
 /************************************************************************.
-    holdY() Set routeFps to seek to y value of seekLoc.
+    holdY() Return fps to seek to y value of seekLoc.
  ************************************************************************/
-void holdY() {
+float holdY() {
   float yError = seekLoc.y - currentLoc.y;
-  if (yError < (-HOLD_LIMIT * 2.0)) routeFps = -HOLD_SPEED * 3.0;
-  else if (yError > (HOLD_LIMIT * 2.0)) routeFps = HOLD_SPEED * 3.0;
-  else if (yError < -HOLD_LIMIT) routeFps = -HOLD_SPEED;
-  else if (yError > HOLD_LIMIT) routeFps = HOLD_SPEED;
-  else routeFps = 0.0;
+//  if (yError < (-HOLD_LIMIT * 2.0)) routeFps = -HOLD_SPEED * 3.0;
+//  else if (yError > (HOLD_LIMIT * 2.0)) routeFps = HOLD_SPEED * 3.0;
+//  else if (yError < -HOLD_LIMIT) routeFps = -HOLD_SPEED;
+//  else if (yError > HOLD_LIMIT) routeFps = HOLD_SPEED;
+//  else routeFps = 0.0;
+
+  float p = yError * K_HOLD_SPEED;
+  float d = tpFps * 8.0;
+  return constrain(p - d, -K_HOLD_LIM, K_HOLD_LIM);
 }
 
 
@@ -309,7 +316,7 @@ void jump(boolean reset) {
   if (reset) {
     isJumped = false;
     jumpCount = 0;
-    jumpTicksEnd = tickPosition + (16 * TICKS_PER_FOOT);
+    jumpTicksEnd = tickPosition + (8.0 * TICKS_PER_FOOT);  // 8 feet
   } else {
     if (!isJumped) {
       if (lsm6.a.z < 13000) {
@@ -324,8 +331,8 @@ void jump(boolean reset) {
     }
 
     unsigned int t = timeMilliseconds - jumpTime;
-    if (isJumped && (t < 350)) {
-      targetWFps = targetWFpsRight = targetWFpsRight = jumpCompFps; // Can do because in air.
+    if (isJumped && (t < 500)) {
+      targetWFps = targetWFpsRight = targetWFpsLeft = jumpCompFps; // Can do because in air.
     } else {
       steerHeading();
     } 
@@ -334,9 +341,9 @@ void jump(boolean reset) {
 //        (long) (timeMilliseconds),
 //        (short) (gaPitch * 100.0),
 //        (short) (targetWFps * 100.0),
-//        (short) (wFps * 100.0),
+//        (short) (wFpsRight * 100.0),
+//        (short) (wFpsLeft * 100.0),
 //        (short) (isJumped),
-//        (short) (tpFps * 100.0),
 //        (short) (lsm6.a.z)
 //   );
 
@@ -352,13 +359,15 @@ boolean settle(boolean reset) {
   static unsigned int endTime = 0;
   if (reset) {
     endTime = timeMilliseconds + 3000; // Stop after 3 seconds. 
+    seekLoc = currentLoc;
   } else {
     float dy = seekLoc.y - currentLoc.y;
-    if (((abs(dy) < 0.1) && (abs(gyroHeading) < 2.0) && (abs(tpFps) < 0.3))
+    if (((abs(dy) < 0.1) && (abs(gHeading) < 2.0) && (abs(tpFps) < 0.3))
         || (timeMilliseconds > endTime)) {
+//      if (timeMilliseconds > (8000)) {
       return true;
     } else {
-      float speedAdjustment = gyroHeading * 0.05;
+      float speedAdjustment = gHeading * 0.05;
       speedAdjustment = constrain(speedAdjustment, -PIVOT_RATE, PIVOT_RATE);
       targetWFpsRight = targetWFps + speedAdjustment;
       targetWFpsLeft = targetWFps - speedAdjustment;
@@ -384,7 +393,7 @@ void recover(boolean reset) {
     endTime = timeMilliseconds + 1500;
     centerTime = timeMilliseconds + 500;
     isCentered = false;
-    isCenterLeft = (gyroHeading > 0.0) ? true : false;
+    isCenterLeft = (gHeading > 0.0) ? true : false;
     if (currentLoc.x > (barrelXCenter + 2.5)) isBackLeft = true;
     else if (currentLoc.x < (barrelXCenter - 2.5)) isBackLeft = false;
   } else {
@@ -397,9 +406,9 @@ void recover(boolean reset) {
       isBackLeft = false; // Set for next iteration.
       barrels(true); // reset 
     } else if ((timeMilliseconds < centerTime) || !isCentered) {  // Still centering?
-      if (isCenterLeft && (gyroHeading <  10.0)) {
+      if (isCenterLeft && (gHeading <  10.0)) {
         isCentered = true;
-      } else if (!isCenterLeft && (gyroHeading > -10.0)) {
+      } else if (!isCenterLeft && (gHeading > -10.0)) {
         isCentered = true;
       } else {
         adjustment = PIVOT_RATE * 2.0;

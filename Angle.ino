@@ -1,5 +1,5 @@
 /***********************************************************************.
- *  Angle6
+ *  Angle
  ***********************************************************************/
 #define HC_ADDRESS 0x1E
 
@@ -62,14 +62,14 @@ void angleInit6() {
  * setGyroData()
  ***********************************************************************/
 void setGyroData() {
-  int t;
+  
   // Pitch
   gyroPitchRaw = ((double) lsm6.g.x) - timeDriftPitch;
   gyroPitchRate = (((double) gyroPitchRaw) * GYRO_SENS);  // Rate in degreesChange/sec
   gyroPitchDelta = -gyroPitchRate / 208.0; // degrees changed during period
   gPitch = gPitch + gyroPitchDelta;   // Used by tgPitch & debugging
   gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
-  gaFullPitch = gyroPitchDelta + gaFullPitch;
+//  gaFullPitch = gyroPitchDelta + gaFullPitch;
   
   // Roll
   gyroRollRaw = ((double) lsm6.g.y) - timeDriftRoll;
@@ -79,35 +79,28 @@ void setGyroData() {
   gaRoll = gaRoll - gyroRollDelta;
 
   // Yaw
-//  gyroYawRaw = ((double) lsm6.g.z) - timeDriftYaw - temperatureDriftYaw; 
-//sumYaw += lsm6.g.z;
   gyroYawRaw = ((double) lsm6.g.z) - timeDriftYaw; 
   gyroYawRate = ((double) gyroYawRaw) * GYRO_SENS;  // Rate in degreesChange/sec
   double gyroYawDelta = -gyroYawRate / 208.0; // degrees changed during period
   gYaw += gyroYawDelta;
-  gyroCumHeading += gyroYawDelta;   //
-  double tc = (gyroCumHeading > 0.0) ? 180.0 : -180.0;
-  int rotations = (int) ((gyroCumHeading + tc) / 360.0);
-  gyroHeading = gyroCumHeading - (((double) rotations) * 360.0);
+  gHeading = rangeAngle(gYaw);  // This is the heading used by all navigation routines.
 
-//  // Yaw for gmHeading
-//  gmCumHeading += gyroYawDelta;
-//  tc = (gmCumHeading > 0.0) ? 180 : - 180;
-//  rotations = (int) ((gmCumHeading + tc) / 360.0);
-//  gmHeading = gmCumHeading - (((double) rotations) * 360.0);
+  // Tilt compensated heading
+  double yawDeltaError = gyroYawDelta * gaPitch * gaPitch * 0.000135;
+  gcYaw += gyroYawDelta + yawDeltaError; 
+  gcHeading = rangeAngle(gcYaw);  // This is the heading used by all navigation routines.
 
-  // Rotation rate: complementary filtered gPitch and tPitch
-//  tPitch = (double) tickPosition / TICKS_PER_PITCH_DEGREE;
-//  double qDiff = tPitch - oldTPitch;
-//  double q = tgPitch + qDiff;
-//  oldTPitch = tPitch;
-//  tgPitch = (q * TG_PITCH_TC) + (gPitch * (1.0D - TG_PITCH_TC));
-//  tgPitchDelta = tgPitch - oldTgPitch;  // Used in Algorithm ***************
-//  oldTgPitch = tgPitch;
-//
-//  // tgaPitch:
-//  q = tgaPitch + qDiff;
-//  tgaPitch = (q * TG_PITCH_TC) + (gaPitch * (1.0D - TG_PITCH_TC));
+//if (isRouteInProgress) {
+//  addLog(
+//    (long) (tickPosition),
+//    (short) (gaPitch * 100.0),
+//    (short) (rad * RAD_TO_DEG * 100.0),
+//    (short) (tpFps * 100.0),
+//    (short) (gcYaw * 100.0),
+//    (short) (gHeading * 100.0),
+//    (short) (0 * 100.0)
+//  );
+//}
 }
 
 
@@ -124,7 +117,7 @@ void setAccelData() {
   double accelX = lsm6.a.y + (k8 * 100000.0 * lpfCos3Accel);  // 
 //  double accelX = lsm6.a.y;  // 
   aPitch = ((atan2(-accelX, lsm6.a.z)) * RAD_TO_DEG) + (*currentValSet).z;
-  gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
+//  gaFullPitch = (gaFullPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
   if ((          (lsm6.a.z > 7000)
              && ((accelX > -7000) && (accelX < 7000))
              && ((aPitch > -45.0) && (aPitch < 45.0)))/* || !isRunning */ ) {
@@ -178,8 +171,8 @@ void setNavigation() {
   // Compute the new co position
   double dist = ((double) (coTickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
   navOldTickPosition = coTickPosition;
-  currentLoc.x += sin(gyroHeading * DEG_TO_RAD) * dist;
-  currentLoc.y += cos(gyroHeading * DEG_TO_RAD) * dist;
+  currentLoc.x += sin(gHeading * DEG_TO_RAD) * dist;
+  currentLoc.y += cos(gHeading * DEG_TO_RAD) * dist;
 
   currentAccelLoc();
 }
@@ -218,7 +211,7 @@ void currentAccelLoc() {
  *              be lost.
  **************************************************************************/
 void setHeading(double newHeading) {
-  gyroCumHeading = gyroHeading = newHeading;
+  gcHeading = gHeading = gcYaw = gYaw = newHeading;
 }
 
 void resetTicks() {
@@ -340,8 +333,9 @@ float readFahr() {
 
 
 const int DRIFT_SIZE = 204;
-float zDriftSum = 0.0;
 float xDriftSum = 0.0;
+float yDriftSum = 0.0;
+float zDriftSum = 0.0;
 int gDriftCount = 0;
 int gPtr = 0;
 boolean isMeasuringDrift = false;
@@ -351,38 +345,51 @@ boolean isMeasuringDrift = false;
  **************************************************************************/
 void doGyroDrift() {
   static int zArray[DRIFT_SIZE];
+  static int yArray[DRIFT_SIZE];
   static int xArray[DRIFT_SIZE];
-  int z, x;
+  int x, y, z;
 
   if (!isMeasuringDrift) return;
-  zArray[gPtr] = lsm6.g.z;
   xArray[gPtr] = lsm6.g.x;
+  yArray[gPtr] = lsm6.g.y;
+  zArray[gPtr] = lsm6.g.z;
   gPtr++;
   if (gPtr >= DRIFT_SIZE) {
-    int zSum = 0;
     int xSum = 0;
+    int ySum = 0;
+    int zSum = 0;
     int xMax = xArray[0];
     int xMin = xMax;
+    int yMax = yArray[0];
+    int yMin = yMax;
     int zMax = zArray[0];
     int zMin = zMax;
     for (int i = 0; i < DRIFT_SIZE; i++) {
-      z = zArray[i];
-      if (z > zMax)  zMax = z;
-      if (z < zMin)  zMin = z;
-      zSum += z;
       x = xArray[i];
       if (x > xMax)  xMax = x;
       if (x < xMin)  xMin = x;
       xSum += x;
+      y = yArray[i];
+      if (y > yMax)  yMax = y;
+      if (y < yMin)  yMin = y;
+      ySum += y;
+      z = zArray[i];
+      if (z > zMax)  zMax = z;
+      if (z < zMin)  zMin = z;
+      zSum += z;
     }
-    float zAve = ((float) zSum) / ((float) DRIFT_SIZE);
     float xAve = ((float) xSum) / ((float) DRIFT_SIZE);
-    if (((zMax - zMin) < 30) && ((xMax - xMin) < 30)) {
-      zDriftSum += zAve;
+    float yAve = ((float) ySum) / ((float) DRIFT_SIZE);
+    float zAve = ((float) zSum) / ((float) DRIFT_SIZE);
+    if (((xMax - xMin) < 30) && ((yMax - yMin) < 30) && ((zMax - zMin) < 30)) {
       xDriftSum += xAve;
+      yDriftSum += yAve;
+      zDriftSum += zAve;
       gDriftCount++;
     }
 //    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMax, xMin, xAve);
+//    Serial.print(message);
+//    sprintf(message, "yMin: %4d     yMax: %4d     yAve: %5.1f   ", yMax, yMin, yAve);
 //    Serial.print(message);
 //    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
 //    Serial.print(message);
@@ -411,9 +418,10 @@ void startGyroDrift() {
  **************************************************************************/
 void setGyroDrift() {
   if (gDriftCount > 0) {
-    timeDriftYaw = zDriftSum / ((float) gDriftCount);
     timeDriftPitch = xDriftSum / ((float) gDriftCount);
-    sprintf(message, "YawDrift: %5.2f     PitchDrift: %5.2f\n", timeDriftYaw, timeDriftPitch);
+    timeDriftRoll = yDriftSum / ((float) gDriftCount);
+    timeDriftYaw = zDriftSum / ((float) gDriftCount);
+    sprintf(message, "PitchDrift: %5.2f    PitchDrift: %5.2f     YawDrift: %5.2f \n", timeDriftPitch, timeDriftRoll, timeDriftYaw);
     sendBMsg(SEND_MESSAGE, message);
     Serial.print(message);
   }

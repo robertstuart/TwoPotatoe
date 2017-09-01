@@ -147,30 +147,34 @@ void setRunningState() {
 }
 
 
-/*********************************************************
- *
- * safeAngle()
- *
- *     Check to see if we have fallen sidways or forwards.
- *     If so, unset the STATE_UPRIGHT bit.
- *     Otherwise, set the bit.
- *
- *********************************************************/
+/**************************************************************************.
+ * safeAngle() Check to see if we have fallen sidways or forwards.
+ **************************************************************************/
 void safeAngle() {
   static unsigned long tTime = 0UL; // time of last state change
   static boolean tState = false;  // Timed state. true = upright
 
-  boolean cState = ((abs(gaFullPitch) < 45.0) && ((abs(gaRoll) < 45))); // Current real state
-  if (cState != tState) {
-    tTime = timeMilliseconds; // Start the timer for a state change.
-    tState = cState;
-  }
-  else {
+  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 45))); // Current real state
+  if (!cState && tState) {
+    tTime = timeMilliseconds; // Start the timer for a state change to fallen.
+  } else if (!cState) {
     if ((timeMilliseconds - tTime) > 50) {
-      isUpright = cState;
+      isUpright = false;  addLog(
+       (long) (tickPosition),
+        (short) (5 * 100.0),
+        (short) (5 * 100.0),
+        (short) (5 * 100.0),
+        (short) (5 * 100.0),
+        (short) (5 * 100.0),
+        (short) (5 * 100.0)
+    );
+
     }
+  } else {
+    isUpright = true;
   }
-}  // End safeAngle().
+  tState = cState;
+}
 
 
 /**************************************************************************.
@@ -503,10 +507,10 @@ void setSonar(String sonarStr) {
 /**************************************************************************.
  *  rangeAngle() Set angle value between -180 and +180
  **************************************************************************/
-double rangeAngle(double head) {
-  while (head > 180.0D) head -= 360.0D;
-  while (head <= -180.0D) head += 360.0D;
-  return head;
+double rangeAngle(double angle) {
+  while (angle > 180.0) angle -= 360.0;
+  while (angle <= -180.0) angle += 360.0;
+  return angle;
 }
 
 

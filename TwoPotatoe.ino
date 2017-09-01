@@ -236,7 +236,7 @@ int originalAction = 0;
 
 double gaPitch = 0.0;
 float yAccel = 0.0;
-double gaFullPitch = 0.0;
+//double gaFullPitch = 0.0;
 double lpfAPitch = 0.0;
 double gaRoll = 0.0;
 
@@ -247,8 +247,10 @@ int baseFahr = 0;
 double gPitch = 0.0;
 double gRoll = 0.0;
 double gYaw = 0.0;
-double gyroCumHeading = 0.0;
-double gyroHeading = 0;
+double gcYaw = 0.0;
+//double gyroCumHeading = 0.0;
+double gHeading = 0;
+double gcHeading = 0;
 
 double rotation2 = 0.0D;
 double cos2 = 0.0D;

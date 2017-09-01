@@ -1,4 +1,51 @@
 
+String avc2017_hr[] =   {  // hoop + ramp
+  "N AVC 2017-HR",
+  "KR   65,59             129        ",
+  "G   118,11       12               ",
+  "D                 0               ",
+  "T   166,32       12    29       0 ",  // Turn toward barrels
+  "B   167          53               ",  // Barrels
+  "G   147,68       10               ",
+  "T   122,68        8    18    -129 ",  // approach straightaway
+//  "HR   98,49        6     3.0  -129 ",
+//  "J  -129           4.0   3.1       ",  // Jump
+  "G    80,35        5               ",  // Approach hoop
+  "F",
+  "T    78,29        5    10    -173 ",  // Turn into hoop
+  "T    71,19        7    17    -129 ",  // Turn out of hoop
+  "G    61,10        12               ",
+  "D                 0               ",
+  "T    11,34       12    32      -7 ",  // Turn toward pedestrian
+  "P                                 ",
+  "T    58,64       12    30     129 ",
+  "G    75,51        4               ",
+  "F"
+};
+
+String avc2017_hr_old[] =   {  // hoop + ramp
+  "N AVC 2017-HR",
+  "KR   65,59             129        ",
+  "G   118,11       12               ",
+  "D                 0               ",
+  "T   166,32       12    29       0 ",  // Turn toward barrels
+  "B   167          53               ",  // Barrels
+  "G   145,70       10               ",
+  "T   120,70        8    19    -129 ",  // approach straightaway
+  "HR   96,52        6     3.0  -129 ",
+  "J  -129           4.0   2.5       ",  // Jump
+  "G    79,38        5               ",  // Approach hoop
+  "T    76,32        5    10    -173 ",  // Turn into hoop
+  "T    70,20        7    17    -129 ",  // Turn out of hoop
+  "G    59,12       12               ",
+  "D                 0               ",
+  "T     8,34       12    32      -7 ",  // Turn toward pedestrian
+  "P                                 ",
+  "T    58,64       12    33     129 ",
+  "G    75,51        4               ",
+  "F"
+};
+
 String hug[] = { 
   "N Hug",
   "KR  120,70     -129             ",
@@ -10,11 +57,11 @@ String hug[] = {
 };
 
 
-String jump4[] = { 
-  "N Jump 4",
+String jump1[] = { 
+  "N Jump 1",
   "KR  0,0     0          ",
-  "G   0,4     4          ",
-  "J     0     4         4",
+  "G   0,15    4          ",
+  "J     0     4       2.5",
   "F"
 };
 
@@ -64,37 +111,6 @@ String gyroTest[] =   {  // run to hoop
   "F"
 };
 
-String gyroTest2[] =   {  // inside wall
-  "N Gyro Test 2",
-  "KR  100,0     -90            ",
-  "G    95,0       3            ",
-  "C   -90         3   2.0  7.2 ",    
-  "G    83,0       3            ",
-  "F"
-};
-
-String avc2017_hr[] =   {  // hoop + ramp
-  "N AVC 2017-HR",
-  "KR   65,59             129        ",
-  "G   118,11       12              ",
-  "D                       0        ",
-  "T   166,32       12    29      0 ",  // Turn toward barrels
-  "B   167          52              ",  // Barrels
-  "T   118,68       12    32   -129 ",  // Leave barrels
-  "G   101,55        6              ",
-  "J  -129           4     4        ",  // Jump
-  "G    79,37        4              ",  // Approach hoop
-  "T    76,31        4    10   -173 ",  // Turn into hoop
-  "T    69,20        5    17   -129 ",  // Turn out of hoop
-  "G    59,12       12              ",
-  "D                 0              ",
-  "T     8,34       12    32     -7 ",  // Turn toward pedestrian
-  "P                                ",
-  "T    58,64       12    33    129 ",
-  "G    75,51        4              ",
-  "F"
-};
-
 String avc2017_h[] =   {  // hoop, no ramp
   "N AVC 2017-H",
   "KR  65,59             129        ",
@@ -128,14 +144,12 @@ String testRun1[] = {
 String loadedRoute[200]; 
 
 String *routeTable[] = {
-  hug,
-  gyroTest,
-  gyroTest2,
   avc2017_hr,
   barrel,
-  avc2017_h,
+  jump1,
+  hug,
+  gyroTest,
   pedestrian1,
-  avc10,
 };
 
 int routeTablePtr = 0;

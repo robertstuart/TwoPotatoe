@@ -180,8 +180,8 @@ void sendLog() {
   }
   
 //  if (!(logLoop % 104)) log2PerSec();
-//  if (!(logLoop % 21)) ;  // 10/sec
-  if (!(logLoop % 10)) routeLog(); //  20/sec
+  if (!(logLoop % 21)) log10PerSec();
+//  if (!(logLoop % 10)) routeLog(); //  20/sec
 //  routeLog(); //  208/sec
 //  if (!(logLoop % 10)) log20PerSec(); // 20/sec  
 //  if (!(logLoop % 2)) log104PerSec(); // 104/sec  
@@ -198,6 +198,12 @@ void log2PerSec() {
 //  Serial.print(tab);
 //  Serial.print(forceRight);
 //  Serial.println();
+}
+
+void log10PerSec() {
+  sprintf(message, "gaPitch %4.2f   gHeading: %4.2f   gcHeading: %4.2f", gaPitch, gHeading, gcHeading);
+  Serial.println(message);
+  sendBMsg(SEND_MESSAGE, message);
 }
 
 void log20PerSec() {
