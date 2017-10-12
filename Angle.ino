@@ -38,11 +38,7 @@ void angleInit6() {
     Wire.begin();
   }
   if (success) Serial.println("IMU Initialized!****************************");
-  lsm6.enableDefault();
-  lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Accel data ready on INT1
-  lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
-  lsm6.writeReg(LSM6::CTRL2_G, 0X5C);   // Gyro 2000fs, 208hz
-  lsm6.writeReg(LSM6::CTRL1_XL, 0X50);  // Accel 2g, 208hz
+    imuInit();
 //  lsm6.writeReg(LSM6::CTRL2_G, 0X6C);   // Gyro 2000fs, 416hz
 //  lsm6.writeReg(LSM6::CTRL1_XL, 0X40);  // Accel 2g, 104hz
 
@@ -54,6 +50,15 @@ void angleInit6() {
 //
 //  delay(100);
 //  readCompass();  // Do this so we have a magHeading.
+}
+
+void imuInit() {
+  lsm6.enableDefault();
+  lsm6.writeReg(LSM6::INT1_CTRL, 0X02); // Accel data ready on INT1
+  lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
+  lsm6.writeReg(LSM6::CTRL2_G, 0X5C);   // Gyro 2000fs, 208hz
+  lsm6.writeReg(LSM6::CTRL1_XL, 0X50);  // Accel 2g, 208hz
+
 }
 
 #define TG_PITCH_TC 0.90D
@@ -387,12 +392,12 @@ void doGyroDrift() {
       zDriftSum += zAve;
       gDriftCount++;
     }
-//    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMax, xMin, xAve);
-//    Serial.print(message);
-//    sprintf(message, "yMin: %4d     yMax: %4d     yAve: %5.1f   ", yMax, yMin, yAve);
-//    Serial.print(message);
-//    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
-//    Serial.print(message);
+    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMax, xMin, xAve);
+    Serial.print(message);
+    sprintf(message, "yMin: %4d     yMax: %4d     yAve: %5.1f   ", yMax, yMin, yAve);
+    Serial.print(message);
+    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
+    Serial.print(message);
     gPtr = 0;
   }
 }
@@ -406,7 +411,7 @@ void doGyroDrift() {
 void startGyroDrift() {
   isMeasuringDrift = true;
   gPtr = 0;
-  xDriftSum = zDriftSum = 0.0;
+  xDriftSum = yDriftSum = zDriftSum = 0.0;
   gDriftCount = 0;
 }
 
@@ -421,7 +426,7 @@ void setGyroDrift() {
     timeDriftPitch = xDriftSum / ((float) gDriftCount);
     timeDriftRoll = yDriftSum / ((float) gDriftCount);
     timeDriftYaw = zDriftSum / ((float) gDriftCount);
-    sprintf(message, "PitchDrift: %5.2f    PitchDrift: %5.2f     YawDrift: %5.2f \n", timeDriftPitch, timeDriftRoll, timeDriftYaw);
+    sprintf(message, "PitchDrift: %5.2f    RollDrift: %5.2f     YawDrift: %5.2f \n", timeDriftPitch, timeDriftRoll, timeDriftYaw);
     sendBMsg(SEND_MESSAGE, message);
     Serial.print(message);
   }

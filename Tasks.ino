@@ -96,7 +96,6 @@ void setRunningState() {
       isRunning = true;
       if (oldIsRunning == false) {  // State change
         oldIsRunning = true;
-        setGyroDrift();
       }
     } else {
       isRunning = false;
@@ -154,21 +153,12 @@ void safeAngle() {
   static unsigned long tTime = 0UL; // time of last state change
   static boolean tState = false;  // Timed state. true = upright
 
-  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 45))); // Current real state
+  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 45.0))); // Current real state
   if (!cState && tState) {
     tTime = timeMilliseconds; // Start the timer for a state change to fallen.
   } else if (!cState) {
     if ((timeMilliseconds - tTime) > 50) {
-      isUpright = false;  addLog(
-       (long) (tickPosition),
-        (short) (5 * 100.0),
-        (short) (5 * 100.0),
-        (short) (5 * 100.0),
-        (short) (5 * 100.0),
-        (short) (5 * 100.0),
-        (short) (5 * 100.0)
-    );
-
+      isUpright = false; 
     }
   } else {
     isUpright = true;

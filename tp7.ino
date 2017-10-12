@@ -17,6 +17,9 @@ float targetAngle = 0.0;
  ***********************************************************************/
 void aTp7Run() {
   unsigned long loopTrigger = micros();
+  unsigned long debugTrigger = loopTrigger; //*****************
+  int accReads = 0;                            // **************
+  int gyroReads = 0;                            // **************
   int reads = 0;
   timeMicroseconds = micros();
   timeMilliseconds = timeMicroseconds / 1000;
@@ -35,9 +38,11 @@ void aTp7Run() {
       if (isNewGyro()) {
         setGyroData();
         reads++;
+        gyroReads++;              //******************
       } else if (isNewAccel()) {
         setAccelData();
         reads++;
+        accReads++;
       } else if (reads >= 2) {
         reads = 0;
         setNavigation();
@@ -46,7 +51,26 @@ void aTp7Run() {
         sendLog();
         safeAngle();
       }
-    }
+    } 
+//    if (timeMicroseconds > debugTrigger) { //***************
+//      debugTrigger += 6000;  // > 220/sec
+//      if (gyroReads == 0) {
+//        for (int i = 0; i < 100; i++) {
+//          digitalWrite(21, LOW);
+//          digitalWrite(71, LOW);
+//          delayMicroseconds(10);
+//          digitalWrite(21, HIGH);
+//          digitalWrite(71, HIGH);
+//          delayMicroseconds(10);
+//        }
+//        imuInit();
+//        sprintf(message, "--------------------reset---------------");
+//        sendBMsg(SEND_MESSAGE, message);
+//      }
+////      sprintf(message, "%7d  %7d", gyroReads, accReads);
+////      sendBMsg(SEND_MESSAGE, message);
+//      gyroReads = 0;
+//    }
   }
 }
 
@@ -180,8 +204,8 @@ void sendLog() {
   }
   
 //  if (!(logLoop % 104)) log2PerSec();
-  if (!(logLoop % 21)) log10PerSec();
-//  if (!(logLoop % 10)) routeLog(); //  20/sec
+//  if (!(logLoop % 21)) log10PerSec();
+  if (!(logLoop % 10)) routeLog(); //  20/sec
 //  routeLog(); //  208/sec
 //  if (!(logLoop % 10)) log20PerSec(); // 20/sec  
 //  if (!(logLoop % 2)) log104PerSec(); // 104/sec  
@@ -236,14 +260,15 @@ void log104PerSec() {
 
 
 void log208PerSec() {
+  if (!isRouteInProgress) return;
   addLog(
         (long) (timeMilliseconds),
-        (short) (gaPitch * 100.0),
-        (short) (gPitch * 100.0),
-        (short) (aPitch * 100.0),
-        (short) (isOnGround),
-        (short) (lsm6.a.y),
-        (short) (lsm6.a.z)
+        (short) (gyroPitchRaw),
+        (short) (gyroRollRaw),
+        (short) (gyroYawRaw),
+        (short) (gRoll * 100.0),
+        (short) (aRoll * 100.0),
+        (short) (0)
    );
 }
         

@@ -15,9 +15,9 @@ const float GYRO_SENS = 0.0696;      // Multiplier to get degrees.
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 
 // Values for initial timeDrift???
-const double PITCH_DRIFT = -26.63;
-const double ROLL_DRIFT = 63.60;
-const double YAW_DRIFT = -23.47;
+const double PITCH_DRIFT = -9.26;
+const double ROLL_DRIFT = 40.05;
+const double YAW_DRIFT = -26.69;
 
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1

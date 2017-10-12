@@ -35,18 +35,24 @@ boolean barrelOne(boolean reset) {
     case SEEK_BARREL:
       if (currentLoc.y > barrelYEnd) return true;
       seekBarrel(false);
+//      plotState = 9;
       break;
 
     case PLOT_BARREL:
       plotBarrel(false);
+//      seekState = 9;
       break;
 
     case CIRCLE_BARREL:
       circleBarrel(false);
+//      plotState = 9;
+//      seekState = 9;
       break;
 
     case RECOVER_BARREL:
       recover(false);
+//      plotState = 9;
+//      seekState = 9;
       break;
 
     default:
@@ -68,7 +74,7 @@ void seekBarrel(boolean reset) {
     seekState = SEEK_SETTLE;
     settle(true); // reset
     endTime = timeMilliseconds + 20000; // 20 seconds before recovery
-    // Set to feet progressed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    isStuck(true);
   } else {
     switch(seekState) {
       case SEEK_SETTLE:
@@ -89,7 +95,8 @@ void seekBarrel(boolean reset) {
       default:
         break;
     }
-    if (timeMilliseconds > endTime) recover(true);
+//    if (timeMilliseconds > endTime) recover(true);
+    if (isStuck(false)) recover(true);
   }
 }
 
@@ -166,7 +173,6 @@ void plotBarrel(boolean reset) {
       default:
         break;
     }
-
     if (timeMilliseconds > endTime) recover(true);
   }
 }
@@ -182,7 +188,7 @@ const float PIVOT_TARGET_X = 1.55;
  ************************************************************************/
 void circleBarrel(boolean reset) {
   const float DISPLACEMENT_Y = 3.5;
-  static int endTime = 0;
+//  static int endTime = 0;
   float displacement;
 
 //    addLog(
@@ -197,7 +203,8 @@ void circleBarrel(boolean reset) {
 
   if (reset) { // set isRightTurn, turnRadius, pivotLoc, targetLoc
     barrelOneState = CIRCLE_BARREL;
-    endTime = timeMilliseconds + 7000;  // Seconds to finish.
+//    endTime = timeMilliseconds + 7000;  // Seconds to finish.
+    isStuck(true);
     turnRadius = TURN_RADIUS;
     displacement = (abs(barrelEdgeAngle) * 0.06) - 1.75;
     targetLoc.y = currentLoc.y + 5.0;
@@ -227,7 +234,8 @@ void circleBarrel(boolean reset) {
       barrelOne(true); // reset
     } else {
       turn();
-      if (timeMilliseconds > endTime) recover(true);
+//      if (timeMilliseconds > endTime) recover(true);
+      if (isStuck(false)) recover(true);
     }
   }
 }
@@ -284,10 +292,12 @@ boolean pedestrian(boolean reset) {
 
 
 
-//const float HOLD_LIMIT = 0.05;
-//const float HOLD_SPEED = 0.25;
-const float K_HOLD_SPEED = 5.0;
-const float K_HOLD_LIM = 1.88;
+//const float K_HOLD_P = 5.0;
+//const float K_HOLD_D = 8.0;
+//const float K_HOLD_LIM = 1.88;
+const float K_HOLD_P = 2.0;
+const float K_HOLD_D = 5.0;
+const float K_HOLD_LIM = 1.5;
 /************************************************************************.
     holdY() Return fps to seek to y value of seekLoc.
  ************************************************************************/
@@ -299,8 +309,8 @@ float holdY() {
 //  else if (yError > HOLD_LIMIT) routeFps = HOLD_SPEED;
 //  else routeFps = 0.0;
 
-  float p = yError * K_HOLD_SPEED;
-  float d = tpFps * 8.0;
+  float p = yError * K_HOLD_P;
+  float d = tpFps * K_HOLD_D;
   return constrain(p - d, -K_HOLD_LIM, K_HOLD_LIM);
 }
 
@@ -422,4 +432,42 @@ void recover(boolean reset) {
     targetWFpsLeft = targetWFps - adjustment; 
   }
 }
+
+
+#define MOVE_THRESH 0.1   // min feet to move each second
+/************************************************************************.
+ *  isStuck() Return true if hasn't moved in last second.
+ ************************************************************************/
+boolean isStuck(boolean reset) {
+  static unsigned int startTime;
+  static unsigned int startTicks;
+  static unsigned int lastSeconds;
+
+  if (reset) {
+    startTime = timeMilliseconds;
+    startTicks = tickPosition;
+    lastSeconds = 0;
+  } else {
+    unsigned int seconds = (timeMilliseconds - startTime) / 1000;
+//        addLog(
+//          (long) (timeMilliseconds),
+//          (short) (seconds),
+//          (short) (lastSeconds),
+//          (short) (startTime),
+//          (short) (tickPosition),
+//          (short) (startTicks),
+//          (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
+//        );
+    if (seconds > lastSeconds) {
+      int distance = tickPosition - startTicks;
+      if ((distance < (MOVE_THRESH * TICKS_PER_FOOT)) && (seconds > 3)) {
+        return true;
+      }
+      startTicks = tickPosition;
+      lastSeconds = seconds;
+    }
+  }
+  return false;
+}
+ 
 

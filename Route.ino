@@ -70,17 +70,17 @@ float hugYEnd = 0.0;
 
 void routeLog() {
   if (isRouteInProgress && isRunning) {
-//    if (routeStepPtr == 5) {
       addLog(
-        (long) (timeMilliseconds),
+        (long) (timeMicroseconds),
         (short) (currentLoc.x * 100.0),
         (short) (currentLoc.y * 100.0),
-        (short) (gcYaw * 100.0),
-        (short) (gHeading * 100.0),
+        (short) (gcHeading * 100.0),
+        (short) (sonarRightKeep * 100.0),
         (short) (sonarFrontKeep * 100.0),
+//        (short) (wFpsRight * 100.0),
+//        (short) (routeFps * 100.0),
         (short) (routeStepPtr + (barrelOneState * 100) + (seekState * 1000) + (plotState * 10000))
       );
-//    }
   }
 }
 
@@ -570,9 +570,7 @@ boolean isTargetReached() {
   const int RETREAT_TIMES = 10;
   const int RETREAT_DISTANCE = 2.0;
   static double lastTargetDist = 10000.0D;
-  static int timesReached = 0;
-
-  if (isDecelActive && isDecelPhase) {
+  static int timesReached = 0;  if (isDecelActive && isDecelPhase) {
     if (wFps <= 0.8) {
       isDecelActive = isDecelPhase = false;
       return true;
@@ -824,3 +822,4 @@ char readChar() {
   stepString = stepString.substring(1);
   return c;
 }
+

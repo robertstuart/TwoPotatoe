@@ -1,19 +1,20 @@
 
 String avc2017_hr[] =   {  // hoop + ramp
   "N AVC 2017-HR",
-  "KR   65,59             129        ",
+  "KR   63.4,57.7             129        ",
   "G   118,11       12               ",
   "D                 0               ",
   "T   166,32       12    29       0 ",  // Turn toward barrels
   "B   167          53               ",  // Barrels
   "G   147,68       10               ",
-  "T   122,68        8    18    -129 ",  // approach straightaway
-//  "HR   98,49        6     3.0  -129 ",
-//  "J  -129           4.0   3.1       ",  // Jump
-  "G    80,35        5               ",  // Approach hoop
-  "F",
-  "T    78,29        5    10    -173 ",  // Turn into hoop
-  "T    71,19        7    17    -129 ",  // Turn out of hoop
+  "T   122,69        8    18    -129 ",  // approach straightaway
+  "HR   98,51        6     3.0  -129 ",  // swap with G
+//  "G    98,51        6               ",  // Swap with HR
+  "J  -129           4.0   3.1       ",  // Jump
+  "G    79,38        5               ",  // Approach hoop
+//  "F",
+  "T  76.1,31        5    10    -173 ",  // Turn into hoop
+  "T    70,21.5      7    17    -129 ",  // Turn out of hoop
   "G    61,10        12               ",
   "D                 0               ",
   "T    11,34       12    32      -7 ",  // Turn toward pedestrian
@@ -69,7 +70,7 @@ String barrel[] = {
   "N Barrel Test",
   "KR   0,0    0",
   "D           0",
-  "G   0,10    4",
+  "G   0,3     4",
   "B   1      25",
   "F"
 };
@@ -205,6 +206,7 @@ void startRoute() {
     if (!isRouteInProgress) break;
   }
   // It made it here.  Therefore run it.
+  setGyroDrift();
   routeStepPtr = 0;
   isDecelActive = isDecelPhase = false;
   interpretRouteLine(getNextStepString()); // Load the first line.
@@ -218,6 +220,7 @@ void startRoute() {
   timeStart = timeMilliseconds;
   timeRun = 0;
   isBackLeft = false;
+//  isUpError = false;
 }
 
 
