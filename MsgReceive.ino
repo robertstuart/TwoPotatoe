@@ -4,9 +4,40 @@ char msgStrB[B_BUFFER_SIZE];
 int msgStrPtrB = 0;
 int msgCmdB = 0;
 boolean isMessageInProgressB = false;
+
+const int UP_BUFFER_SIZE = 100;
+char msgStrUp[UP_BUFFER_SIZE];
+int msgStrPtrUp = 0;
+int msgCmdUp = 0;
+boolean isMessageInProgressUp = false;
+
 char msgStrX[B_BUFFER_SIZE];
 int msgStrPtrX = 0;
 boolean isMessageInProgressX = false;
+
+
+void readUp() {
+  while (UP_SER.available()) {
+    byte b = UP_SER.read();
+    if (b >= 128) {
+      msgStrPtrUp = 0;
+      msgCmdUp = b;
+      isMessageInProgressUp = true;
+    } else {
+      if (isMessageInProgressUp) {
+        if (msgStrPtrUp >= UP_BUFFER_SIZE) {
+          isMessageInProgressUp = false;
+        } else if (b == 0) {
+          msgStrUp[msgStrPtrUp] = 0;
+          doUpMsg(msgCmdUp, msgStrUp, msgStrPtrUp);
+        } else {
+          msgStrUp[msgStrPtrUp++] = b;
+        }
+      }
+    }
+  }
+}
+
 
 void   readBluetooth() {
   while (BLUE_SER.available()) {
@@ -15,16 +46,14 @@ void   readBluetooth() {
       msgStrPtrB = 0;
       msgCmdB = b;
       isMessageInProgressB = true;
-    }
-    else {
+    } else {
       if (isMessageInProgressB) {
         if (msgStrPtrB >= B_BUFFER_SIZE) {
           isMessageInProgressB = false;
         } else if (b == 0) {
-          msgStrX[msgStrPtrX] = 0;
+          msgStrB[msgStrPtrB] = 0;
           doMsg(msgCmdB, msgStrB, msgStrPtrB, false);
-        } 
-        else {
+        } else {
           msgStrB[msgStrPtrB++] = b;
           tPc = timeMilliseconds;
         }
@@ -182,19 +211,20 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_LIGHTS:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        intVal = (intVal == 0) ? LOW : HIGH;
-        digitalWrite(RIGHT_HL_PIN, intVal);
-        digitalWrite(LEFT_HL_PIN, intVal);
-//        digitalWrite(REAR_TL_PIN, intVal);
+        int k = digitalRead(RIGHT_HL_PIN);
+        k = (k == HIGH) ? LOW : HIGH;
+        digitalWrite(RIGHT_HL_PIN, k);
+        digitalWrite(LEFT_HL_PIN, k);
+//        digitalWrite(REAR_TL_PIN, k);
       }
       break;
-    case RCV_ROUTE:
+    case RCV_RT_ENABLE:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         if (intVal == 1) startRoute();
         else stopRoute();
       }
       break;
-    case RCV_ROUTE_START:
+    case RCV_RT_START:
       isStartReceived = true;
       break;
     case RCV_DUMP_START:
@@ -203,33 +233,9 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
      case RCV_DUMP_TICKS:
       sendDumpTicks();
       break;
-    case RCV_HOLD_HEADING:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        isHoldHeading = (intVal == 0) ? false : true;
-      }
-      break;
-    case RCV_SPIN:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        isSpin = (intVal == 0) ? false : true;
-      }
-      break;
-    case RCV_SET_ROUTE:      // 0 to decrease, 1 to increase
+    case RCV_RT_SET:      // 0 to decrease, 1 to increase
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         setRoute((intVal == 0) ? false : true);
-      }
-      break;
-    case RCV_ROUTE_DATA: 
-      loadRouteLine(String(msgStr));
-      break;
-    case RCV_DELETE_ROUTE:
-      break;
-    case RCV_STAND:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        isStand = (intVal == 0) ? false : true;
-        if (isStand) {
-          standTPRight = tickPositionRight;
-          standTPLeft = tickPositionLeft;
-        }
       }
       break;
     case SEND_XPOS:
@@ -237,53 +243,63 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         ;
       }
       break;
-    case SEND_YPOS:
-      if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        ;
-      }
-      break;
-    case RCV_T: // valset t
-      if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        if (mode == MODE_2P) (*currentValSet).t = floatVal;
-        else tVal = (int) floatVal;
+    case RCV_V1: // Set this to point to intended variable.
+      if(sscanf(msgStr, "%d", &intVal) > 0) {
+        float inc = 0.1;
+        tp7.z = (intVal == 0) ? tp7.z - inc : tp7.z + inc;
       } 
       break;
-    case RCV_U:  // valset u
-      if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        if (mode == MODE_2P) (*currentValSet).u = floatVal;
-        else uVal = (int) floatVal;
+    case RCV_V2: // Set this to point to intended variable.
+      if(sscanf(msgStr, "%d", &intVal) > 0) {
+        float inc = 0.1;
+        tp7.z = (intVal == 0) ? tp7.z - inc : tp7.z + inc;
       } 
-      break;
-    case RCV_V:  // valset v
-      if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        (*currentValSet).v = floatVal;
-      } 
-      break;
-    case RCV_W:  // valset w
-      if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        (*currentValSet).w = floatVal;
-      } 
-      break;
-    case RCV_X:  // valset x
-      if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        (*currentValSet).x = floatVal;
-      } 
-      break;
-    case RCV_Y:  // valset y
-      if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        (*currentValSet).y = floatVal;
-      } 
-      break;
-    case RCV_Z:  // valset z
-      if(sscanf(msgStr, "%f", &floatVal) > 0) {
-        (*currentValSet).z = floatVal;
-      } 
-      break;
-    case RCV_RESET_NAV:
-//      resetNavigation(0.0);
       break;
     default:
       Serial.print("Illegal message received: "); Serial.println(cmd);
+      break;
+  }
+}
+
+void doUpMsg(int cmd, char msgStr[], int count) {
+  int intVal;
+  float floatVal;
+  boolean booleanVal;
+  String ss;
+
+Serial.print(cmd); Serial.print("\t");
+  switch(cmd) {
+    case FRUP_QUERY:
+      break;
+    case FRUP_SET_X:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        Serial.println(floatVal);
+      }
+      break;
+    case FRUP_SET_Y:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        
+      }
+      break;
+    case FRUP_SET_HEAD:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        
+      }
+      break;
+    case FRUP_GO_X:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        
+      }
+      break;
+    case FRUP_GO_Y:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        
+      }
+      break;
+    case FRUP_MSG:
+      Serial.println(msgStr);
+      break;
+    default:
       break;
   }
 }

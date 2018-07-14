@@ -22,7 +22,7 @@ void aTp7Run() {
   int gyroReads = 0;                            // **************
   int reads = 0;
   timeMicroseconds = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
+  timeMilliseconds = millis();
   currentValSet = &tp7;
   setBlink(RED_LED_PIN, BLINK_SB);
   delay(200); // For switches?
@@ -92,7 +92,7 @@ const double ACCEL_TO_FPS = 0.06;
  ***********************************************************************/
 void aTp7() {
   static double lpfAccelFpsOld = 0.0;
-  static double tp7OldSpeedError = 0.0;
+//  static double tp7OldSpeedError = 0.0;
   static double oldAccelFps = 0.0D;
  
   // Compute Center of Oscillation speed (cos)
@@ -288,7 +288,7 @@ void steer(float fp) {
 /************************************************************************
  *  spin() Just keep the motors running correctly while doing a spin.
  ************************************************************************/
-double spin() {
+//double spin() {
 //  if (isSpin) {
 //    double spinRate = controllerX * 10.0D;
 //    setTargetSpeedRight(-spinRate);
@@ -299,7 +299,7 @@ double spin() {
 //    setTargetSpeedRight(-normalRate);
 //    setTargetSpeedLeft(normalRate);
 //  }
-}
+//}
 
 
 

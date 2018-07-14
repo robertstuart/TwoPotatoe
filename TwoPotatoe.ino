@@ -1,6 +1,7 @@
 /* ---------------------- TwoPotatoe ----------------------- */
 
 #include "Common.h"
+#include "UpArd.h"
 #include <DueTimer.h>
 #include <Wire.h>
 #include <LSM6.h>
@@ -21,7 +22,8 @@ const double YAW_DRIFT = -26.69;
 
 #define XBEE_SER Serial3
 #define BLUE_SER Serial1
-#define SONAR_SER Serial2
+//#define SONAR_SER Serial2
+#define UP_SER Serial2
 
 //#define TICKS_PER_CIRCLE_YAW  11900.0  // For Pro-Line Masher 2.8" PRO1192-12
 //#define TICKS_PER_CIRCLE_YAW  7816.0  // For Losi DB XL 1/5 scale
@@ -179,7 +181,7 @@ struct valSet tp7 = {
   0.95,    // w
   2.0,     // x
   0.2,     // y
-  0.0
+  -3.0      // z, pitch offset
 }; 
 
 valSet *currentValSet = &tp7;
@@ -487,7 +489,8 @@ char pBuf[100];
 void setup() {
   XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
   BLUE_SER.begin(115200);  // Bluetooth 
-  SONAR_SER.begin(9600);   // Mini-pro sonar controller
+//  SONAR_SER.begin(9600);   // Mini-pro sonar controller
+  UP_SER.begin(115200);    // UP Board
   Serial.begin(115200); // for debugging output
    
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED

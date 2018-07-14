@@ -54,8 +54,10 @@ int blinkPtrRed = 0;
  *
  **************************************************************************/
 void commonTasks() {
+  up();
   readXBee();  // Read commands from PC or Hand Controller
   readBluetooth();
+  readUp(); 
   readSonar();
   //  motorIdle();
   blinkLed();
@@ -66,8 +68,23 @@ void commonTasks() {
   setRunningState();
   gyroTemperature();
   timeMicroseconds = micros();
-  timeMilliseconds = timeMicroseconds / 1000;
+  timeMilliseconds = millis();
 }
+
+void up() {
+  static float val = 12.34f;
+  static unsigned long upTrigger = 0L;
+  if (timeMilliseconds > upTrigger) {
+    val += 1.0;
+    upTrigger = timeMilliseconds + 500;  // 2 per second
+    UP_SER.write((byte) TOUP_X); UP_SER.print(val); UP_SER.write((byte) 0);
+    val += 0.1;
+    UP_SER.write((byte) TOUP_Y); UP_SER.print(val); UP_SER.write((byte) 0);
+    val += 0.02;
+    UP_SER.write((byte) TOUP_LOG); UP_SER.print("Due log message: "); UP_SER.print(val); UP_SER.write((byte) 0);
+  }
+}
+
 
 
 /**************************************************************************.
@@ -221,6 +238,7 @@ void battery() {
   if (timeMilliseconds > batteryTrigger) {
     batteryTrigger = timeMilliseconds + 1000;  // 1 per second
     battVolt = ((float) analogRead(BATT_PIN)) * .0223;
+//    Serial.print(analogRead(BATT_PIN)); Serial.print(" "); Serial.println(battVolt);
   }
 }
 
@@ -429,38 +447,38 @@ void switches() {
  * readSonar() 
  **************************************************************************/
 void readSonar() {
-  const int S_BUFFER_SIZE = 20;
-  static char msgStr[S_BUFFER_SIZE + 1];
-  static boolean isMsgInProgress = false;
-  static int msgPtr = 0;
-  static char dir = 'X';
-  
-  float distance = 0.0;
- 
-  while (SONAR_SER.available()) {
-    byte b = SONAR_SER.read();
-    if (isMsgInProgress) {
-      if (b == 13) {
-        int e = sscanf(msgStr, "%f", &distance);
-        if ((e > 0) && (distance < 30.0)) {
-          doSonar(distance, dir);
-        }
-        msgStr[msgPtr] = 0;
-        isMsgInProgress = false;
-      }
-      else if (msgPtr >= S_BUFFER_SIZE) {
-        isMsgInProgress = false;
-      } else {
-        msgStr[msgPtr++] = b;
-      }
-    } else { // Wait for a L, F, or R.
-      if ((b == 'L') || (b == 'F') ||(b == 'R')) {
-        dir = b;
-        isMsgInProgress = true;         
-        msgPtr = 0;
-      }
-    }
-  }
+//  const int S_BUFFER_SIZE = 20;
+//  static char msgStr[S_BUFFER_SIZE + 1];
+//  static boolean isMsgInProgress = false;
+//  static int msgPtr = 0;
+//  static char dir = 'X';
+//  
+//  float distance = 0.0;
+// 
+//  while (SONAR_SER.available()) {
+//    byte b = SONAR_SER.read();
+//    if (isMsgInProgress) {
+//      if (b == 13) {
+//        int e = sscanf(msgStr, "%f", &distance);
+//        if ((e > 0) && (distance < 30.0)) {
+//          doSonar(distance, dir);
+//        }
+//        msgStr[msgPtr] = 0;
+//        isMsgInProgress = false;
+//      }
+//      else if (msgPtr >= S_BUFFER_SIZE) {
+//        isMsgInProgress = false;
+//      } else {
+//        msgStr[msgPtr++] = b;
+//      }
+//    } else { // Wait for a L, F, or R.
+//      if ((b == 'L') || (b == 'F') ||(b == 'R')) {
+//        dir = b;
+//        isMsgInProgress = true;         
+//        msgPtr = 0;
+//      }
+//    }
+//  }
 }
 
 
@@ -488,7 +506,7 @@ void doSonar(float distance, char dir) {
 void setSonar(String sonarStr) {
   int len = sonarStr.length();
   for (int i = 0; i < len; i++) {
-    SONAR_SER.print(sonarStr.charAt(i));
+//    SONAR_SER.print(sonarStr.charAt(i));
   }
 }
 

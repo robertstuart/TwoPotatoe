@@ -25,7 +25,7 @@ boolean barrelOne(boolean reset) {
   if (reset) {
     barrelOneState = SEEK_BARREL;
     barrelX = currentLoc.x;   // Use arrival X
-    setSonar("lFr");
+//    setSonar("lFr");
     sonarFront = sonarFrontKeep = 0.0;
     seekBarrel(true);
     return false;
@@ -257,7 +257,7 @@ boolean pedestrian(boolean reset) {
     sonarPedCount = 0;
     pivotCount = 0;
     pedPivotState = PLOT_LEFT;
-    setSonar("lFr");
+//    setSonar("lFr");
     sonarFront = sonarFrontKeep = 0.0;
   } else {
     if (sonarFront > 0.1) {

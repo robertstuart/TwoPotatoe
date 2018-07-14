@@ -75,7 +75,7 @@ void routeLog() {
         (short) (currentLoc.x * 100.0),
         (short) (currentLoc.y * 100.0),
         (short) (gcHeading * 100.0),
-        (short) (sonarRightKeep * 100.0),
+        (short) (sonarLeftKeep * 100.0),
         (short) (sonarFrontKeep * 100.0),
 //        (short) (wFpsRight * 100.0),
 //        (short) (routeFps * 100.0),
@@ -234,7 +234,7 @@ boolean interpretRouteLine(String ss) {
       if (coHCorrection == STEP_ERROR) return false;
       sonarRight = 0.0;
       coPtr = 0;
-      setSonar("lfR");
+//      setSonar("lfR");
       break;
 
     case 'D':  // Decelerate
@@ -642,13 +642,13 @@ void steerHug() {
 
   // Read the sonar
   if (isHugRight) {
-    if (sonarRight > 0.0) {
+    if (sonarRight > 0.1) {
       sonar = sonarRight;
       sonarRight = 0.0;
       isReading = true;
     }
   } else {
-    if (sonarLeft > 0.0) {
+    if (sonarLeft > 0.1) {
       sonar = sonarLeft;
       sonarLeft = 0.0;
       isReading = true;
@@ -664,9 +664,11 @@ void steerHug() {
   }
   
   float error = sonar - hugWallDistance;
-  float correction = error * 20.0;
+//  float correction = error * 20.0;
+  float correction = error * 10.0;
   correction = constrain(correction, -30.0, 30.0);
-  targetBearing = hugHeading + correction;
+//  targetBearing = hugHeading + correction;
+  targetBearing = hugHeading - correction;
   steerHeading();
 }
 
@@ -697,13 +699,13 @@ void hugCorrect() {
   setHeading(finalHeading);
 
   // Set the cartesian coordinates.
-  currentLoc.x = targetLoc.x;
-  if (abs(sonarRightKeep - hugWallDistance) < 1.0) {
-    currentLoc.y = targetLoc.y - (0.78 * (sonarRightKeep - hugWallDistance));
-  } else {
-    currentLoc.y = targetLoc.y;
-  }
-//  currentLoc = targetLoc;  // Assume we are now at the correct target.
+//  currentLoc.x = targetLoc.x;
+//  if (abs(sonarRightKeep - hugWallDistance) < 1.0) {
+//    currentLoc.y = targetLoc.y - (0.78 * (sonarRightKeep - hugWallDistance));
+//  } else {
+//    currentLoc.y = targetLoc.y;
+//  }
+  currentLoc = targetLoc;  // Assume we are now at the correct target.
 }
 
 

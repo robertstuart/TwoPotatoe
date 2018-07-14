@@ -1,25 +1,24 @@
 
-String avc2017_hr[] =   {  // hoop + ramp
-  "N AVC 2017-HR",
+String avc2017[] =   {  // hoop + ramp
+  "N AVC 2017",
   "KR   63.4,57.7             129        ",
-  "G   118,11       12               ",
+  "G   117,11       8               ",
   "D                 0               ",
-  "T   166,32       12    29       0 ",  // Turn toward barrels
-  "B   167          53               ",  // Barrels
-  "G   147,68       10               ",
-  "T   122,69        8    18    -129 ",  // approach straightaway
-  "HR   98,51        6     3.0  -129 ",  // swap with G
-//  "G    98,51        6               ",  // Swap with HR
-  "J  -129           4.0   3.1       ",  // Jump
-  "G    79,38        5               ",  // Approach hoop
-//  "F",
-  "T  76.1,31        5    10    -173 ",  // Turn into hoop
-  "T    70,21.5      7    17    -129 ",  // Turn out of hoop
-  "G    61,10        12               ",
+  "T   165,32       8    29       0 ",  // Turn toward barrels
+  "B   165.5          53               ",  // Barrels
+  "G   154,65       8               ",
+  "T   131,65        8    18    -129 ",  // approach straightaway
+  "G   124,60        8               ",  // approach sonar run
+//  "G   101,40.5        6               ",  // sonar run, swap with HL
+  "HL  101,40.5        6     3.0  -129 ",  // sonar run, swap with G
+  "G    68,35       6               ",  // approach hoop
+  "G    60,21        6               ",  // through hoop
+  "G    42,14       8               ",  // Approach turn
   "D                 0               ",
-  "T    11,34       12    32      -7 ",  // Turn toward pedestrian
+  "T    11,51        9    32      -7 ",  // Turn toward pedestrian
+
   "P                                 ",
-  "T    58,64       12    30     129 ",
+  "T    58,64       9    37     129 ",
   "G    75,51        4               ",
   "F"
 };
@@ -47,17 +46,29 @@ String avc2017_hr_old[] =   {  // hoop + ramp
   "F"
 };
 
+// inside
 String hug[] = { 
   "N Hug",
-  "KR  120,70     -129             ",
-  "G   116.2,66.9      3             ",
-//  "G 108.5,60.5      3             ",
-  "HR 108.5,60.5     3   2.0  -129 ",
-  "G   104,51       3              ",
+  "KR  44,32     -175                 ",
+  "G   44,25        3                 ", 
+  "G   40,18.5      3                 ",
+  "HL  33.7,13.2    3     1.8    -129 ",  // sonar run, swap with G
+//  "G    33.7,13.2   3               ",  // Swap with HL
+  "G   24.1,9.1        3                 ",  //  Final target
   "F"
 };
 
-
+//// outside
+//String hug[] = { 
+//  "N Hug",
+//  "KR  131,76     -178             ",
+//  "G   131,67        6               ",  // approach sonar run
+//  "G   101,42  7        6              ",
+////  "HL  101,42        6     3.0  -129 ",  // sonar run, swap with G
+//  "G    76,36       6               ",  // approach hoop
+//  "F"
+//};
+//
 String jump1[] = { 
   "N Jump 1",
   "KR  0,0     0          ",
@@ -145,12 +156,7 @@ String testRun1[] = {
 String loadedRoute[200]; 
 
 String *routeTable[] = {
-  avc2017_hr,
-  barrel,
-  jump1,
-  hug,
-  gyroTest,
-  pedestrian1,
+  avc2017
 };
 
 int routeTablePtr = 0;
@@ -211,7 +217,7 @@ void startRoute() {
   isDecelActive = isDecelPhase = false;
   interpretRouteLine(getNextStepString()); // Load the first line.
   isRouteInProgress = true;
-  setSonar("lfR");
+//  setSonar("lfR");
   setHeading(0.0D);
   resetTicks();
   currentLoc.x = 0.0D;

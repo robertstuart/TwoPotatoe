@@ -58,7 +58,6 @@ void imuInit() {
   lsm6.writeReg(LSM6::INT2_CTRL, 0X01); // Gyro data ready on INT2
   lsm6.writeReg(LSM6::CTRL2_G, 0X5C);   // Gyro 2000fs, 208hz
   lsm6.writeReg(LSM6::CTRL1_XL, 0X50);  // Accel 2g, 208hz
-
 }
 
 #define TG_PITCH_TC 0.90D
@@ -392,12 +391,12 @@ void doGyroDrift() {
       zDriftSum += zAve;
       gDriftCount++;
     }
-    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMax, xMin, xAve);
-    Serial.print(message);
-    sprintf(message, "yMin: %4d     yMax: %4d     yAve: %5.1f   ", yMax, yMin, yAve);
-    Serial.print(message);
-    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
-    Serial.print(message);
+//    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMax, xMin, xAve);
+//    Serial.print(message);
+//    sprintf(message, "yMin: %4d     yMax: %4d     yAve: %5.1f   ", yMax, yMin, yAve);
+//    Serial.print(message);
+//    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
+//    Serial.print(message);
     gPtr = 0;
   }
 }
