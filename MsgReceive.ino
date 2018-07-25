@@ -16,6 +16,10 @@ int msgStrPtrX = 0;
 boolean isMessageInProgressX = false;
 
 
+
+/******************************************************************************
+ *  readUp()
+ *****************************************************************************/
 void readUp() {
   while (UP_SER.available()) {
     byte b = UP_SER.read();
@@ -24,21 +28,28 @@ void readUp() {
       msgCmdUp = b;
       isMessageInProgressUp = true;
     } else {
-      if (isMessageInProgressUp) {
+      if (isMessageInProgressUp) { 
         if (msgStrPtrUp >= UP_BUFFER_SIZE) {
           isMessageInProgressUp = false;
         } else if (b == 0) {
           msgStrUp[msgStrPtrUp] = 0;
           doUpMsg(msgCmdUp, msgStrUp, msgStrPtrUp);
+          isMessageInProgressUp = false;
         } else {
           msgStrUp[msgStrPtrUp++] = b;
         }
+      } else {
+        Serial.print("Up serial error: "); Serial.println(b);
       }
     }
   }
 }
 
 
+
+/******************************************************************************
+ *  readBluetooth()
+ *****************************************************************************/
 void   readBluetooth() {
   while (BLUE_SER.available()) {
     byte b = BLUE_SER.read();
@@ -56,20 +67,21 @@ void   readBluetooth() {
         } else {
           msgStrB[msgStrPtrB++] = b;
           tPc = timeMilliseconds;
+          isMessageInProgressB = false;
         }
       }
     }
   }
 }
 
+
+
 const int DATA_FRAME_MAX = 72;
 byte rcvDataFrame[DATA_FRAME_MAX + 1];
 int rcvDataFramePtr = 0;
 int rcvPacketCount = 0;
 int rcvDataFrameLength = 0;
-
-
-/*********************************************************
+/******************************************************************************
  *
  * readXBee()
  *
@@ -77,7 +89,7 @@ int rcvDataFrameLength = 0;
  *     interpretDataFrame() whenever there is a complete 
  *     data packet.
  *
- *********************************************************/
+ *****************************************************************************/
 void readXBee() {
   static boolean escState = false;
   
@@ -114,10 +126,9 @@ void readXBee() {
 
 
 
-
-/**************************************************************************.
+/******************************************************************************
  * interpretRcvDataFrame()
- **************************************************************************/
+ *****************************************************************************/
 void interpretRcvDataFrame() {
   switch (rcvDataFrame[0]) { // cmdID
     case 0x8A:           // Modem Status
@@ -139,6 +150,11 @@ void interpretRcvDataFrame() {
   }
 }
 
+
+
+/******************************************************************************
+ *  doRFData()
+ *****************************************************************************/
 void doRFData() {
   static int cmd;
   int rfPtr = 12;
@@ -164,6 +180,9 @@ void doRFData() {
 
 
 
+/******************************************************************************
+ *  doMsg() Act on messages from hand controller
+ *****************************************************************************/
 void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   int intVal;
   float floatVal;
@@ -220,12 +239,12 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_RT_ENABLE:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        if (intVal == 1) startRoute();
-        else stopRoute();
+        sendUMsg(TOUP_RT_ENABLE, 0);   //  toggle?
+//        isRouteInProgress = !isRouteInProgress;
       }
       break;
     case RCV_RT_START:
-      isStartReceived = true;
+      sendUMsg(TOUP_RT_START, 0);
       break;
     case RCV_DUMP_START:
       sendDumpData();
@@ -235,12 +254,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       break;
     case RCV_RT_SET:      // 0 to decrease, 1 to increase
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        setRoute((intVal == 0) ? false : true);
-      }
-      break;
-    case SEND_XPOS:
-      if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        ;
+        sendUMsg(TOUP_RT_NUM, intVal);  // Increment route number.
       }
       break;
     case RCV_V1: // Set this to point to intended variable.
@@ -261,43 +275,59 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   }
 }
 
+/******************************************************************************
+ *  doUpMsg()
+ *****************************************************************************/
 void doUpMsg(int cmd, char msgStr[], int count) {
+  static float locX = 0.0;
   int intVal;
   float floatVal;
   boolean booleanVal;
   String ss;
 
-Serial.print(cmd); Serial.print("\t");
+//Serial.println(cmd); 
   switch(cmd) {
     case FRUP_QUERY:
       break;
-    case FRUP_SET_X:
+    case FRUP_SET_LOC_X:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        Serial.println(floatVal);
+        locX = floatVal; // Set aside so we can do both a once
       }
       break;
-    case FRUP_SET_Y:
+    case FRUP_SET_LOC_Y:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        
-      }
+         currentLoc.x = (double) locX;
+         currentLoc.y = (double) floatVal;
+     }
       break;
     case FRUP_SET_HEAD:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        
+        setHeading(floatVal);
       }
       break;
-    case FRUP_GO_X:
+    case FRUP_FPS_DIFF:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        
+        speedAdjustment = floatVal;
       }
       break;
-    case FRUP_GO_Y:
+    case FRUP_FPS:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        routeFps = floatVal;
+      }
+      break;
+    case FRUP_RT_NUM:
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
         
       }
       break;
     case FRUP_MSG:
       Serial.println(msgStr);
+      break;
+    case FRUP_STAT:
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        isRouteInProgress = (intVal == 0) ? false : true;
+        upStatTime = timeMilliseconds;
+      }
       break;
     default:
       break;

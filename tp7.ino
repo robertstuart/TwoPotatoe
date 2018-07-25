@@ -47,9 +47,10 @@ void aTp7Run() {
         reads = 0;
         setNavigation();
         aTp7(); 
-        doGyroDrift();
-        sendLog();
-        safeAngle();
+        doGyroDrift();  // check
+        sendLog();  // check
+        safeAngle();  // check
+        sendUpData();  // check
       }
     } 
 //    if (timeMicroseconds > debugTrigger) { //***************
@@ -131,7 +132,7 @@ void aTp7() {
 //  float tpFps = coAccelFps;
 //  float tpFps = lpfcoAccelFps;
 
-  if (isRouteInProgress)  tp7ControllerSpeed = getRouteFps();
+  if (isRouteInProgress)  tp7ControllerSpeed = routeFps;
   else tp7ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
 
   // Find the speed error.  Constrain rate of change.
@@ -158,31 +159,8 @@ void aTp7() {
 //  targetWFps = fpsCorrection;
 
   // These routines set the steering values.
-  if (isRouteInProgress) steerRoute();
+  if (isRouteInProgress) steerRoute(targetWFps);
   else steer(targetWFps);
-  
-//  if (isRunning) {
-//    addLog(
-//        (long)(gaPitch * 100.0),
-//        (short) (lpfCos3 * 100.0),
-//        (short) (lsm6.a.y),
-//        (short) (lsm6.a.z),
-//        (short) (wFps * 100.0),
-//        (short) (accelFps * 100.0),
-//        (short) (tpFps * 100.0)
-//    );
-//  }
-//static unsigned int loop = 0;
-//static int ySum = 0;
-//static int zSum = 0;
-//static int sumCount = 0;
-//ySum += lsm6.a.y;
-//zSum += lsm6.a.z;
-//if (++sumCount == 200) {
-//  sprintf(message, "y: %7d   z: %7d   ", ySum / 200, zSum / 200);
-//  Serial.println(message);
-//  ySum = zSum = sumCount = 0;
-//}
 
 } // end aTp7() 
 
@@ -205,7 +183,6 @@ void sendLog() {
   
 //  if (!(logLoop % 104)) log2PerSec();
 //  if (!(logLoop % 21)) log10PerSec();
-  if (!(logLoop % 10)) routeLog(); //  20/sec
 //  routeLog(); //  208/sec
 //  if (!(logLoop % 10)) log20PerSec(); // 20/sec  
 //  if (!(logLoop % 2)) log104PerSec(); // 104/sec  
@@ -214,8 +191,7 @@ void sendLog() {
 }
 
 void log2PerSec() {
-  sprintf(message, " gaRoll: %4.2f", gaRoll);
-  sendXMsg(SEND_MESSAGE, message);
+  Serial.println(tp7ControllerSpeed);
 //  sprintf(message, "gyroHeading %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gyroHeading, aPitch, gaPitch);
 //  sendBMsg(SEND_MESSAGE, message);
 //  Serial.print(forceLeft);
@@ -275,6 +251,21 @@ void log208PerSec() {
 
 
 /***********************************************************************.
+ *  sendUpData() Send periodic loc, heading, & pitch to Up.
+ ***********************************************************************/
+void sendUpData() {
+  static int sendCount = 0;
+  if ((++sendCount % 4) == 0) {
+    sendUMsg(TOUP_X, 2, currentLoc.x);
+    sendUMsg(TOUP_Y, 2, currentLoc.y);
+    sendUMsg(TOUP_HEADING, 2, gcHeading);
+    sendUMsg(TOUP_PITCH, 0, gaPitch);
+    sendUMsg(TOUP_FPS, 2, tpFps);
+  }
+}
+
+
+/***********************************************************************.
  *  steer() 
  ***********************************************************************/
 void steer(float fp) {
@@ -284,22 +275,11 @@ void steer(float fp) {
 }
 
 
-
-/************************************************************************
- *  spin() Just keep the motors running correctly while doing a spin.
- ************************************************************************/
-//double spin() {
-//  if (isSpin) {
-//    double spinRate = controllerX * 10.0D;
-//    setTargetSpeedRight(-spinRate);
-//    setTargetSpeedLeft(spinRate);
-//  }
-//  else {
-//    double normalRate = (((1.0 - abs(0.0)) * 1.5) + 0.5) * controllerX; 
-//    setTargetSpeedRight(-normalRate);
-//    setTargetSpeedLeft(normalRate);
-//  }
-//}
-
-
+/***********************************************************************.
+ *  steerRoute() X value from Up is the speed difference between the wheels.
+ ***********************************************************************/
+void steerRoute(float fp) {
+  targetWFpsRight = fp - speedAdjustment;
+  targetWFpsLeft = fp + speedAdjustment;
+}
 

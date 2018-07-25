@@ -54,7 +54,6 @@ int blinkPtrRed = 0;
  *
  **************************************************************************/
 void commonTasks() {
-  up();
   readXBee();  // Read commands from PC or Hand Controller
   readBluetooth();
   readUp(); 
@@ -71,23 +70,9 @@ void commonTasks() {
   timeMilliseconds = millis();
 }
 
-void up() {
-  static float val = 12.34f;
-  static unsigned long upTrigger = 0L;
-  if (timeMilliseconds > upTrigger) {
-    val += 1.0;
-    upTrigger = timeMilliseconds + 500;  // 2 per second
-    UP_SER.write((byte) TOUP_X); UP_SER.print(val); UP_SER.write((byte) 0);
-    val += 0.1;
-    UP_SER.write((byte) TOUP_Y); UP_SER.print(val); UP_SER.write((byte) 0);
-    val += 0.02;
-    UP_SER.write((byte) TOUP_LOG); UP_SER.print("Due log message: "); UP_SER.print(val); UP_SER.write((byte) 0);
-  }
-}
 
 
-
-/**************************************************************************.
+/********************************************************************************
  *
  * setRunningState()
  *
@@ -125,9 +110,12 @@ void setRunningState() {
     isRunning = isRunReady;
   }
 
-  // Set the blue route led
-  if (isRouteInProgress) bluePattern = (isRunning) ? BLINK_ON : BLINK_FF;
-  else bluePattern = BLINK_OFF;
+  // Set the blue upboard led
+  if (timeMilliseconds > (upStatTime + 200)) {
+    bluePattern = BLINK_OFF;  // Timed out
+  } else {
+    bluePattern = (isRouteInProgress) ? BLINK_ON : BLINK_SB;
+  }
 
   // set yellow (state)
   switch (mode) {
@@ -414,16 +402,14 @@ void switches() {
   if ((timeMilliseconds - gnTimer) > 50) gnState = false;
   else gnState = true;
 
-  // Blue press transition
+  // Blue press transition. Toggle route enable.
   if (buState && (!oldBuState)) {
-    if (isRouteInProgress) stopRoute();
-    else startRoute();
+    sendUMsg(TOUP_RT_ENABLE, 0); // toggle
   }
 
-  // Green press transition
+  // Green press transition.  Start route.
   if (gnState && (!oldGnState)) {
-    if (isRouteInProgress)  isStartReceived = true;
-    else isRunReady = !isRunReady;
+    sendUMsg(TOUP_RT_START, 0);
   }
 
   // Yellow press transition
@@ -433,7 +419,9 @@ void switches() {
   }
 
   // Red press transition
-  if (reState && (!oldReState)) setRoute(true);
+  if (reState && (!oldReState)) {
+    sendUMsg(TOUP_RT_NUM, 1);  // Increment route number.
+  }
 
   oldBuState = buState;
   oldYeState = yeState;

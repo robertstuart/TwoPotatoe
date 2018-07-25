@@ -190,8 +190,8 @@ int bbb = 42;
  
 
 struct loc {
-  float x;
-  float y;
+  double x;
+  double y;
 };
 
 struct loc currentLoc;
@@ -226,7 +226,6 @@ double turnTargetCumHeading = 0.0;
 
 char routeCurrentAction = 0;
 boolean isRightTurn = true;
-float routeFps = 0.0;
 float routeScriptFps = 0.0;  // The programmed speed from the script.
 float turnRadius = 0.0;
 float pivotBearing = 0.0;
@@ -472,12 +471,11 @@ double tp6ControllerSpeed = 0.0;
 float tp7ControllerSpeed = 0.0;
 double jumpTarget;
 double jumpFallXY;
-
-float barrelXCenter = 0.0D;
-float barrelX = 0.0D;
-float barrelYEnd = 0.0D;
-
+int routeTablePtr = 0;
+float routeFps = 0.0;
+float speedAdjustment = 0.0;
 char pBuf[100];
+unsigned int upStatTime = 0;
 
 /*********************************************************
  *
@@ -549,8 +547,6 @@ void setup() {
   Timer3.start(100);  // Poll at 10,000/sec.
 //  diagnostics();
   Serial.println("Diagnostics ignored.");
-  setSonar("LFR");
-  sonarSlope();
 } // end setup()
 
 

@@ -7,9 +7,11 @@ int rfDataPtr = 0;
 int dumpPtr, dumpEnd;
 int tickDumpPtr, tickDumpEnd;
 
-/***********************************************************************.
+
+
+/******************************************************************************
  * SendStatus??() 
- ***********************************************************************/
+ *****************************************************************************/
 void sendStatusBluePc() {
   static int part = 0;
   part = ++part % 4;
@@ -189,6 +191,25 @@ void sendXMsg(int cmd, String val) {
   val.toCharArray(buf, len + 1);
   xAddMessage(cmd, buf, len);
 }
+
+void sendUMsg(int cmd, int precision, double val) {
+      UP_SER.write((byte) cmd); 
+      UP_SER.print(val, precision); 
+      UP_SER.write((byte) 0);
+}
+
+void sendUMsg(int cmd, int val) {
+      UP_SER.write((byte) cmd); 
+      UP_SER.print(val); 
+      UP_SER.write((byte) 0);
+}
+
+void sendUMsg(int cmd, int precision, String val) {
+      UP_SER.write((byte) cmd); 
+      UP_SER.print(val); 
+      UP_SER.write((byte) 0);
+}
+
 
 
 /**************************************************************************.
