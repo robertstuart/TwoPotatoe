@@ -55,17 +55,15 @@ int blinkPtrRed = 0;
  **************************************************************************/
 void commonTasks() {
   readXBee();  // Read commands from PC or Hand Controller
-  readBluetooth();
+//  readBluetooth();
   readUp(); 
-  readSonar();
-  //  motorIdle();
   blinkLed();
   battery();
   controllerConnected();
   liftJump();
   switches();
   setRunningState();
-  gyroTemperature();
+//  gyroTemperature(); 
   timeMicroseconds = micros();
   timeMilliseconds = millis();
 }
@@ -94,7 +92,7 @@ void setRunningState() {
 
   if (mode == MODE_2P) {
     // Set the runnng bit to control motors
-    if ((isRunReady && isUpright) && (!isLifted  || isRouteInProgress)) {
+    if ((isRunReady && isUpright) && (!isLifted  || isRouteInProgress || isLiftDisabled)) {
       isRunning = true;
       if (oldIsRunning == false) {  // State change
         oldIsRunning = true;
@@ -102,7 +100,7 @@ void setRunningState() {
     } else {
       isRunning = false;
       if (oldIsRunning == true) { // State change
-        startGyroDrift();
+//        startGyroDrift();
         oldIsRunning = false;
       } 
     }
@@ -113,6 +111,7 @@ void setRunningState() {
   // Set the blue upboard led
   if (timeMilliseconds > (upStatTime + 200)) {
     bluePattern = BLINK_OFF;  // Timed out
+    isRouteInProgress = false;
   } else {
     bluePattern = (isRouteInProgress) ? BLINK_ON : BLINK_SB;
   }
@@ -130,18 +129,10 @@ void setRunningState() {
         yellowPattern = BLINK_SB;
       }
       
-      if ((!isHcActive) && (!isPcActive)) {
+      if (!isHcActive) {
         controllerX = controllerY = 0.0f;
       }
-      if (!isHcActive) {
-        hcX = 0.0;
-        hcY = 0.0;
-      }
-      if (!isPcActive) {
-        pcX = 0.0;
-        pcY = 0.0;
-      }
-      break;
+     break;
     default: // All test modes
       bluePattern = yellowPattern = (isRunning) ? BLINK_ON : BLINK_FF;
       break;
@@ -213,7 +204,7 @@ void liftJump() {
  *********************************************************/
 void controllerConnected() {
   isHcActive =  ((tHc + 1000) > timeMilliseconds) ? true : false;
-  isPcActive =  ((tPc + 1000) > timeMilliseconds) ? true : false;
+//  isPcActive =  ((tPc + 1000) > timeMilliseconds) ? true : false;
 }
 
 
@@ -247,7 +238,7 @@ void gyroTemperature() {
 
 
 /**************************************************************************.
- *  blink() Call at least 10/sec
+ *  blink() 
  **************************************************************************/
 void blinkLed() {
   static int routeCycle = 0; //
@@ -268,17 +259,21 @@ void blinkLed() {
     digitalWrite(YELLOW_LED_PIN, b);
 
     // Blink route number on red
-    if (++routeOffCount >=5) {
-      routeOffCount = 0;
-      if (routeCycle <= routeTablePtr) {
-        digitalWrite(RED_LED_PIN, HIGH);
+    if (isLiftDisabled) {
+      digitalWrite(RED_LED_PIN, HIGH);
+    } else {
+      if (++routeOffCount >=5) {
+        routeOffCount = 0;
+        if (routeCycle <= routeTablePtr) {
+          digitalWrite(RED_LED_PIN, HIGH);
+        }
+        routeCycle++;
+        if (routeCycle >= (routeTablePtr + 3)) {
+          routeCycle = 0;
+        }
+      } else if (routeOffCount == 2) {
+        digitalWrite(RED_LED_PIN, LOW);
       }
-      routeCycle++;
-      if (routeCycle >= (routeTablePtr + 3)) {
-        routeCycle = 0;
-      }
-    } else if (routeOffCount == 2) {
-      digitalWrite(RED_LED_PIN, LOW);
     }
   }  
 }
@@ -434,7 +429,7 @@ void switches() {
 /**************************************************************************.
  * readSonar() 
  **************************************************************************/
-void readSonar() {
+//void readSonar() {
 //  const int S_BUFFER_SIZE = 20;
 //  static char msgStr[S_BUFFER_SIZE + 1];
 //  static boolean isMsgInProgress = false;
@@ -467,7 +462,7 @@ void readSonar() {
 //      }
 //    }
 //  }
-}
+//}
 
 
 

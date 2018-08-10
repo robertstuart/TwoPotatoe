@@ -30,6 +30,7 @@ int yawTempComp = 0;
 void angleInit6() {
   int success;
   Wire.begin();
+//  Wire.setClock(400000);
   for (int i = 0; i < 100; i++) {
     success = lsm6.init(); 
     if (success) break; 
@@ -336,29 +337,29 @@ float readFahr() {
 
 
 
-const int DRIFT_SIZE = 204;
-float xDriftSum = 0.0;
-float yDriftSum = 0.0;
-float zDriftSum = 0.0;
-int gDriftCount = 0;
-int gPtr = 0;
-boolean isMeasuringDrift = false;
+const int DRIFT_SIZE = 102;
+//float xDriftSum = 0.0;
+//float yDriftSum = 0.0;
+//float zDriftSum = 0.0;
+//int gPtr = 0;
+//boolean isMeasuringDrift = false;
+int zArray[DRIFT_SIZE];
+int yArray[DRIFT_SIZE];
+int xArray[DRIFT_SIZE];
 /**************************************************************************.
  * doGyroDrift()  Called 204/sec.  Average gyroDrift for x, y & z
  *                for one second periods.
  **************************************************************************/
 void doGyroDrift() {
-  static int zArray[DRIFT_SIZE];
-  static int yArray[DRIFT_SIZE];
-  static int xArray[DRIFT_SIZE];
+  static int gPtr = 0;
   int x, y, z;
 
-  if (!isMeasuringDrift) return;
   xArray[gPtr] = lsm6.g.x;
   yArray[gPtr] = lsm6.g.y;
   zArray[gPtr] = lsm6.g.z;
   gPtr++;
   if (gPtr >= DRIFT_SIZE) {
+    gPtr = 0;
     int xSum = 0;
     int ySum = 0;
     int zSum = 0;
@@ -385,11 +386,10 @@ void doGyroDrift() {
     float xAve = ((float) xSum) / ((float) DRIFT_SIZE);
     float yAve = ((float) ySum) / ((float) DRIFT_SIZE);
     float zAve = ((float) zSum) / ((float) DRIFT_SIZE);
+
+    // If we have a stable 0.5 second period, average the most recent 20 periods & adjust drift.
     if (((xMax - xMin) < 30) && ((yMax - yMin) < 30) && ((zMax - zMin) < 30)) {
-      xDriftSum += xAve;
-      yDriftSum += yAve;
-      zDriftSum += zAve;
-      gDriftCount++;
+      setDrift(xAve, yAve, zAve);
     }
 //    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMax, xMin, xAve);
 //    Serial.print(message);
@@ -397,40 +397,74 @@ void doGyroDrift() {
 //    Serial.print(message);
 //    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMax, zMin, zAve);
 //    Serial.print(message);
-    gPtr = 0;
   }
 }
 
+#define AVE_SIZE 20
+void setDrift(float xAve, float yAve, float zAve) {
+  static float xAveArray[AVE_SIZE];
+  static float yAveArray[AVE_SIZE];
+  static float zAveArray[AVE_SIZE];
+  static int aveTotal = 0;
+  static int avePtr = 0;
 
+  float sumXAve = 0.0;
+  float sumYAve = 0.0;
+  float sumZAve = 0.0;
 
-/**************************************************************************.
- * startGyroDrift()  "isRunning" has changed to false.  Initialize the
- *                   sums for x, y, and z.
- **************************************************************************/
-void startGyroDrift() {
-  isMeasuringDrift = true;
-  gPtr = 0;
-  xDriftSum = yDriftSum = zDriftSum = 0.0;
-  gDriftCount = 0;
-}
+  xAveArray[avePtr] = xAve;
+  yAveArray[avePtr] = yAve;
+  zAveArray[avePtr] = zAve;
 
+  avePtr = ++avePtr % AVE_SIZE;
+  if (aveTotal < avePtr) aveTotal = avePtr;
 
-
-/**************************************************************************.
- * setGyroDrift()  "isRunning" has changed to true.  Take the averaged 
- *                 drift values and set the "timeDrift??? values.
- **************************************************************************/
-void setGyroDrift() {
-  if (gDriftCount > 0) {
-    timeDriftPitch = xDriftSum / ((float) gDriftCount);
-    timeDriftRoll = yDriftSum / ((float) gDriftCount);
-    timeDriftYaw = zDriftSum / ((float) gDriftCount);
-    sprintf(message, "PitchDrift: %5.2f    RollDrift: %5.2f     YawDrift: %5.2f \n", timeDriftPitch, timeDriftRoll, timeDriftYaw);
-    sendBMsg(SEND_MESSAGE, message);
-    Serial.print(message);
+  for (int i = 0; i < aveTotal; i++) {
+    sumXAve += xAveArray[i];
+    sumYAve += yAveArray[i];
+    sumZAve += zAveArray[i];
   }
-  isMeasuringDrift = false;
+  float aveXDrift = sumXAve / aveTotal;
+  float aveYDrift = sumYAve / aveTotal;
+  float aveZDrift = sumZAve / aveTotal;
+  timeDriftPitch = aveXDrift;
+  timeDriftRoll = aveYDrift;
+  timeDriftYaw = aveZDrift;
+//    sprintf(message, "gPitch: %5.2f     gRoll: %5.2f     gYaw: %5.2f\n", gPitch, gRoll, gYaw);
+//    Serial.print(message);
+  
 }
+
+
+
+///**************************************************************************.
+// * startGyroDrift()  "isRunning" has changed to false.  Initialize the
+// *                   sums for x, y, and z.
+// **************************************************************************/
+//void startGyroDrift() {
+//  isMeasuringDrift = true;
+//  gPtr = 0;
+//  xDriftSum = yDriftSum = zDriftSum = 0.0;
+//  gDriftCount = 0;
+//}
+
+
+
+///**************************************************************************.
+// * setGyroDrift()  "isRunning" has changed to true.  Take the averaged 
+// *                 drift values and set the "timeDrift??? values.
+// **************************************************************************/
+//void setGyroDrift() {
+//  if (gDriftCount > 0) {
+//    timeDriftPitch = xDriftSum / ((float) gDriftCount);
+//    timeDriftRoll = yDriftSum / ((float) gDriftCount);
+//    timeDriftYaw = zDriftSum / ((float) gDriftCount);
+//    sprintf(message, "PitchDrift: %5.2f    RollDrift: %5.2f     YawDrift: %5.2f \n", timeDriftPitch, timeDriftRoll, timeDriftYaw);
+//    sendBMsg(SEND_MESSAGE, message);
+//    Serial.print(message);
+//  }
+//  isMeasuringDrift = false;
+//}
 
 
 

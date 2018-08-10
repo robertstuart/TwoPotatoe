@@ -18,7 +18,7 @@ boolean isMessageInProgressX = false;
 
 
 /******************************************************************************
- *  readUp()
+    readUp()
  *****************************************************************************/
 void readUp() {
   while (UP_SER.available()) {
@@ -28,7 +28,7 @@ void readUp() {
       msgCmdUp = b;
       isMessageInProgressUp = true;
     } else {
-      if (isMessageInProgressUp) { 
+      if (isMessageInProgressUp) {
         if (msgStrPtrUp >= UP_BUFFER_SIZE) {
           isMessageInProgressUp = false;
         } else if (b == 0) {
@@ -48,7 +48,7 @@ void readUp() {
 
 
 /******************************************************************************
- *  readBluetooth()
+    readBluetooth()
  *****************************************************************************/
 void   readBluetooth() {
   while (BLUE_SER.available()) {
@@ -82,17 +82,17 @@ int rcvDataFramePtr = 0;
 int rcvPacketCount = 0;
 int rcvDataFrameLength = 0;
 /******************************************************************************
- *
- * readXBee()
- *
- *     Read bytes from the XBee radio, and call
- *     interpretDataFrame() whenever there is a complete 
- *     data packet.
- *
+
+   readXBee()
+
+       Read bytes from the XBee radio, and call
+       interpretDataFrame() whenever there is a complete
+       data packet.
+
  *****************************************************************************/
 void readXBee() {
   static boolean escState = false;
-  
+
   while (XBEE_SER.available() > 0) {
     byte b = XBEE_SER.read();
     if (b == 0x7e) {
@@ -114,7 +114,7 @@ void readXBee() {
       else {
         if (rcvDataFramePtr < rcvDataFrameLength) {
           rcvDataFrame[rcvDataFramePtr++] = b;
-         } else if (rcvDataFramePtr == rcvDataFrameLength) { // Checksum
+        } else if (rcvDataFramePtr == rcvDataFrameLength) { // Checksum
           interpretRcvDataFrame();
           rcvDataFramePtr++;  // just in case...
         }
@@ -127,12 +127,12 @@ void readXBee() {
 
 
 /******************************************************************************
- * interpretRcvDataFrame()
+   interpretRcvDataFrame()
  *****************************************************************************/
 void interpretRcvDataFrame() {
   switch (rcvDataFrame[0]) { // cmdID
     case 0x8A:           // Modem Status
-//      Serial.println(rcvDataFrame[4], HEX);
+      //      Serial.println(rcvDataFrame[4], HEX);
       break;
     case 0x88:           // AT Command Response
       break;
@@ -146,14 +146,14 @@ void interpretRcvDataFrame() {
     case 0x91:           // Receive Packet (A)=1)
       break;
     default:
-     break;
+      break;
   }
 }
 
 
 
 /******************************************************************************
- *  doRFData()
+    doRFData()
  *****************************************************************************/
 void doRFData() {
   static int cmd;
@@ -175,49 +175,37 @@ void doRFData() {
     }
     rfPtr++;
   }
-//  Serial.println();  
+  //  Serial.println();
 }
 
 
 
 /******************************************************************************
- *  doMsg() Act on messages from hand controller
+    doMsg() Act on messages from hand controller
  *****************************************************************************/
 void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   int intVal;
   float floatVal;
   boolean booleanVal;
   String ss;
-  
+
   msgStr[count] = 0; // Just to be sure.
- 
-  switch(cmd) {
+
+  switch (cmd) {
     case RCV_JOYX:
-      if (sscanf(msgStr, "%f", &floatVal) >0) {
-        if (isHc) {
-          hcX = floatVal;
-          if (abs(hcX) > abs(pcX)) controllerX = floatVal;
-          sendStatusXBeeHc();
-        } else {
-          pcX = floatVal;
-          if (abs(pcX) > abs(hcX)) controllerX = floatVal;
-          sendStatusBluePc();
-        }
-        if ((abs(hcX) < 0.02) && (abs(pcX) < 0.02)) controllerX = 0.0; 
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        controllerX = floatVal;
+        sendStatusXBeeHc();
+        sendStatusBluePc();
+        if (abs(controllerX) < 0.02) controllerX = 0.0;
       }
       break;
     case RCV_JOYY:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        if (isHc) {
-          hcY = floatVal;
-          if (abs(hcY) > abs(pcY)) controllerY = floatVal;
-        } else {
-          pcY = floatVal;
-          if (abs(pcY) > abs(hcY)) controllerY = floatVal;
-        }
-        if ((abs(hcY) < 0.02) && (abs(pcY) < 0.02)) controllerY = 0.0;
+        controllerY = floatVal;
+        if (abs(controllerY) < 0.02) controllerY = 0.0;
       }
-      break;
+     break;
     case RCV_RUN:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         isRunReady = (intVal != 0);
@@ -234,13 +222,13 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         k = (k == HIGH) ? LOW : HIGH;
         digitalWrite(RIGHT_HL_PIN, k);
         digitalWrite(LEFT_HL_PIN, k);
-//        digitalWrite(REAR_TL_PIN, k);
+        //        digitalWrite(REAR_TL_PIN, k);
       }
       break;
     case RCV_RT_ENABLE:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         sendUMsg(TOUP_RT_ENABLE, 0);   //  toggle?
-//        isRouteInProgress = !isRouteInProgress;
+        //        isRouteInProgress = !isRouteInProgress;
       }
       break;
     case RCV_RT_START:
@@ -249,7 +237,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
     case RCV_DUMP_START:
       sendDumpData();
       break;
-     case RCV_DUMP_TICKS:
+    case RCV_DUMP_TICKS:
       sendDumpTicks();
       break;
     case RCV_RT_SET:      // 0 to decrease, 1 to increase
@@ -258,16 +246,24 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       }
       break;
     case RCV_V1: // Set this to point to intended variable.
-      if(sscanf(msgStr, "%d", &intVal) > 0) {
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
         float inc = 0.1;
         tp7.z = (intVal == 0) ? tp7.z - inc : tp7.z + inc;
-      } 
+      }
       break;
     case RCV_V2: // Set this to point to intended variable.
-      if(sscanf(msgStr, "%d", &intVal) > 0) {
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
         float inc = 0.1;
         tp7.z = (intVal == 0) ? tp7.z - inc : tp7.z + inc;
-      } 
+      }
+      break;
+    case RCV_LIFT: 
+      isLiftDisabled = !isLiftDisabled;
+      break;
+    case RCV_KILLTP:
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        if (intVal == 0) sendUMsg(TOUP_KILLTP, 0);
+      }
       break;
     default:
       Serial.print("Illegal message received: "); Serial.println(cmd);
@@ -276,7 +272,7 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
 }
 
 /******************************************************************************
- *  doUpMsg()
+    doUpMsg()
  *****************************************************************************/
 void doUpMsg(int cmd, char msgStr[], int count) {
   static float locX = 0.0;
@@ -285,8 +281,8 @@ void doUpMsg(int cmd, char msgStr[], int count) {
   boolean booleanVal;
   String ss;
 
-//Serial.println(cmd); 
-  switch(cmd) {
+  //Serial.println(cmd);
+  switch (cmd) {
     case FRUP_QUERY:
       break;
     case FRUP_SET_LOC_X:
@@ -296,9 +292,9 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       break;
     case FRUP_SET_LOC_Y:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-         currentLoc.x = (double) locX;
-         currentLoc.y = (double) floatVal;
-     }
+        currentLoc.x = (double) locX;
+        currentLoc.y = (double) floatVal;
+      }
       break;
     case FRUP_SET_HEAD:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
@@ -317,8 +313,11 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       break;
     case FRUP_RT_NUM:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        
+
       }
+      break;
+    case FRUP_RUN_READY:
+      isRunReady = true;
       break;
     case FRUP_MSG:
       Serial.println(msgStr);
@@ -330,6 +329,7 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       }
       break;
     default:
+      Serial.print("Illegal Up message: "); Serial.println("cmd");
       break;
   }
 }

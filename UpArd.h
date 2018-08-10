@@ -15,6 +15,7 @@ const int TOUP_Y                = 131;  // Current Y position in meters
 const int TOUP_PITCH            = 132;  // Current Pitch for adjusting vertical row
 const int TOUP_HEADING          = 133;  // Current Heading
 const int TOUP_FPS              = 134;  // Current CO speed
+const int TOUP_DIST             = 135;  // Distance traveled in feet
 
 const int TOUP_RT_ENABLE        = 140;  // Enable/disable route. If start, tp waits for RT_START
 const int TOUP_RT_START         = 141;  // Start running the route. No parameter
@@ -22,6 +23,7 @@ const int TOUP_RT_NUM           = 142;  // Set the route number.
 
 const int TOUP_START_LOG        = 150;  // True = start, False = end log.
 const int TOUP_LOG              = 151;  // String from Due to be logged.
+const int TOUP_KILLTP           = 152;  //  Kill the process.
 
 
 //Messages from the UpBoard to the Due
@@ -35,9 +37,11 @@ const int FRUP_FPS              = 141;  // Controls speed
 const int FRUP_RT_RUN           = 142;  // Turn motors on for KR & run received.
 const int FRUP_RT_END           = 143;  // End route.
 const int FRUP_RT_NUM           = 144;  // Route number
+const int FRUP_RUN_READY        = 145;  // Turn on Run Ready
 
 const int FRUP_MSG              = 150;  // Message to display on hand controller
-const int FRUP_STAT             = 151; // true = message in progress, periodic alive indicator
+const int FRUP_STAT             = 151; // true = route in progress, periodic alive indicator
+
 
 #endif /* UP_ARD_H_ */
 

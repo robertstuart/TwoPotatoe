@@ -155,21 +155,21 @@ void dumpTicks() {
  * send?Msg()
  *********************************************************/
 void sendBMsg(int cmd, int precision, double val) {
-  BLUE_SER.write(cmd);
-  BLUE_SER.print(val, precision);
-  BLUE_SER.write((byte) 0);
+//  BLUE_SER.write(cmd);
+//  BLUE_SER.print(val, precision);
+//  BLUE_SER.write((byte) 0);
 }
 
 void sendBMsg(int cmd, int val) {
-  BLUE_SER.write(cmd);
-  BLUE_SER.print(val);
-  BLUE_SER.write((byte) 0);
+//  BLUE_SER.write(cmd);
+//  BLUE_SER.print(val);
+//  BLUE_SER.write((byte) 0);
 }
 
 void sendBMsg(int cmd, String val) {
-  BLUE_SER.write(cmd);
-  BLUE_SER.print(val);
-  BLUE_SER.write((byte) 0);
+//  BLUE_SER.write(cmd);
+//  BLUE_SER.print(val);
+//  BLUE_SER.write((byte) 0);
 }
 
 void sendXMsg(int cmd, int precision, double val) {

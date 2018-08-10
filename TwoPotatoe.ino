@@ -16,12 +16,12 @@ const float GYRO_SENS = 0.0696;      // Multiplier to get degrees.
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
 
 // Values for initial timeDrift???
-const double PITCH_DRIFT = -9.26;
-const double ROLL_DRIFT = 40.05;
-const double YAW_DRIFT = -26.69;
+const double PITCH_DRIFT = -20.5;
+const double ROLL_DRIFT = 56.8;
+const double YAW_DRIFT = -24.1;
 
 #define XBEE_SER Serial3
-#define BLUE_SER Serial1
+#define BLUE_SER Serial1  // not used
 //#define SONAR_SER Serial2
 #define UP_SER Serial2
 
@@ -278,7 +278,8 @@ boolean isRouteInProgress  = false; // Route in progress
 boolean isDumpingData = false; // Dumping data
 boolean isHoldHeading = false; // 
 boolean isSpin = false; // 
-boolean isStand = false; // 
+boolean isStand = false; //
+boolean isLiftDisabled = false; 
 
 boolean isBackLeft = false;
 
@@ -333,12 +334,8 @@ float sonarRight = 0.0;
 float sonarRightKeep = 0.0;
 
 unsigned int actualLoopTime; // Time since the last
-double hcX = 0.0;
-double hcY = 0.0;
-double pcX = 0.0;
-double pcY = 0.0;
-double controllerX = 0.0; // +1.0 to -1.0 from controller
-double controllerY = 0.0;  // Y value set by message from controller
+float controllerX = 0.0; // +1.0 to -1.0 from controller
+float controllerY = 0.0;  // Y value set by message from controller
 char message[100] = "";
 char message1[80] = "message 1";
 char message2[80] = "message 2";
@@ -485,12 +482,13 @@ unsigned int upStatTime = 0;
  *
  *********************************************************/
 void setup() {
-  XBEE_SER.begin(57600);  // XBee, See bottom of this page for settings.
-  BLUE_SER.begin(115200);  // Bluetooth 
-//  SONAR_SER.begin(9600);   // Mini-pro sonar controller
+  XBEE_SER.begin(57600);   // XBee, See bottom of this page for settings.
+  Serial.begin(115200);    // for debugging output
   UP_SER.begin(115200);    // UP Board
-  Serial.begin(115200); // for debugging output
-   
+//  UP_SER.end();
+//  pinMode(18, INPUT_PULLUP);
+//  pinMode(18, INPUT_PULLUP);
+  
   pinMode(LED_PIN,OUTPUT);  // Status LED, also blue LED
   pinMode(RED_LED_PIN,OUTPUT);
   pinMode(YELLOW_LED_PIN,OUTPUT);
@@ -508,7 +506,6 @@ void setup() {
   pinMode(SONAR_RIGHT_PIN, OUTPUT);
   pinMode(SONAR_LEFT_PIN, OUTPUT);
   
-  pinMode(BU_SW_PIN, INPUT_PULLUP);
   pinMode(YE_SW_PIN, INPUT_PULLUP);
   pinMode(RE_SW_PIN, INPUT_PULLUP);
   pinMode(GN_SW_PIN, INPUT_PULLUP);

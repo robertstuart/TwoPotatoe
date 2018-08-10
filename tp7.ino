@@ -18,9 +18,8 @@ float targetAngle = 0.0;
 void aTp7Run() {
   unsigned long loopTrigger = micros();
   unsigned long debugTrigger = loopTrigger; //*****************
-  int accReads = 0;                            // **************
-  int gyroReads = 0;                            // **************
-  int reads = 0;
+  boolean isGyroRead = false;
+  boolean isAccRead = false;
   timeMicroseconds = micros();
   timeMilliseconds = millis();
   currentValSet = &tp7;
@@ -29,7 +28,7 @@ void aTp7Run() {
   setHeading(0.0D);
   resetTicks();
   beep(BEEP_UP);
-  startGyroDrift();
+//  startGyroDrift();
   while(mode == MODE_2P) { // main loop
     commonTasks();
     if (timeMicroseconds > loopTrigger) {
@@ -37,41 +36,22 @@ void aTp7Run() {
       checkMotors();
       if (isNewGyro()) {
         setGyroData();
-        reads++;
-        gyroReads++;              //******************
-      } else if (isNewAccel()) {
+        isGyroRead = true;
+      }
+      if (isNewAccel()) {
         setAccelData();
-        reads++;
-        accReads++;
-      } else if (reads >= 2) {
-        reads = 0;
+        isAccRead = true;
+      }
+      if (isGyroRead && isAccRead) {
+       isGyroRead = isAccRead = false;
         setNavigation();
         aTp7(); 
-        doGyroDrift();  // check
-        sendLog();  // check
-        safeAngle();  // check
-        sendUpData();  // check
+        doGyroDrift();
+        sendLog();
+        safeAngle();
+        sendUpData();
       }
     } 
-//    if (timeMicroseconds > debugTrigger) { //***************
-//      debugTrigger += 6000;  // > 220/sec
-//      if (gyroReads == 0) {
-//        for (int i = 0; i < 100; i++) {
-//          digitalWrite(21, LOW);
-//          digitalWrite(71, LOW);
-//          delayMicroseconds(10);
-//          digitalWrite(21, HIGH);
-//          digitalWrite(71, HIGH);
-//          delayMicroseconds(10);
-//        }
-//        imuInit();
-//        sprintf(message, "--------------------reset---------------");
-//        sendBMsg(SEND_MESSAGE, message);
-//      }
-////      sprintf(message, "%7d  %7d", gyroReads, accReads);
-////      sendBMsg(SEND_MESSAGE, message);
-//      gyroReads = 0;
-//    }
   }
 }
 
@@ -191,7 +171,7 @@ void sendLog() {
 }
 
 void log2PerSec() {
-  Serial.println(tp7ControllerSpeed);
+  Serial.println(controllerY);
 //  sprintf(message, "gyroHeading %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gyroHeading, aPitch, gaPitch);
 //  sendBMsg(SEND_MESSAGE, message);
 //  Serial.print(forceLeft);
@@ -261,6 +241,7 @@ void sendUpData() {
     sendUMsg(TOUP_HEADING, 2, gcHeading);
     sendUMsg(TOUP_PITCH, 0, gaPitch);
     sendUMsg(TOUP_FPS, 2, tpFps);
+    sendUMsg(TOUP_DIST, 2, ((float) tickPosition) / TICKS_PER_FOOT);
   }
 }
 
