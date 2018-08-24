@@ -265,6 +265,11 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         if (intVal == 0) sendUMsg(TOUP_KILLTP, 0);
       }
       break;
+    case RCV_MOT_DISABLE:
+      if (sscanf(msgStr, "%d", &intVal) > 0) {
+        if (intVal == 0) isMotorDisable = !isMotorDisable;
+      }
+      break;
     default:
       Serial.print("Illegal message received: "); Serial.println(cmd);
       break;

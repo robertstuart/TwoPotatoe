@@ -237,6 +237,7 @@ void gyroTemperature() {
 }
 
 
+
 /**************************************************************************.
  *  blink() 
  **************************************************************************/
@@ -251,6 +252,7 @@ void blinkLed() {
     int b = (patternBlue[blinkPtrBlue++] == 1) ? HIGH : LOW;
     if (patternBlue[blinkPtrBlue] == END_MARKER) blinkPtrBlue = 0;
     digitalWrite(BLUE_LED_PIN, b);
+    if (isMotorDisable) b = LOW;
     digitalWrite(GREEN_LED_PIN, b);
 
     // Blink the Yellow

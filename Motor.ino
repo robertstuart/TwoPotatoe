@@ -342,6 +342,7 @@ void checkMotors() {
  *********************************************************/
 void setMotorRight(int pw, int direction) {
   if (!isRunning) pw = 0;
+  if (isMotorDisable) pw = 0;
   if (pw > 62000) pw = 65535; // Ignore dead area; 
 
   if (direction == FWD) {
@@ -353,7 +354,7 @@ void setMotorRight(int pw, int direction) {
 }
 void setMotorLeft(int pw, int direction) {
   if (!isRunning) pw = 0;
-
+  if (isMotorDisable) pw = 0;
   if (pw > 62000) pw = 65535; // Ignore dead area; 
 
   if (direction == FWD) {

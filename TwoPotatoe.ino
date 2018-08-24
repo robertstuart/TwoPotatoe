@@ -473,6 +473,7 @@ float routeFps = 0.0;
 float speedAdjustment = 0.0;
 char pBuf[100];
 unsigned int upStatTime = 0;
+boolean isMotorDisable = false;
 
 /*********************************************************
  *

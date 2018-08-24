@@ -171,7 +171,7 @@ void sendLog() {
 }
 
 void log2PerSec() {
-  Serial.println(controllerY);
+  Serial.print(isRunning); Serial.print(isRouteInProgress); Serial.println(isRunReady);
 //  sprintf(message, "gyroHeading %4.2f   aPitch: %4.2f   gaPitch: %4.2f", gyroHeading, aPitch, gaPitch);
 //  sendBMsg(SEND_MESSAGE, message);
 //  Serial.print(forceLeft);

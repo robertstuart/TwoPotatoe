@@ -50,6 +50,7 @@ const int RCV_V1           = 162;
 const int RCV_V2           = 163;
 const int RCV_LIFT         = 164;
 const int RCV_KILLTP       = 165;
+const int RCV_MOT_DISABLE  = 166;
 
 const int SEND_RCV_TERM    =   0;
 
