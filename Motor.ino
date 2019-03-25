@@ -226,8 +226,7 @@ const float MOTOR_GAIN = 5.0;
 const int DEAD_ZONE = 1600; // This pw or less gives zero fps.
 const float FPS_TO_PW = 2900.0; // change in PW gives change of 1.0 FPS, 775 24V motor
 /**************************************************************************.
- * checkMotor????()  Called 10,000 time/sec in at timer interupt
- *                   service routine.
+ * checkMotor????()  Called every loop
  **************************************************************************/
 void checkMotorRight() {
   float motorGain = MOTOR_GAIN;

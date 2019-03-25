@@ -156,7 +156,7 @@ int BEEP_WARBLE[] = {2400, 300, 2600, 300,
                   2400, 300, 2600, 300, 0};
 int BEEP_DOWN[] = {1000, 200, 666, 200, 0};
 
-// new flash sequences
+// new blink sequences
 const byte END_MARKER = 42;
 byte BLINK_OFF[] = {0,END_MARKER};               // Off
 byte BLINK_SF[] = {1,0,0,0,0,0,0,0,END_MARKER};  // Slow flash
