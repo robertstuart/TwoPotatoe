@@ -1,9 +1,6 @@
-
-const int B_BUFFER_SIZE = 100;
-char msgStrB[B_BUFFER_SIZE];
-int msgStrPtrB = 0;
-int msgCmdB = 0;
-boolean isMessageInProgressB = false;
+/*****************************************************************************-
+ *                        MsgReceive
+ *****************************************************************************/
 
 const int UP_BUFFER_SIZE = 100;
 char msgStrUp[UP_BUFFER_SIZE];
@@ -11,7 +8,14 @@ int msgStrPtrUp = 0;
 int msgCmdUp = 0;
 boolean isMessageInProgressUp = false;
 
-char msgStrX[B_BUFFER_SIZE];
+const int WA_BUFFER_SIZE = 100;
+char msgStrWa[WA_BUFFER_SIZE];
+int msgStrPtrWa = 0;
+int msgCmdWa = 0;
+boolean isMessageInProgressWa = false;
+
+const int X_BUFFER_SIZE = 100;
+char msgStrX[X_BUFFER_SIZE];
 int msgStrPtrX = 0;
 boolean isMessageInProgressX = false;
 
@@ -48,27 +52,29 @@ void readUp() {
 
 
 /******************************************************************************
-    readBluetooth()
+    readWa() - Read watchdog processor
  *****************************************************************************/
-void   readBluetooth() {
-  while (BLUE_SER.available()) {
-    byte b = BLUE_SER.read();
+void readWa() {
+  while (WA_SER.available()) {
+    byte b = WA_SER.read();
+    if (b == 0) Serial.println();
     if (b >= 128) {
-      msgStrPtrB = 0;
-      msgCmdB = b;
-      isMessageInProgressB = true;
+      msgStrPtrWa = 0;
+      msgCmdWa = b;
+      isMessageInProgressWa = true;
     } else {
-      if (isMessageInProgressB) {
-        if (msgStrPtrB >= B_BUFFER_SIZE) {
-          isMessageInProgressB = false;
+      if (isMessageInProgressWa) {
+        if (msgStrPtrWa >= WA_BUFFER_SIZE) {
+          isMessageInProgressWa = false;
         } else if (b == 0) {
-          msgStrB[msgStrPtrB] = 0;
-          doMsg(msgCmdB, msgStrB, msgStrPtrB, false);
+          msgStrWa[msgStrPtrWa] = 0;
+          doWaMsg(msgCmdWa, msgStrWa, msgStrPtrWa);
+          isMessageInProgressWa = false;
         } else {
-          msgStrB[msgStrPtrB++] = b;
-          tPc = timeMilliseconds;
-          isMessageInProgressB = false;
+          msgStrWa[msgStrPtrWa++] = b;
         }
+      } else {
+        Serial.print("Watchdog message error: "); Serial.println(b);
       }
     }
   }
@@ -167,7 +173,7 @@ void doRFData() {
     }
     if ((b > 127) || (rfPtr == (rcvDataFrameLength - 1))) {
       if (msgValPtr > 0) {
-        doMsg(cmd, msgVal, msgValPtr, true);
+        doXMsg(cmd, msgVal, msgValPtr, true);
         tHc = timeMilliseconds;
       }
       msgValPtr = 0;
@@ -181,12 +187,12 @@ void doRFData() {
 
 
 /******************************************************************************
-    doMsg() Act on messages from hand controller
+    doXMsg() Act on messages from hand controller
  *****************************************************************************/
-void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
+void doXMsg(int cmd, char msgStr[], int count, boolean isHc) {
   int intVal;
   float floatVal;
-  boolean booleanVal;
+//  boolean booleanVal;
   String ss;
 
   msgStr[count] = 0; // Just to be sure.
@@ -196,7 +202,6 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
         controllerX = floatVal;
         sendStatusXBeeHc();
-        sendStatusBluePc();
         if (abs(controllerX) < 0.02) controllerX = 0.0;
       }
       break;
@@ -216,58 +221,35 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
         mode = intVal;
       }
       break;
-    case RCV_LIGHTS:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        int k = digitalRead(RIGHT_HL_PIN);
-        k = (k == HIGH) ? LOW : HIGH;
-        digitalWrite(RIGHT_HL_PIN, k);
-        digitalWrite(LEFT_HL_PIN, k);
-        //        digitalWrite(REAR_TL_PIN, k);
-      }
-      break;
     case RCV_RT_ENABLE:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        sendUMsg(TOUP_RT_ENABLE, 0);   //  toggle?
+        sendUpMsg(TOUP_RT_ENABLE, 0);   //  toggle?
         //        isRouteInProgress = !isRouteInProgress;
       }
       break;
     case RCV_RT_START:
-      sendUMsg(TOUP_RT_START, 0);
-      break;
-    case RCV_DUMP_START:
-      sendDumpData();
-      break;
-    case RCV_DUMP_TICKS:
-      sendDumpTicks();
+      sendUpMsg(TOUP_RT_START, 0);
       break;
     case RCV_RT_SET:      // 0 to decrease, 1 to increase
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        sendUMsg(TOUP_RT_NUM, intVal);  // Increment route number.
+        sendUpMsg(TOUP_RT_NUM, intVal);  // Increment route number.
       }
       break;
     case RCV_V1: // Set this to point to intended variable.
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         float inc = 0.1;
-        tp7.z = (intVal == 0) ? tp7.z - inc : tp7.z + inc;
+        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
       }
       break;
     case RCV_V2: // Set this to point to intended variable.
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         float inc = 0.1;
-        tp7.z = (intVal == 0) ? tp7.z - inc : tp7.z + inc;
+        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
       }
-      break;
-    case RCV_LIFT: 
-      isLiftDisabled = !isLiftDisabled;
       break;
     case RCV_KILLTP:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        if (intVal == 0) sendUMsg(TOUP_KILLTP, 0);
-      }
-      break;
-    case RCV_MOT_DISABLE:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        if (intVal == 0) isMotorDisable = !isMotorDisable;
+        if (intVal == 0) sendUpMsg(TOUP_KILLTP, 0);
       }
       break;
     default:
@@ -276,6 +258,8 @@ void doMsg(int cmd, char msgStr[], int count, boolean isHc) {
   }
 }
 
+
+
 /******************************************************************************
     doUpMsg()
  *****************************************************************************/
@@ -283,7 +267,7 @@ void doUpMsg(int cmd, char msgStr[], int count) {
   static float locX = 0.0;
   int intVal;
   float floatVal;
-  boolean booleanVal;
+//  boolean booleanVal;
   String ss;
 
   //Serial.println(cmd);
@@ -308,12 +292,12 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       break;
     case FRUP_FPS_DIFF:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        speedAdjustment = floatVal;
+//        speedAdjustment = floatVal;
       }
       break;
     case FRUP_FPS:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        routeFps = floatVal;
+//        routeFps = floatVal;
       }
       break;
     case FRUP_RT_NUM:
@@ -329,8 +313,8 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       break;
     case FRUP_STAT:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        isRouteInProgress = (intVal == 0) ? false : true;
-        upStatTime = timeMilliseconds;
+//        isRouteInProgress = (intVal == 0) ? false : true;
+//        upStatTime = timeMilliseconds;
       }
       break;
     default:
@@ -341,7 +325,57 @@ void doUpMsg(int cmd, char msgStr[], int count) {
 
 
 
-void setValSet(int newValSet) {
+/******************************************************************************
+    doWaMsg() - Process message from watchdog processor
+ *****************************************************************************/
+void doWaMsg(int cmd, char msgStr[], int count) {
+  float floatVal;
+  switch (cmd) {
+    case RCV_BATT:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        battVolt = floatVal;
+      }
+      break;
+    case RCV_SWITCH:
+      doSwitch((unsigned int) msgStr[0] - '0', msgStr[1] == '1');
+      break;
+
+    default:
+      Serial.print("Illegal Watchdog message: "); Serial.println("cmd");
+      break;
+  }
 }
 
 
+
+/*****************************************************************************-
+ *  doSwitch()  Switch pressed/released on watchdog processor
+ *****************************************************************************/
+void doSwitch(unsigned int sw, boolean isPressed) {
+  const int PWM_INC = 5;
+  switch (sw) {
+    case LED_SW_GN:
+      if ((mode == MODE_PWM) || (mode == MODE_MOTOR_CTRL)) {
+        if ((intT + PWM_INC) <= 255) {
+          intT += PWM_INC;
+          intU = intT;
+        }
+      }
+      break;
+    case LED_SW_RE:
+      if ((mode == MODE_PWM) || (mode == MODE_MOTOR_CTRL)) {
+        if ((intT - PWM_INC) >= -255) {
+          intT -= PWM_INC;
+          intU = intT;
+        }
+      }
+      break;
+    case LED_SW_BU:
+      break;
+    case LED_SW_YE:
+      if (isPressed) isRunReady = !isRunReady;
+      break;
+    default:
+      Serial.print("Illegal switch message.");
+  }
+}
