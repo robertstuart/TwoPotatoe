@@ -1,16 +1,17 @@
 /******************************************************************************
  *                               Run
  *****************************************************************************/
-double accelFps = 0.0;
-double coAccelFps = 0.0;
-double lpfAccelFps = 0.0;
-double lpfTpFps = 0.0;
 float fpsCorrection = 0.0f;
 float fpsLpfCorrectionOld = 0.0;
 float fpsLpfCorrection = 0.0;
 float angleError = 0.0;
 float targetAngle = 0.0;
-float tpFps = 0.0;
+float lpfFps = 0.0;
+float lpfFpsOld = 0.0;
+float fpsError = 0;
+float fps = 0.0;
+float pitchFps = 0.0;
+float controllerSpeed = 0.0;
 
 /*****************************************************************************-
  *  runLoop() Run the TwoPotatoe algorithm.
@@ -22,8 +23,6 @@ void runLoop() {
   delay(200); // For switches?
   setHeading(0.0D);
   resetTicks();
-//  beep(BEEP_UP);
-//  startGyroDrift();
   while(mode == MODE_RUN) { // main loop
     commonTasks();
     if (isNewImu()) {
@@ -45,73 +44,33 @@ const double ACCEL_TO_FPS = 0.06;
  *  run() Balance and turn.
  *****************************************************************************/
 void run() {
-//  static double lpfAccelFpsOld = 0.0;
-//  static double tp7OldSpeedError = 0.0;
-  static double oldAccelFps = 0.0D;
  
-  // Compute Center of Oscillation speed (cos)
-  rotation3 = -gyroPitchDelta * valT;  // 4.5
-  cos3 = wFps + rotation3;
+  // Compute Center of Oscillation fps 
+  pitchFps = -gyroPitchDelta * valT;  // 4.5 Speed of the cos due to change in pitch (rotation)
+  fps = wFps + pitchFps;
   // 0.92 .u value: 0.0 = no hf filtering, large values give slow response
-  lpfCos3 = (lpfCos3Old * valV) + (cos3 * (1.0D - valU));
-  lpfCos3Accel = lpfCos3 - lpfCos3Old;
-  lpfCos3Old = lpfCos3;
+  lpfFps = (lpfFpsOld * valU) + (fps * (1.0D - valU));
+  lpfFpsOld = lpfFps;
 
-  // Compute the acceleration speed
-//  double rad = (gaPitch + ZERO_ANGLE) * DEG_TO_RAD;
-//  double yG = ((double) lsm6.a.y) / ONE_G_Y;
-//  double zG = ((double) lsm6.a.z) / ONE_G_Z;
-//  double yAccel = -(((cos(rad) * yG) + (sin(rad) * zG)) * ACCEL_TO_FPS);
-//  accelFps += yAccel;
+  controllerSpeed = controllerY * SPEED_MULTIPLIER; 
 
-  // lp filter the accel value.
-//  double lpfAccelFps = (lpfAccelFpsOld * (*currentValSet).a) + (accelFps * (1.0 - (*currentValSet).v)); // 0.9
-//  double lpfAccelFpsDelta = lpfAccelFpsOld - lpfAccelFps;
-//  lpfAccelFpsOld = lpfAccelFps;
+  // Find the fps error.  Constrain rate of change.
+  fpsError = controllerSpeed - lpfFps;
+
+  // compute a weighted angle to eventually correct the fps error
+  targetAngle = -(fpsError * valX); //** 4.0 ******** Speed error to angle *******************
   
-  if (!isRunning) accelFps = lpfAccelFps = 0.0;
-
-  // Complementary filter with COS. Try to minimizen jumping & loss of traction effects.
-  // 0.98, High value places more emphasis on accel.
-  double accelFpsDelta = accelFps - oldAccelFps;
-  oldAccelFps = accelFps;
-  coAccelFps += accelFpsDelta;
-  coAccelFps = (coAccelFps * valW) + (lpfCos3 * (1.0 - valW));
-//  lpfcoAccelFps -= lpfAccelFpsDelta;
-//  lpfcoAccelFps = (lpfcoAccelFps * (*currentValSet).w) + (lpfCos3 * (1.0 - (*currentValSet).w));
-
-  // Choose which of the computations to use.  Uncomment just one.
-  tpFps = lpfCos3;
-//  float tpFps = coAccelFps;
-//  float tpFps = lpfcoAccelFps;
-
-  tp7ControllerSpeed = controllerY * SPEED_MULTIPLIER; 
-
-  // Find the speed error.  Constrain rate of change.
-  double tp7SpeedError = tp7ControllerSpeed - tpFps;
-//  double speedDiff = tp7SpeedError - tp7OldSpeedError;
-//  if (speedDiff > 0.0D) tp7OldSpeedError += FPS_ACCEL;
-//  else tp7OldSpeedError -= FPS_ACCEL;
-//  tp7SpeedError = tp7OldSpeedError;
-
-  // compute a weighted angle to eventually correct the speed error
-  targetAngle = -(tp7SpeedError * valX); //** 4.0 ******** Speed error to angle *******************
-  
-//targetAngle = 0.0;  
-//fps = 0.0;
-  // Compute maximum angles for the current wheel speed and enforce limits.
-  targetAngle = constrain(targetAngle, -20.0, 20.0);
+  // Compute maximum angles for the current wheel fps and enforce limits.
+  targetAngle = constrain(targetAngle, -35.0, 35.0);
 
   // Compute angle error and weight factor
   angleError = targetAngle - gaPitch;
-  fpsCorrection = angleError * valY; // 0.4 ******************* Angle error to speed *******************
+  fpsCorrection = angleError * valY; // 0.4 ******************* Angle error to fps *******************
 
-  // Add the angle error to the base speed to get the target wheel speed.
-  targetWFps = fpsCorrection + tpFps;
-//  targetWFps = fpsCorrection;
+  // Add the angle error to the base fps to get the target wheel fps.
+  targetWFps = fpsCorrection + lpfFps;
 
   // These routines set the steering values.
-//  if (isRouteInProgress) steerRoute(targetWFps);
   steer(targetWFps);
 
 } // end aTp7() 
@@ -144,8 +103,9 @@ void log2PerSec() {
 }
 
 void log10PerSec() {
-  sprintf(message, "wFpsRight %4.2f   wFpsLeft: %4.2f", wFpsRight, wFpsLeft);
+  sprintf(message, "lpfFps: %4.2f   targetWfps: %4.2f   wFpsLeft: %4.2f", lpfFps, targetWFps, wFpsLeft);
 //  sprintf(message, "aPitch %4.2f   gPitch: %4.2f   gaPitch: %4.2f", aPitch, gPitch, gaPitch);
+//  dPrint("aPitch: ", aPitch, 2); dPrintln("    gaPitch: ", gaPitch, 2);
 //  sprintf(message, "gPitch %4.2f   gRoll: %4.2f   gYaw: %4.2f", gPitch, gRoll, gYaw);
 //    sprintf(message, "gPitch: %5.2f     gRoll: %5.2f     gYaw: %5.2f\n", gPitch, gRoll, gYaw);
   Serial.println(message);
@@ -175,7 +135,7 @@ void sendUpData() {
     sendUpMsg(TOUP_Y, 2, currentLoc.y);
     sendUpMsg(TOUP_HEADING, 2, gcHeading);
     sendUpMsg(TOUP_PITCH, 0, gaPitch);
-    sendUpMsg(TOUP_FPS, 2, tpFps);
+    sendUpMsg(TOUP_FPS, 2, lpfFps);
     sendUpMsg(TOUP_DIST, 2, ((float) tickPosition) / TICKS_PER_FOOT);
   }
 }
@@ -185,7 +145,7 @@ void sendUpData() {
  *  steer() 
  ***********************************************************************/
 void steer(float fp) {
-  float speedAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX; 
-  targetWFpsRight = fp - speedAdjustment;
-  targetWFpsLeft = fp + speedAdjustment;
+  float fpsAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX; 
+  targetWFpsRight = fp - fpsAdjustment;
+  targetWFpsLeft = fp + fpsAdjustment;
 }

@@ -36,9 +36,8 @@ void commonTasks() {
   timeMicroseconds = micros();
   timeMilliseconds = millis();
   readWa();
-//  readXBee();  // Read commands from PC or Hand Controller
+  readXBee();  // Read commands from PC or Hand Controller
 //  readUp(); 
-//  controllerConnected();
   setRunningState();
 //  gyroTemperature(); 
   blink13();
@@ -92,16 +91,6 @@ void checkUpright() {
     isUpright = true;
   }
   tState = cState;
-}
-
-
-
-/*****************************************************************************-
- * controllerConnected()
- *****************************************************************************/
-void controllerConnected() {
-  isHcActive  =  ((tHc + 1000) > timeMilliseconds) ? true : false;
-//  isPcActive =  ((tPc + 1000) > timeMilliseconds) ? true : false;
 }
 
 

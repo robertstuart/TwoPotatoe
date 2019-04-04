@@ -5,7 +5,7 @@
 
 #include "HC.h"
 #include "Watch.h"
-#include "UpArd.h"
+#include "Up.h"
 #include <Wire.h>
 #include <MPU9250.h>
 //#include <MPU9250_RegisterMap.h>
@@ -26,27 +26,12 @@ const double PITCH_DRIFT = 19.0;
 const double ROLL_DRIFT = 20.0;
 const double YAW_DRIFT = 8.0;
 
-
-
 const int IMU_INT_PIN =     17;
-
 const int LED13_PIN = 13;
 
 const float SPEED_MULTIPLIER = 20.0;
-const unsigned int TP_PWM_FREQUENCY = 20000;
 
-const int HEADING_SOURCE_G =  0;
-const int HEADING_SOURCE_M =  1;
-const int HEADING_SOURCE_T =  2;
-const int HEADING_SOURCE_GM = 3;
-
-#define MOTOR_RIGHT 1
-#define MOTOR_LEFT 2
-
-#define A_LIM 20.0 // degrees at which the speedAdjustment starts reducing.
-#define S_LIM 1.0  // maximum speedAdjustment;
-
-String tab = "\t";
+const String TAB = "\t";
 
 //Encoder factor
 const double ENC_FACTOR = 650.0f;  // Change pulse width to fps speed, 1/29 gear
@@ -54,28 +39,21 @@ const long ENC_FACTOR_M = 650000L;  // Change pulse width to milli-fps speed
 const double FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
 const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
-// Max int/long values
-#define UNSIGNED_LONG_MAX 4294967295UL 
-#define LONG_MAX  2147483647L
-#define LONG_MIN -2147483648L
-
 //#define TICKS_PER_PITCH_DEGREE 54.0D
 #define GYRO_WEIGHT 0.997    // Weight for gyro compared to accelerometer
-#define DEFAULT_GRID_OFFSET 0.0
-#define SONAR_SENS 0.0385
 
-//unsigned int mode = MODE_RUN;
+unsigned int mode = MODE_RUN;
 //unsigned int mode = MODE_PWM;
-unsigned int mode = MODE_MOTOR_CTRL;
+//unsigned int mode = MODE_MOTOR_CTRL;
 
 // Values that can be modified to tune the system.
 float valT = 4.5;
-float valU = 0.98;
+float valU = 0.98;  // cos low pass filter tc
 float valV = 2.7;
 float valW = 9.5;
 float valX = 2.0;
 float valY = 0.2;
-float valZ = -3.0;
+float valZ = -0.7;   // Accelerometer balance point offset - degrees.
 
 int intT = 0;
 int intU = 0;
@@ -110,16 +88,6 @@ double gcYaw = 0.0;
 //double gyroCumHeading = 0.0;
 double gHeading = 0;
 double gcHeading = 0;
-
-double rotation2 = 0.0D;
-double cos2 = 0.0D;
-double lpfCos2 = 0.0D;
-double lpfCosOld2 = 0.0D;
-float rotation3 = 0.0;
-float cos3 = 0.0;
-float lpfCos3 = 0.0;
-float lpfCos3Old = 0.0;
-float lpfCos3Accel = 0.0;
 
 long coTickPosition;
 double startDecelSpeed = 0.0;
@@ -322,7 +290,7 @@ void pwmLoop() {
       sum += (wFpsRight + wFpsLeft);
       loopc++;
       if (loopc == 10) {
-        Serial.print(sum/20.0); Serial.print(tab); Serial.println(intT);
+        Serial.print(sum/20.0); Serial.print(TAB); Serial.println(intT);
         loopc = 0;
         sum = 0.0;
       }
@@ -337,6 +305,7 @@ void pwmLoop() {
 /*****************************************************************************-
  * motorControlLoop() Change the target fps and let 
  *                    checkMotor() control the speed.
+ *                    For testing
  *****************************************************************************/
 void motorControlLoop() {
   unsigned int loop = 0;

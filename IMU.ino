@@ -1,8 +1,6 @@
 /*****************************************************************************-
  *  *  Angle
  *****************************************************************************/
-//#define I2Cclock 400000
-//#define I2Cport Wire
 #define MPU9250_ADDRESS   MPU9250_ADDRESS_AD0 // 0x68
 
 MPU9250 imu(MPU9250_ADDRESS, Wire, 400000);
@@ -55,7 +53,6 @@ void imuInit() {
  *****************************************************************************/
 boolean isNewImu() {
   if (digitalRead(IMU_INT_PIN) == HIGH) {
-    unsigned int t = micros();
     imu.readGyroData(imu.gyroCount);
     imu.readAccelData(imu.accelCount);
 
@@ -307,11 +304,13 @@ void doGyroDrift() {
   }
 }
 
-#define AVE_SIZE 20  // Equals 10 seconds of measurements
+
+
 /*****************************************************************************-
  *  setDrift()  Called to add the last 1/2 sec of drift values.
  *****************************************************************************/
 void setDrift(float xAve, float yAve, float zAve) {
+  static const int AVE_SIZE =  20;      // Equals 10 seconds of measurements
   static float xAveArray[AVE_SIZE];
   static float yAveArray[AVE_SIZE];
   static float zAveArray[AVE_SIZE];
@@ -325,7 +324,8 @@ void setDrift(float xAve, float yAve, float zAve) {
   yAveArray[avePtr] = yAve;
   zAveArray[avePtr] = zAve;
 
-  avePtr = ++avePtr % AVE_SIZE;
+  ++avePtr;
+  avePtr = avePtr % AVE_SIZE;
   if (aveTotal < avePtr) aveTotal = avePtr;
 
   for (int i = 0; i < aveTotal; i++) {
