@@ -83,7 +83,8 @@ void run() {
 void sendLog() {
   static unsigned int logLoop = 0;
   logLoop++;
-  
+
+//  logUp();
 //  if (!(logLoop % 125)) log2PerSec();
   if (!(logLoop % 25)) log10PerSec();
 //  routeLog(); //  250/sec
@@ -92,6 +93,10 @@ void sendLog() {
 //  log208PerSec();
 }
 
+void logUp() {
+//  sprintf(message, "%5.2f,%5.2f,%5.2f,%5.2f", controllerSpeed, aPitch, gPitch ,wFps);
+//  sendUpMsg(TOUP_LOG, message);
+}
 void log2PerSec() {
 //  Serial.print(isRunning); Serial.print(isRouteInProgress); Serial.println(isRunReady);
 //  sprintf(message, "gyroHeading %4.2f \t aPitch: %4.2f \t gaPitch: %4.2f", gyroHeading, aPitch, gaPitch);
@@ -103,7 +108,7 @@ void log2PerSec() {
 }
 
 void log10PerSec() {
-  sprintf(message, "lpfFps: %4.2f   targetWfps: %4.2f   wFpsLeft: %4.2f", lpfFps, targetWFps, wFpsLeft);
+  sprintf(message, "gyroPitchRaw: %7d   timeDriftPitch: %7.2f   gyroPitchDelta: %7.2f  gPitch: %7.2f", gyroPitchRaw, timeDriftPitch, gyroPitchDelta * 100.0, gPitch);
 //  sprintf(message, "aPitch %4.2f   gPitch: %4.2f   gaPitch: %4.2f", aPitch, gPitch, gaPitch);
 //  dPrint("aPitch: ", aPitch, 2); dPrintln("    gaPitch: ", gaPitch, 2);
 //  sprintf(message, "gPitch %4.2f   gRoll: %4.2f   gYaw: %4.2f", gPitch, gRoll, gYaw);

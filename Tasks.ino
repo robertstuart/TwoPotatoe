@@ -130,35 +130,35 @@ float rangeAngle(float angle) {
 /*****************************************************************************-
  * dprint???()  Convenience functions for debug printouts.
  *****************************************************************************/
-void dPrint(String s, int i) {
-  Serial.print(s);
-  Serial.print(i);
-}
-void dPrintln(String s, int i) {
-  Serial.print(s);
-  Serial.println(i);
-}
-void dPrint(String s, float f, int precision) {
-  Serial.print(s);
-  Serial.print(f, precision);
-}
-void dPrintln(String s, float f, int precision) {
-  Serial.print(s);
-  Serial.println(f, precision);
-}
-void dPrint(String s1, char* s2) {
-  Serial.print(s1);
-  Serial.print("\"");
-  Serial.print(s2);
-  Serial.print("\"");
-}
-void dPrintln(String s1, char* s2) {
-  Serial.print(s1);
-  Serial.print("\"");
-  Serial.print(s2);
-  Serial.println("\"");
-}
-
+//void dPrint(String s, int i) {
+//  Serial.print(s);
+//  Serial.print(i);
+//}
+//void dPrintln(String s, int i) {
+//  Serial.print(s);
+//  Serial.println(i);
+//}
+//void dPrint(String s, float f, int precision) {
+//  Serial.print(s);
+//  Serial.print(f, precision);
+//}
+//void dPrintln(String s, float f, int precision) {
+//  Serial.print(s);
+//  Serial.println(f, precision);
+//}
+//void dPrint(String s1, char* s2) {
+//  Serial.print(s1);
+//  Serial.print("\"");
+//  Serial.print(s2);
+//  Serial.print("\"");
+//}
+//void dPrintln(String s1, char* s2) {
+//  Serial.print(s1);
+//  Serial.print("\"");
+//  Serial.print(s2);
+//  Serial.println("\"");
+//}
+//
 
 //
 //boolean isBitClear(int test, byte b) {

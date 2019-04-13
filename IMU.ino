@@ -27,7 +27,7 @@ void imuInit() {
     Serial.println("MPU9250 off-line.");
 //    while (true) {}
   }
-  
+
   imu.writeByte(MPU9250_ADDRESS, PWR_MGMT_1, 0x80);  // Reset
   delay(100);
   imu.writeByte(MPU9250_ADDRESS, PWR_MGMT_1, 0x01);  //
@@ -52,9 +52,11 @@ void imuInit() {
                 Reads the IMU and sets the new values.
  *****************************************************************************/
 boolean isNewImu() {
-  if (digitalRead(IMU_INT_PIN) == HIGH) {
+//  if (digitalRead(IMU_INT_PIN) == HIGH) {
+  if (imu.readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01) {
     imu.readGyroData(imu.gyroCount);
     imu.readAccelData(imu.accelCount);
+//    imu.readMagData(imu.magCount);
 
     gyroRollRaw = imu.gyroCount[0];
     gyroPitchRaw = imu.gyroCount[1];
@@ -84,9 +86,8 @@ void doGyro() {
 
   // Pitch
   gyroPitchDelta = -gyroPitchRate / 250.0; // degrees changed during period
-  gPitch = gPitch + gyroPitchDelta;   // Used by tgPitch & debugging
-  gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
-  //  gaFullPitch = gyroPitchDelta + gaFullPitch;
+  gPitch = gPitch + gyroPitchDelta;   // Debugging
+  gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle                                                                                             
 
   // Roll
   float gyroRollDelta = gyroRollRate / 255.0;

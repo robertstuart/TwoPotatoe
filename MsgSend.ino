@@ -23,7 +23,7 @@ void sendStatusXBeeHc() {
     case 2:
       break;
     case 3:
-      sendXMsg(SEND_BATT_A, 2, battVolt);
+      sendXMsg(SEND_BATT, 2, battVolt);
       break;
     default:
       break;
@@ -42,7 +42,7 @@ int getState() {
   if (isRunReady)         statusInt += 2;
   if (isUpright)          statusInt += 4;
   if (isHcActive)         statusInt += 16;
-  if (false)              statusInt += 1024; // empty
+  if (isLogging)          statusInt += 32;
   return statusInt;
 }
 
@@ -83,7 +83,7 @@ void sendUpMsg(int cmd, int val) {
       UP_SER.write((byte) 0);
 }
 
-void sendUpMsg(int cmd, int precision, String val) {
+void sendUpMsg(int cmd, String val) {
       UP_SER.write((byte) cmd); 
       UP_SER.print(val); 
       UP_SER.write((byte) 0);

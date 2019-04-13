@@ -1,5 +1,5 @@
 /*****************************************************************************-
- *                        MsgReceive
+                          MsgReceive
  *****************************************************************************/
 
 const int UP_BUFFER_SIZE = 100;
@@ -21,7 +21,7 @@ boolean isMessageInProgressX = false;
 
 
 
-/******************************************************************************
+/*****************************************************************************-
     readUp()
  *****************************************************************************/
 void readUp() {
@@ -57,7 +57,6 @@ void readUp() {
 void readWa() {
   while (WA_SER.available()) {
     byte b = WA_SER.read();
-    if (b == 0) Serial.println();
     if (b >= 128) {
       msgStrPtrWa = 0;
       msgCmdWa = b;
@@ -173,7 +172,7 @@ void doRFData() {
     }
     if ((b > 127) || (rfPtr == (rcvDataFrameLength - 1))) {
       if (msgValPtr > 0) {
-        doXMsg(cmd, msgVal, msgValPtr, true);
+        doHcMsg(cmd, msgVal, msgValPtr, true);
         tHc = timeMilliseconds;
       }
       msgValPtr = 0;
@@ -187,13 +186,17 @@ void doRFData() {
 
 
 /******************************************************************************
-    doXMsg() Act on messages from hand controller
+    doHcMsg() Act on messages from hand controller
  *****************************************************************************/
-void doXMsg(int cmd, char msgStr[], int count, boolean isHc) {
-  int intVal;
-  float floatVal;
-//  boolean booleanVal;
+void doHcMsg(int cmd, char msgStr[], int count, boolean isHc) {
+  int intVal = 0;
+  float floatVal = 0.0;
   String ss;
+  //  boolean booleanVal = false;
+  int button = 0;
+  boolean isShift = false;
+  boolean isCtrl = false;
+  boolean isPress = true;  // switch pressed or released
 
   msgStr[count] = 0; // Just to be sure.
 
@@ -210,54 +213,65 @@ void doXMsg(int cmd, char msgStr[], int count, boolean isHc) {
         controllerY = floatVal;
         if (abs(controllerY) < 0.02) controllerY = 0.0;
       }
-     break;
-    case RCV_RUN:
+      break;
+    case RCV_BUTTON: // Button press on HC
+//      sprintf(message, "%4d %s", cmd, msgStr);
+//      Serial.println(message);
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        isRunReady = (intVal != 0);
+        button = intVal / 256;
+        isShift = (intVal & IS_SHIFT_BIT) != 0;
+        isCtrl = (intVal & IS_CTRL_BIT) != 0;
+        isPress = (intVal & IS_PRESS_BIT) != 0;
+        doHcButton(button, isPress, isShift, isCtrl);
       }
       break;
-    case RCV_MODE:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        mode = intVal;
-      }
-      break;
-    case RCV_RT_ENABLE:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        sendUpMsg(TOUP_RT_ENABLE, 0);   //  toggle?
-        //        isRouteInProgress = !isRouteInProgress;
-      }
-      break;
-    case RCV_RT_START:
-      sendUpMsg(TOUP_RT_START, 0);
-      break;
-    case RCV_RT_SET:      // 0 to decrease, 1 to increase
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        sendUpMsg(TOUP_RT_NUM, intVal);  // Increment route number.
-      }
-      break;
-    case RCV_V1: // Set this to point to intended variable.
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        float inc = 0.1;
-        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
-      }
-      break;
-    case RCV_V2: // Set this to point to intended variable.
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        float inc = 0.1;
-        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
-      }
-      break;
-    case RCV_KILLTP:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-        if (intVal == 0) sendUpMsg(TOUP_KILLTP, 0);
-      }
-      break;
+    //    case RCV_RUN:
+    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
+    //        isRunReady = (intVal != 0);
+    //      }
+    //      break;
+    //    case RCV_MODE:
+    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
+    //        mode = intVal;
+    //      }
+    //      break;
+    //    case RCV_RT_ENABLE:
+    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
+    //        sendUpMsg(TOUP_RT_ENABLE, 0);   //  toggle?
+    //        //        isRouteInProgress = !isRouteInProgress;
+    //      }
+    //      break;
+    //    case RCV_RT_START:
+    //      sendUpMsg(TOUP_RT_START, 0);
+    //      break;
+    //    case RCV_RT_SET:      // 0 to decrease, 1 to increase
+    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
+    //        sendUpMsg(TOUP_RT_NUM, intVal);  // Increment route number.
+    //      }
+    //      break;
+    //    case RCV_V1: // Set this to point to intended variable.
+    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
+    //        float inc = 0.1;
+    //        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
+    //      }
+    //      break;
+    //    case RCV_V2: // Set this to point to intended variable.
+    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
+    //        float inc = 0.1;
+    //        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
+    //      }
+    //      break;
+    //    case RCV_KILLTP:
+    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
+    //        if (intVal == 0) sendUpMsg(TOUP_KILLTP, 0);
+    //      }
+    //      break;
     default:
       Serial.print("Illegal message received: "); Serial.println(cmd);
       break;
+
   }
 }
-
 
 
 /******************************************************************************
@@ -267,7 +281,7 @@ void doUpMsg(int cmd, char msgStr[], int count) {
   static float locX = 0.0;
   int intVal;
   float floatVal;
-//  boolean booleanVal;
+  //  boolean booleanVal;
   String ss;
 
   //Serial.println(cmd);
@@ -292,12 +306,12 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       break;
     case FRUP_FPS_DIFF:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-//        speedAdjustment = floatVal;
+        //        speedAdjustment = floatVal;
       }
       break;
     case FRUP_FPS:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-//        routeFps = floatVal;
+        //        routeFps = floatVal;
       }
       break;
     case FRUP_RT_NUM:
@@ -313,8 +327,8 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       break;
     case FRUP_STAT:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-//        isRouteInProgress = (intVal == 0) ? false : true;
-//        upStatTime = timeMilliseconds;
+        //        isRouteInProgress = (intVal == 0) ? false : true;
+        //        upStatTime = timeMilliseconds;
       }
       break;
     default:
@@ -349,7 +363,7 @@ void doWaMsg(int cmd, char msgStr[], int count) {
 
 
 /*****************************************************************************-
- *  doSwitch()  Switch pressed/released on watchdog processor
+    doSwitch()  Switch pressed/released on watchdog processor
  *****************************************************************************/
 void doSwitch(unsigned int sw, boolean isPressed) {
   const int PWM_INC = 5;
@@ -377,5 +391,112 @@ void doSwitch(unsigned int sw, boolean isPressed) {
       break;
     default:
       Serial.print("Illegal switch message.");
+  }
+}
+
+
+
+/*****************************************************************************-
+   doHcButton()  Button press on hand controller
+*****************************************************************************/
+void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
+  sprintf(message, "%3d %3d %3d %3d", button, isPress, isShift, isCtrl);
+  Serial.println(message);
+  if (!isShift && !isCtrl) { // Neither shift nor control pressed
+    switch (button) {
+      case BUTTON_1L:   // Run
+        isRunReady = !isRunReady;
+        break;
+      case BUTTON_1M:   // Start log
+        isLogging = true;
+        sendWaMsg(SEND_BLINK, LED_SW_RE, BLINK_ON);
+//        sendUpMsg(TOUP_START_LOG, true);
+        break;
+      case BUTTON_1R:
+        break;
+      case BUTTON_2L:   // Get up
+        break;
+      case BUTTON_2M:   // Stop log
+        isLogging = false;
+        sendWaMsg(SEND_BLINK, LED_SW_RE, BLINK_OFF);
+        sendUpMsg(TOUP_START_LOG, false);
+        break;
+      case BUTTON_2R:
+        break;
+      case BUTTON_3L:   // Get down
+        break;
+      case BUTTON_3M:
+        break;
+      case BUTTON_3R:
+        break;
+      case BUTTON_4L:   // Start Route
+        break;
+      case BUTTON_4M:   // Ready Route
+        break;
+      case BUTTON_4R:
+        break;
+      default:
+        break;
+    }
+  }
+  if (isShift && !isCtrl) { // only shift pressed
+    switch (button) {
+      case BUTTON_1L:   // Fast
+        break;
+      case BUTTON_1M:
+        break;
+      case BUTTON_1R:
+        break;
+      case BUTTON_2L:   // Medium
+        break;
+      case BUTTON_2M:
+        break;
+      case BUTTON_2R:
+        break;
+      case BUTTON_3L:   // Slow
+        break;
+      case BUTTON_3M:   // Route +
+        break;
+      case BUTTON_3R:
+        break;
+      case BUTTON_4L:   // HC off, Reserved
+        break;
+      case BUTTON_4M:   // Route -
+        break;
+      case BUTTON_4R:
+        break;
+      default:
+        break;
+    }
+  }
+  if (!isShift && isCtrl) { // only control pressed
+    switch (button) {
+      case BUTTON_1L:  // V1++
+        break;
+      case BUTTON_1M:  // V2+
+        break;
+      case BUTTON_1R:   // Tune+
+        break;
+      case BUTTON_2L:   // V1-
+        break;
+      case BUTTON_2M:   // V2-
+        break;
+      case BUTTON_2R:   // Tune -
+        break;
+      case BUTTON_3L:
+        break;
+      case BUTTON_3M:
+        break;
+      case BUTTON_3R:   // Play tune
+        break;
+      case BUTTON_4L:
+        break;
+      case BUTTON_4M:
+        break;
+      case BUTTON_4R:
+        break;
+      default:
+        break;
+    }
   }
 }

@@ -3,16 +3,16 @@
  *              Runs on Teensy 3.6, 180 MHz
  *****************************************************************************/
 
-#include "HC.h"
-#include "Watch.h"
-#include "Up.h"
+#include "Ma_Hc.h"
+#include "Ma_Watch.h"
+#include "Ma_Up.h"
 #include <Wire.h>
 #include <MPU9250.h>
 //#include <MPU9250_RegisterMap.h>
 //#include <SparkFunMPU9250-DMP.h>
 
 #define XBEE_SER Serial1
-#define UP_SER Serial
+#define UP_SER Serial3
 #define WA_SER Serial4
 
 #define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
@@ -36,11 +36,14 @@ const String TAB = "\t";
 //Encoder factor
 const double ENC_FACTOR = 650.0f;  // Change pulse width to fps speed, 1/29 gear
 const long ENC_FACTOR_M = 650000L;  // Change pulse width to milli-fps speed
-const double FPS_TO_TPCS = 7.52f;   // Convert foot/sec to tics/centisecond
-const double ENC_BRAKE_FACTOR = ENC_FACTOR * 0.95f;
 
 //#define TICKS_PER_PITCH_DEGREE 54.0D
 #define GYRO_WEIGHT 0.997    // Weight for gyro compared to accelerometer
+
+// Modes of operation
+const int MODE_MOTOR_CTRL  =   7;
+const int MODE_PWM         =   8;
+const int MODE_RUN         =   9;
 
 unsigned int mode = MODE_RUN;
 //unsigned int mode = MODE_PWM;
@@ -81,13 +84,13 @@ int baseFahr = 0;
 int gyroPitchRaw = 0;
 int gyroRollRaw = 0;
 int gyroYawRaw = 0;
-double gPitch = 0.0;
-double gRoll = 0.0;
-double gYaw = 0.0;
-double gcYaw = 0.0;
+float gPitch = 0.0;
+float gRoll = 0.0;
+float gYaw = 0.0;
+float gcYaw = 0.0;
 //double gyroCumHeading = 0.0;
-double gHeading = 0;
-double gcHeading = 0;
+float gHeading = 0;
+float gcHeading = 0;
 
 long coTickPosition;
 double startDecelSpeed = 0.0;
@@ -96,6 +99,7 @@ double startDecelSpeed = 0.0;
 boolean isRunReady = false;   // Reflects the Run command
 boolean isRunning = false;
 boolean isUpright = false;
+boolean isLogging = false;
 
 boolean isHcActive = false; // Hand controller connected.
 
@@ -135,11 +139,7 @@ int cmdState = 0;  // READY, PWR, & HOME command bits
 unsigned int actualLoopTime; // Time since the last
 float controllerX = 0.0; // +1.0 to -1.0 from controller
 float controllerY = 0.0;  // Y value set by message from controller
-char message[100] = "";
-char message1[80] = "message 1";
-char message2[80] = "message 2";
-char message3[80] = "message 3";
-char message4[80] = "message 4";
+char message[200] = "";   // Buffer for sprintf messages.
 
 // IMU globals
 float baseGyroTemp = 75.0;
@@ -232,7 +232,7 @@ void setup() {
   motorInit();
   Serial.println("Motors initialized.");
   calibrate();
-  sendWaMsg(SEND_BEEP, MUSIC_UP2);
+  sendWaMsg(SEND_BEEP, T_UP2);
 } // end setup()
 
 
@@ -271,7 +271,7 @@ void pwmLoop() {
   float sum = 0.0;
   sendWaMsg(SEND_BLINK, LED_SW_GN, BLINK_FF);
   sendWaMsg(SEND_BLINK, LED_SW_RE, BLINK_FF);
-  sendWaMsg(SEND_BEEP, MUSIC_UP3);
+  sendWaMsg(SEND_BEEP, T_UP3);
   valT = valU = 0;
   
   while (mode == MODE_PWM) {
@@ -312,7 +312,7 @@ void motorControlLoop() {
   float sumRight = 0.0, sumLeft = 0.0;
   sendWaMsg(SEND_BLINK, LED_SW_GN, BLINK_FF);
   sendWaMsg(SEND_BLINK, LED_SW_RE, BLINK_FF);
-  sendWaMsg(SEND_BEEP, MUSIC_UP3);
+  sendWaMsg(SEND_BEEP, T_UP3);
   valT = valU = 0;
   
   while (mode == MODE_MOTOR_CTRL) {
