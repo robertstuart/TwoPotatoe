@@ -39,38 +39,61 @@ void commonTasks() {
   readXBee();  // Read commands from PC or Hand Controller
 //  readUp(); 
   setRunningState();
-//  gyroTemperature(); 
+  setLedStates();
+//  gyroTemperature();
+//  testUp(); 
   blink13();
 }
-
+void testUp() {
+  static  unsigned  int testUpTrigger = 0;
+  if (timeMilliseconds > testUpTrigger) {
+    testUpTrigger = timeMilliseconds + 500;
+    sprintf(message, "Test from Teensy: %d", testUpTrigger);
+    sendUpMsg(TOUP_LOG, message);  
+  }
+}
 
 
 /*****************************************************************************-
  * setRunningState()
  *****************************************************************************/
 void setRunningState() {
-  static boolean oldIsUpright = false;
-  static boolean oldIsRunReady = false;
-
-  if ((oldIsUpright == isUpright) &&
-     (oldIsRunReady == isRunReady)) return;  // Nothing to do.
-
-  if (mode == MODE_RUN) {
-    // Set the runnng bit to control motors
-    isRunning = (isRunReady && isUpright) ? true : false;
-  } else { // For all test modes, just set accoding to ready bit
-    isRunning = isRunReady;
-  }
-
-  oldIsUpright = isUpright;
-  oldIsRunReady = isRunReady;
-  
-  //  yellow led
-  if (isRunning) sendWaMsg(SEND_BLINK, LED_SW_YE, BLINK_ON);
-  else if (!isRunReady && isUpright) sendWaMsg(SEND_BLINK, LED_SW_YE, BLINK_FF);
-  else if (isRunReady && !isUpright) sendWaMsg(SEND_BLINK, LED_SW_YE, BLINK_SB);
-  else sendWaMsg(SEND_BLINK, LED_SW_YE, BLINK_SF); 
+  // Set the runnng bit to control motors
+  isRunning = (isRunReady && (isUpright || isGettingUp || isGettingDown)) ? true : false;
+  if (isRunning) yePattern = BLINK_ON;
+  else if (isRunReady) yePattern = BLINK_FF;
+  else yePattern = BLINK_OFF;
 }
+
+
+
+/*****************************************************************************-
+ * setLedStates()  Send an led message every time the pattern variable changes.
+ *****************************************************************************/
+void setLedStates() {
+  static int waYePattern = BLINK_ON;
+  static int waBuPattern = BLINK_ON;
+  static int waRePattern = BLINK_ON;
+  static int waGnPattern = BLINK_ON;
+  
+  if (yePattern != waYePattern ) {
+    sendWaMsg(SEND_BLINK, LED_SW_YE, yePattern); 
+    waYePattern = yePattern;
+  }
+  if (buPattern != waBuPattern ) {
+    sendWaMsg(SEND_BLINK, LED_SW_BU, buPattern); 
+    waBuPattern = buPattern;
+  }
+  if (rePattern != waRePattern ) {
+    sendWaMsg(SEND_BLINK, LED_SW_RE, rePattern); 
+    waRePattern = rePattern;
+  }
+  if (gnPattern != waGnPattern ) {
+    sendWaMsg(SEND_BLINK, LED_SW_GN, gnPattern); 
+    waGnPattern = gnPattern;
+  }
+}
+
 
 
 /*****************************************************************************-
@@ -80,7 +103,8 @@ void checkUpright() {
   static unsigned long tTime = 0UL; // time of last state change
   static boolean tState = false;  // Timed state. true = upright
 
-  boolean cState = ((abs(gaPitch) < 45.0) && ((abs(gaRoll) < 45.0))); // Current real state
+//  boolean cState = ((abs(mqPitch) < 45.0) && ((abs(mqRoll) < 45.0))); // Current real state
+  boolean cState = (abs(gaPitch) < 40.0); // Current real state
   if (!cState && tState) {
     tTime = timeMilliseconds; // Start the timer for a state change to fallen.
   } else if (!cState) {
@@ -124,47 +148,3 @@ float rangeAngle(float angle) {
   if (x > 180.0) x -= 360.0;
   return x;
 }
-
-
-
-/*****************************************************************************-
- * dprint???()  Convenience functions for debug printouts.
- *****************************************************************************/
-//void dPrint(String s, int i) {
-//  Serial.print(s);
-//  Serial.print(i);
-//}
-//void dPrintln(String s, int i) {
-//  Serial.print(s);
-//  Serial.println(i);
-//}
-//void dPrint(String s, float f, int precision) {
-//  Serial.print(s);
-//  Serial.print(f, precision);
-//}
-//void dPrintln(String s, float f, int precision) {
-//  Serial.print(s);
-//  Serial.println(f, precision);
-//}
-//void dPrint(String s1, char* s2) {
-//  Serial.print(s1);
-//  Serial.print("\"");
-//  Serial.print(s2);
-//  Serial.print("\"");
-//}
-//void dPrintln(String s1, char* s2) {
-//  Serial.print(s1);
-//  Serial.print("\"");
-//  Serial.print(s2);
-//  Serial.println("\"");
-//}
-//
-
-//
-//boolean isBitClear(int test, byte b) {
-//  return ((test & b) == 0);
-//}
-//
-//boolean isBitSet(int test, byte b) {
-//  return ((test & b) != 0);
-//}

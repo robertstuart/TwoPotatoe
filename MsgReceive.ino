@@ -225,51 +225,9 @@ void doHcMsg(int cmd, char msgStr[], int count, boolean isHc) {
         doHcButton(button, isPress, isShift, isCtrl);
       }
       break;
-    //    case RCV_RUN:
-    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
-    //        isRunReady = (intVal != 0);
-    //      }
-    //      break;
-    //    case RCV_MODE:
-    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
-    //        mode = intVal;
-    //      }
-    //      break;
-    //    case RCV_RT_ENABLE:
-    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
-    //        sendUpMsg(TOUP_RT_ENABLE, 0);   //  toggle?
-    //        //        isRouteInProgress = !isRouteInProgress;
-    //      }
-    //      break;
-    //    case RCV_RT_START:
-    //      sendUpMsg(TOUP_RT_START, 0);
-    //      break;
-    //    case RCV_RT_SET:      // 0 to decrease, 1 to increase
-    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
-    //        sendUpMsg(TOUP_RT_NUM, intVal);  // Increment route number.
-    //      }
-    //      break;
-    //    case RCV_V1: // Set this to point to intended variable.
-    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
-    //        float inc = 0.1;
-    //        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
-    //      }
-    //      break;
-    //    case RCV_V2: // Set this to point to intended variable.
-    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
-    //        float inc = 0.1;
-    //        valZ = (intVal == 0) ? valZ - inc : valZ + inc;
-    //      }
-    //      break;
-    //    case RCV_KILLTP:
-    //      if (sscanf(msgStr, "%d", &intVal) > 0) {
-    //        if (intVal == 0) sendUpMsg(TOUP_KILLTP, 0);
-    //      }
-    //      break;
     default:
       Serial.print("Illegal message received: "); Serial.println(cmd);
       break;
-
   }
 }
 
@@ -347,11 +305,13 @@ void doWaMsg(int cmd, char msgStr[], int count) {
   switch (cmd) {
     case RCV_BATT:
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
+//        Serial.println(msgStr);
         battVolt = floatVal;
+//        Serial.println(floatVal);
       }
       break;
     case RCV_SWITCH:
-      doSwitch((unsigned int) msgStr[0] - '0', msgStr[1] == '1');
+      doWaButton((unsigned int) msgStr[0] - '0', msgStr[1] == '1');
       break;
 
     default:
@@ -363,9 +323,9 @@ void doWaMsg(int cmd, char msgStr[], int count) {
 
 
 /*****************************************************************************-
-    doSwitch()  Switch pressed/released on watchdog processor
+    doWaButton()  Switch pressed/released on watchdog processor
  *****************************************************************************/
-void doSwitch(unsigned int sw, boolean isPressed) {
+void doWaButton(unsigned int sw, boolean isPressed) {
   const int PWM_INC = 5;
   switch (sw) {
     case LED_SW_GN:
@@ -400,8 +360,8 @@ void doSwitch(unsigned int sw, boolean isPressed) {
    doHcButton()  Button press on hand controller
 *****************************************************************************/
 void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
-  sprintf(message, "%3d %3d %3d %3d", button, isPress, isShift, isCtrl);
-  Serial.println(message);
+//  sprintf(message, "%3d %3d %3d %3d", button, isPress, isShift, isCtrl);
+//  Serial.println(message);
   if (!isShift && !isCtrl) { // Neither shift nor control pressed
     switch (button) {
       case BUTTON_1L:   // Run
@@ -409,21 +369,23 @@ void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
         break;
       case BUTTON_1M:   // Start log
         isLogging = true;
-        sendWaMsg(SEND_BLINK, LED_SW_RE, BLINK_ON);
-//        sendUpMsg(TOUP_START_LOG, true);
+        yePattern = BLINK_ON;
+        sendUpMsg(TOUP_START_LOG, true);
         break;
       case BUTTON_1R:
         break;
       case BUTTON_2L:   // Get up
+        setGetUp();
         break;
       case BUTTON_2M:   // Stop log
         isLogging = false;
-        sendWaMsg(SEND_BLINK, LED_SW_RE, BLINK_OFF);
+        yePattern = BLINK_OFF;
         sendUpMsg(TOUP_START_LOG, false);
         break;
       case BUTTON_2R:
         break;
       case BUTTON_3L:   // Get down
+        setGetDown();
         break;
       case BUTTON_3M:
         break;
@@ -438,8 +400,7 @@ void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
       default:
         break;
     }
-  }
-  if (isShift && !isCtrl) { // only shift pressed
+  } else if (isShift && !isCtrl) { // only shift pressed
     switch (button) {
       case BUTTON_1L:   // Fast
         break;
@@ -468,8 +429,7 @@ void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
       default:
         break;
     }
-  }
-  if (!isShift && isCtrl) { // only control pressed
+  } else if (!isShift && isCtrl) { // only control pressed
     switch (button) {
       case BUTTON_1L:  // V1++
         break;

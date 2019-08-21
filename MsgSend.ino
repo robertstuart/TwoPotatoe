@@ -23,7 +23,7 @@ void sendStatusXBeeHc() {
     case 2:
       break;
     case 3:
-      sendXMsg(SEND_BATT, 2, battVolt);
+      sendXMsg(SEND_BATT, 2, battVolt);  
       break;
     default:
       break;
@@ -51,7 +51,7 @@ int getState() {
 /*********************************************************
  * send?Msg()
  *********************************************************/
-void sendXMsg(int cmd, int precision, double val) {
+void sendXMsg(int cmd, int precision, float val) {
   char buf[20];
   int len = sprintf(buf, "%.*f", precision, val);
   xAddMessage(cmd, buf, len);
@@ -198,20 +198,20 @@ void xTransmitUartFrame(byte dataFrame[], int dataFrameLength) {
   XBEE_SER.write(uartXmitFrame, oPtr);
 }
 
-void blink(int color, int pattern) {
-  static int blinkGn = BLINK_OFF;
-  static int blinkRe = BLINK_OFF;
-  static int blinkBu = BLINK_OFF;
-  static int blinkYe = BLINK_OFF;
-
-  if ((color == LED_SW_RE) && (blinkRe == pattern)) return;
-  if ((color == LED_SW_GN) && (blinkGn == pattern)) return;
-  if ((color == LED_SW_BU) && (blinkBu == pattern)) return;
-  if ((color == LED_SW_BU) && (blinkYe == pattern)) return;
-
-  // We have a new pattern.  Send it.
-  sendWaMsg(SEND_BLINK, LED_SW_YE, pattern);
-}
+//void blink(int color, int pattern) {
+//  static int blinkGn = BLINK_OFF;
+//  static int blinkRe = BLINK_OFF;
+//  static int blinkBu = BLINK_OFF;
+//  static int blinkYe = BLINK_OFF;
+//
+//  if ((color == LED_SW_RE) && (blinkRe == pattern)) return;
+//  if ((color == LED_SW_GN) && (blinkGn == pattern)) return;
+//  if ((color == LED_SW_BU) && (blinkBu == pattern)) return;
+//  if ((color == LED_SW_BU) && (blinkYe == pattern)) return;
+//
+//  // We have a new pattern.  Send it.
+//  sendWaMsg(SEND_BLINK, LED_SW_YE, pattern);
+//}
 void beep(int tune) {
   
 }

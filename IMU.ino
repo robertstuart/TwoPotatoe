@@ -1,9 +1,12 @@
 /*****************************************************************************-
- *  *  Angle
+                                     IMU
  *****************************************************************************/
-#define MPU9250_ADDRESS   MPU9250_ADDRESS_AD0 // 0x68
+//#define MPU9250_ADDRESS   MPU9250_ADDRESS_AD0 // 0x68
+#define sampleFreq  200.0f      // sample frequency in Hz
 
-MPU9250 imu(MPU9250_ADDRESS, Wire, 400000);
+//LSM6 lsm6;
+//MPU9250 imu(MPU9250_ADDRESS, Wire, 400000);
+MPU9250_DMP imu;
 
 float accelX = 0.0;
 float accelY = 0.0;
@@ -13,33 +16,44 @@ int zCount = 0;
 int yawTempComp = 0;
 
 
+// parameters for 6 DoF sensor fusion calculations
+float GyroMeasError = PI * (40.0f / 180.0f);     // gyroscope measurement error in rads/s (start at 60 deg/s), then reduce after ~10 s to 3
+//float GyroMeasError = PI * (5.0f / 180.0f);     // gyroscope measurement error in rads/s (start at 60 deg/s), then reduce after ~10 s to 3
+float beta = sqrt(3.0f / 4.0f) * GyroMeasError;  // compute beta
+float GyroMeasDrift = PI * (2.0f / 180.0f);      // gyroscope measurement drift in rad/s/s (start at 0.0 deg/s/s)
+//float zeta = sqrt(3.0f / 4.0f) * GyroMeasDrift;  // compute zeta, the other free parameter in the Madgwick scheme usually set to a small or zero value
+float zeta = 0;  // compute zeta, the other free parameter in the Madgwick scheme usually set to a small or zero value
+float deltat = 0.05f;                              // integration interval for both filter schemes
+float q[4] = {0.0f, 0.0f, 0.0f, 0.0f};            // vector to hold quaternion
+
 /*****************************************************************************-
     imuInit()
- ***********************************************************************/
+ *****************************************************************************/
 void imuInit() {
-  //  Wire.begin();
   pinMode(IMU_INT_PIN, INPUT);
-
-  byte b = imu.readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);
-  if (b == 0x71) {
-    Serial.println("MPU9250 on-line.");
-  } else {
-    Serial.println("MPU9250 off-line.");
-//    while (true) {}
+  if (imu.begin() != INV_SUCCESS) {
+    while (1) {
+      Serial.println("Unable to communicate with MPU-9250");
+      Serial.println();
+      delay(5000);
+    }
   }
 
-  imu.writeByte(MPU9250_ADDRESS, PWR_MGMT_1, 0x80);  // Reset
-  delay(100);
-  imu.writeByte(MPU9250_ADDRESS, PWR_MGMT_1, 0x01);  //
-  delay(200);
-  imu.writeByte(MPU9250_ADDRESS, SMPLRT_DIV, 3);       // 250/sec
-  imu.writeByte(MPU9250_ADDRESS, CONFIG, 1);           // BW=184HZ, delay=2.9ms
-  imu.writeByte(MPU9250_ADDRESS, GYRO_CONFIG, 0x18);   //2000 dps
-  imu.writeByte(MPU9250_ADDRESS, ACCEL_CONFIG, 0x10);  // 8g FS
-  imu.writeByte(MPU9250_ADDRESS, ACCEL_CONFIG2, 0x03); // BW=41HZ, delay=11.8
-  // Int active low, push-pull, hold int until clear, clear on read
-  imu.writeByte(MPU9250_ADDRESS, INT_PIN_CFG, 0x32);  //0x22 works, 0x020 bit must be set!
-  imu.writeByte(MPU9250_ADDRESS, INT_ENABLE, 0x01);  // int on data ready
+  imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL);
+  imu.setSampleRate(200); // Set accel/gyro sample rate to 4Hz
+  imu.setAccelFSR(8);
+  imu.setGyroFSR(2000);
+  imu.setLPF(98);
+  imu.enableInterrupt();
+  imu.setIntLevel(INT_ACTIVE_HIGH);
+  imu.setIntLatched(INT_LATCHED);
+
+  // Clear out
+  delay(10);
+  imu.update(UPDATE_ACCEL | UPDATE_GYRO);
+  delay(10);
+  imu.update(UPDATE_ACCEL | UPDATE_GYRO);
+  gaPitch = cfPitch = aPitch;
 }
 
 
@@ -52,91 +66,105 @@ void imuInit() {
                 Reads the IMU and sets the new values.
  *****************************************************************************/
 boolean isNewImu() {
-//  if (digitalRead(IMU_INT_PIN) == HIGH) {
-  if (imu.readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01) {
-    imu.readGyroData(imu.gyroCount);
-    imu.readAccelData(imu.accelCount);
-//    imu.readMagData(imu.magCount);
+  static int oldT = 0;
 
-    gyroRollRaw = imu.gyroCount[0];
-    gyroPitchRaw = imu.gyroCount[1];
-    gyroYawRaw = imu.gyroCount[2];
-    gyroPitchRate = (((float) gyroPitchRaw) - timeDriftPitch)* GYRO_SENS; // 
-    gyroRollRate = (((float) gyroRollRaw) - timeDriftRoll) * GYRO_SENS;
-    gyroYawRate = (((float) gyroYawRaw) - timeDriftYaw) * GYRO_SENS;
-    accelX = ((float) imu.accelCount[0]) * ACCEL_SENS;
-    accelY = ((float) imu.accelCount[1]) * ACCEL_SENS;
-    accelZ = ((float) imu.accelCount[2]) * ACCEL_SENS;
-    
-    doGyro();
-    doAccel();
+  if (digitalRead(IMU_INT_PIN) == HIGH) {
+    imuZeroDrift(); //One cycle late?
+
+    imu.update(UPDATE_ACCEL | UPDATE_GYRO);
+
+    accelX = ((float) imu.ax) * ACCEL_SENSE;
+    accelY = ((float) imu.ay) * ACCEL_SENSE;
+    accelZ = ((float) imu.az) * ACCEL_SENSE;
+
+    gyroPitchRaw = (float) imu.gx;
+    float gyroPitchComp = gyroPitchRaw - timeDriftPitch;  // drift compenstation
+    float gyroX  = gyroPitchComp * GYRO_SENS;             // degrees/sec
+    float gyroXrad = gyroX * DEG_TO_RAD;                  // radians/sec
+
+    gyroRollRaw = (float) imu.gy;
+    float gyroRollComp = gyroRollRaw - timeDriftRoll;     // drift compenstation
+    float gyroY  = gyroRollComp * GYRO_SENS;              // degrees/sec
+    float gyroYrad = gyroY * DEG_TO_RAD;                  // radians/sec
+
+    gyroYawRaw = (float) imu.gz;
+    float gyroYawComp = gyroYawRaw - timeDriftYaw;         // drift compenstation
+    float gyroZ  = gyroYawComp * GYRO_SENS;                // degrees/sec
+    float gyroZrad = gyroZ * DEG_TO_RAD;                   // radians/sec
+
+    compFilter(gyroX, gyroY, gyroZ, accelX, accelY, accelZ);
+    //    MadgwickQuaternionUpdate(accelX, accelY, accelZ, gyroXrad, gyroYrad, gyroZrad);
+    MahonyAHRSupdateIMU(gyroXrad, gyroYrad, gyroZrad, accelX, accelY, accelZ);
+
+    maPitch  = -atan2(2.0f * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
+    maRoll = asin(2.0f * (q[1] * q[3] - q[0] * q[2]));
+    maYaw   = atan2(2.0f * (q[1] * q[2] + q[0] * q[3]), q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3]);
+    maPitch *= 180.0f / PI;
+    maRoll  *= 180.0f / PI;
+    maYaw   *= 180.0f / PI;
+
+    sprintf(message, "%7.2f %7.2f %7.2f %7.2f %7.2f %7.2f", maPitch, maRoll, maYaw, gaPitch, gaRoll, gYaw);
+    Serial.println(message);
+
     return true;
   } else {
-    return false;
+    return false; // no IMU read
   }
-  
 }
 
 
 
 /*****************************************************************************-
-    doGyro
+ *  compFilter()  Complementary filter
  *****************************************************************************/
-void doGyro() {
+void compFilter(float gyroX, float gyroY, float gyroZ, float accelX, float accelY, float accelZ) {
 
-  // Pitch
-  gyroPitchDelta = -gyroPitchRate / 250.0; // degrees changed during period
-  gPitch = gPitch + gyroPitchDelta;   // Debugging
-  gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle                                                                                             
+  gyroPitchDelta = -gyroX / sampleFreq; // degrees changed during period
+  gPitch += gyroPitchDelta;   // Debugging
+  gaPitch = gyroPitchDelta + gaPitch;  // used in weighting final angle
 
-  // Roll
-  float gyroRollDelta = gyroRollRate / 255.0;
-  gRoll = gRoll + gyroRollDelta;
+  float gyroRollDelta = gyroY / sampleFreq;
+  gRoll += gyroRollDelta;
   gaRoll = gaRoll - gyroRollDelta;
 
-  // Yaw
-  double gyroYawDelta = -gyroYawRate / 255.0; // degrees changed during period
+  float gyroYawDelta = -gyroZ / sampleFreq; // degrees changed during period
   gYaw += gyroYawDelta;
   gHeading = rangeAngle(gYaw);  // This is the heading used by all navigation routines.
 
-  // Tilt compensated heading
-  double yawDeltaError = gyroYawDelta * gaPitch * gaPitch * 0.000135;
-  gcYaw += gyroYawDelta + yawDeltaError;
-  gcHeading = rangeAngle(gcYaw);  // This is the heading used by all navigation routines.
-}
-
-
-static double APITCH_TC = 0.99;
-/*****************************************************************************-
-     doAccel()
- *****************************************************************************/
-void doAccel() {
-  double oldLpfAPitch = 0;
-  // Pitch
-  //  double k8 = 2.0;  //
-  //  double k8 = valV;
-  aPitch = ((atan2(accelX, accelZ)) * RAD_TO_DEG) + valZ;
+  aPitch = ((atan2(-accelY, accelZ)) * RAD_TO_DEG) + valZ;
   gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
-  lpfAPitch = (oldLpfAPitch * APITCH_TC) + (aPitch * (1.0 - APITCH_TC));
-  oldLpfAPitch = lpfAPitch;
-
+ 
   // Roll
   aRoll =  (atan2(accelY, accelZ) * RAD_TO_DEG);
   gaRoll = (gaRoll * GYRO_WEIGHT) + (aRoll * (1 - GYRO_WEIGHT)); // Weigh factors
 }
 
 
-//#define GM_HEADING_TC 0.95D
-#define GM_HEADING_TC 0.98D
-#define TM_HEADING_TC 0.999D
-
-int magX, magY, magZ;
-
-
 
 /*****************************************************************************-
- *   setNavigation() Set gmHeading, tmHeading, tickHeading, currentLoc
- *                  Called 208/sec (every read of gyro).
+     doG()  Compute the current speed from the accelerometers.
+ *****************************************************************************/
+//void doG() {
+//  static float gvPitch = 0.0;
+//  static float speedGvHoriz = 0.0;
+//  static float distGHoriz = 0.0;
+//  float theta = gvPitch * DEG_TO_RAD;
+//  float gvHoriz = (sin(theta) * accelZ) - (cos(theta) * accelX);
+//  float gvVert = (cos(theta) * accelZ) + (sin(theta) * accelX);
+//  float gvX = accelX + (cos(theta) * gvHoriz);
+//  float gvZ = accelZ - (sin(theta) * gvHoriz);
+//  gvPitch = atan2(gvX, gvZ) * RAD_TO_DEG;
+//  speedGvHoriz += gvHoriz;
+//  distGHoriz += speedGvHoriz;
+//
+//  sprintf(message, "%.2f,%.2f,%.2f,%.2f,%.2f", aPitch, gvHoriz, gvX, gvZ, gvPitch);
+//  sendUpMsg(TOUP_LOG, message);
+//}
+//
+//
+/*****************************************************************************-
+     setNavigation() Set gmHeading, tmHeading, tickHeading, currentLoc
+                    Called 208/sec (every read of gyro).
  ***********************************************************************/
 #define TICK_BIAS_TRIGGER 500
 void setNavigation() {
@@ -145,52 +173,29 @@ void setNavigation() {
   tickPosition = tickPositionRight + tickPositionLeft;
 
   // compute the Center of Oscillation Tick Position
-  coTickPosition = tickPosition - ((long) (sin(gaPitch * DEG_TO_RAD) * 4000.0));
+  coTickPosition = tickPosition - ((long) (sin(maPitch * DEG_TO_RAD) * 4000.0));
 
   // Compute the new co position
   double dist = ((double) (coTickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
   navOldTickPosition = coTickPosition;
-  currentLoc.x += sin(gHeading * DEG_TO_RAD) * dist;
-  currentLoc.y += cos(gHeading * DEG_TO_RAD) * dist;
+  currentLoc.x += sin(maYaw * DEG_TO_RAD) * dist;
+  currentLoc.y += cos(maYaw * DEG_TO_RAD) * dist;
+  //  currentLoc.x += sin(gHeading * DEG_TO_RAD) * dist;
+  //  currentLoc.y += cos(gHeading * DEG_TO_RAD) * dist;
 
-  currentAccelLoc();
-}
-
-
-
-
-//double accelFpsSelfX = 0.0;
-//double accelFpsSelfY = 0.0;
-//double accelFpsMapX = 0.0;
-//double accelFpsMapY = 0.0;
-//struct loc currentAccelSelfLoc;
-//struct loc currentAccelMapLoc;
-
-const double A_FACTOR = .000001D;
-/*****************************************************************************-
- *  setAccelLoc() Set currentAccelLoc
- *****************************************************************************/
-void currentAccelLoc() {
-  //  currentAccelMapLoc.y += ((double) compass.a.y) * A_FACTOR;
-  //  currentAccelMapLoc.x += ((double) compass.a.x) * A_FACTOR;
-  //  currentAccelMapLoc.x += accelFpsSelfX * .0025;
-  //  currentAccelMapLoc.y += accelFpsSelfY * .0025;
-  //  accelFpsMapX = (sin(currentMapHeading * DEG_TO_RAD) * accelFpsSelfX) + (cos(currentMapHeading * DEG_TO_RAD) * accelFpsSelfY);
-  //  accelFpsMapY = (cos(currentMapHeading * DEG_TO_RAD) * accelFpsSelfX) + (sin(currentMapHeading * DEG_TO_RAD) * accelFpsSelfY);
-  //  currentAccelMapLoc.x += accelFpsMapX * 0.0025;
-  //  currentAccelMapLoc.y += accelFpsMapY * 0.0025;
+  //  currentAccelLoc();
 }
 
 
 
 /*****************************************************************************-
- * setHeading() Sets the bearing to the new value.  The the gridOffset
- *              value will be set so that the gridBearing is an
- *              offset from magHeading.  All of cumulative rotations
- *              be lost.
+   setHeading() Sets the bearing to the new value.  The the gridOffset
+                value will be set so that the gridBearing is an
+                offset from magHeading.  All of cumulative rotations
+                be lost.
  **************************************************************************/
 void setHeading(double newHeading) {
-  gcHeading = gHeading = gcYaw = gYaw = newHeading;
+  //  gcHeading = gHeading = gcYaw = gYaw = newHeading;
 }
 
 void resetTicks() {
@@ -198,146 +203,311 @@ void resetTicks() {
 }
 
 
-/**************************************************************************.
-   readHMC() Routine taken from CalibrateHMC
- **************************************************************************/
-//boolean readHMC() {
-//  int xab, yab, zab;
-//  unsigned int timeOut = 2;
-//
-//  //Tell the HMC5883 where to begin reading data
-//  Wire.beginTransmission(HC_ADDRESS);
-//  Wire.write(0x03); //select register 3, X MSB register
-//  Wire.endTransmission();
-//  Wire.requestFrom(HC_ADDRESS, 6);
-//
-//  unsigned int millisStart = millis();
-//
-//  //Read data from each axis, 2 registers per axis
-//  while (Wire.available() < 6) {
-//    if ((timeOut > 0) && ((millis() - millisStart) > timeOut)) {
-//      return false;
-//    }
-//  }
-//
-//  byte xhm = Wire.read(); //X msb
-//  byte xlm = Wire.read(); //X lsb
-//  byte zhm = Wire.read(); //Z msb
-//  byte zlm = Wire.read(); //Z lsb
-//  byte yhm = Wire.read(); //Y msb
-//  byte ylm = Wire.read(); //Y lsb
-//
-//  xab = (int16_t)(xhm << 8 | xlm);
-//  yab = (int16_t)(yhm << 8 | ylm);
-//  zab = (int16_t)(zhm << 8 | zlm);
-//
-//  if ((xab != magX) || (yab != magY) || (zab != magZ)) {
-//    magX = xab;
-//    magY = yab;
-//    magZ = zab;
-//    return true;
-//  }
-//  return false;
-//}
 
-
-
-const int DRIFT_SIZE = 125;
-//float xDriftSum = 0.0;
-//float yDriftSum = 0.0;
-//float zDriftSum = 0.0;
-//int gPtr = 0;
-//boolean isMeasuringDrift = false;
-int zArray[DRIFT_SIZE];
-int yArray[DRIFT_SIZE];
-int xArray[DRIFT_SIZE];
+const int DRIFT_SIZE = 100;  // 1/2 second of data
+float pitchArray[DRIFT_SIZE];
+float rollArray[DRIFT_SIZE];
+float yawArray[DRIFT_SIZE];
 /*****************************************************************************-
- * doGyroDrift()  Called 250/sec.  Average gyroDrift for x, y & z
- *                for 1/2 second periods.
+   imuZeroDrift()  Called 200/sec.  Average gyroDrift for x, y & z
+                for 1/2 second periods.  Also, take average of accelerometer
+                readings and set -----------
  *****************************************************************************/
-void doGyroDrift() {
+void imuZeroDrift() {
   static int gPtr = 0;
-  int x, y, z;
+  static float aXSum, aZSum;
+  float pitch, roll, yaw;
 
-  xArray[gPtr] = gyroPitchRaw;
-  yArray[gPtr] = gyroRollRaw;
-  zArray[gPtr] = gyroYawRaw;
+  if (gPtr == 0) {
+    aXSum = 0.0;
+    aZSum = 0.0;
+  }
+  pitchArray[gPtr] = gyroPitchRaw;
+  rollArray[gPtr] = gyroRollRaw;
+  yawArray[gPtr] = gyroYawRaw;
+  aXSum += accelX;
+  aZSum += accelZ;
   gPtr++;
+
   if (gPtr >= DRIFT_SIZE) {
     gPtr = 0;
-    int xSum = 0;
-    int ySum = 0;
-    int zSum = 0;
-    int xMax = xArray[0];
-    int xMin = xMax;
-    int yMax = yArray[0];
-    int yMin = yMax;
-    int zMax = zArray[0];
-    int zMin = zMax;
+    float pitchSum = 0;
+    float rollSum = 0;
+    float yawSum = 0;
+    float pitchMax = pitchArray[0];
+    float pitchMin = pitchMax;
+    float rollMax = rollArray[0];
+    float rollMin = rollMax;
+    float yawMax = yawArray[0];
+    float yawMin = yawMax;
     for (int i = 0; i < DRIFT_SIZE; i++) {
-      x = xArray[i];
-      if (x > xMax)  xMax = x;
-      if (x < xMin)  xMin = x;
-      xSum += x;
-      y = yArray[i];
-      if (y > yMax)  yMax = y;
-      if (y < yMin)  yMin = y;
-      ySum += y;
-      z = zArray[i];
-      if (z > zMax)  zMax = z;
-      if (z < zMin)  zMin = z;
-      zSum += z;
+      pitch = pitchArray[i];
+      if (pitch > pitchMax)  pitchMax = pitch;
+      if (pitch < pitchMin)  pitchMin = pitch;
+      pitchSum += pitch;
+      roll = rollArray[i];
+      if (roll > rollMax)  rollMax = roll;
+      if (roll < rollMin)  rollMin = roll;
+      rollSum += roll;
+      yaw = yawArray[i];
+      if (yaw > yawMax)  yawMax = yaw;
+      if (yaw < yawMin)  yawMin = yaw;
+      yawSum += yaw;
     }
-    float xAve = ((float) xSum) / ((float) DRIFT_SIZE);
-    float yAve = ((float) ySum) / ((float) DRIFT_SIZE);
-    float zAve = ((float) zSum) / ((float) DRIFT_SIZE);
+    float pitchAve = ((float) pitchSum) / ((float) DRIFT_SIZE);
+    float rollAve = ((float) rollSum) / ((float) DRIFT_SIZE);
+    float yawAve = ((float) yawSum) / ((float) DRIFT_SIZE);
 
     // If we have a stable 0.5 second period, average the most recent 20 periods & adjust drift.
-    if (((xMax - xMin) < 15) && ((yMax - yMin) < 15) && ((zMax - zMin) < 15)) {
-      setDrift(xAve, yAve, zAve);
+    if (((pitchMax - pitchMin) < 20) && ((rollMax - rollMin) < 20) && ((yawMax - yawMin) < 20)) {
+      setDrift(pitchAve, rollAve, yawAve);
+      aAvgPitch = ((atan2(aXSum, aZSum)) * RAD_TO_DEG) + valZ;
+      //Serial.println(aAvgPitch);
     }
-//    sprintf(message, "xMin: %4d     xMax: %4d     xAve: %5.1f   ", xMin, xMax, xAve);
-//    Serial.print(message);
-//    sprintf(message, "yMin: %4d     yMax: %4d     yAve: %5.1f   ", yMin, yMax, yAve);
-//    Serial.print(message);
-//    sprintf(message, "zMin: %4d     zMax: %4d     zAve: %5.1f\n", zMin, zMax, zAve);
-//    Serial.print(message);
+    //        sprintf(message, "pitchMin: %4.1f     pitchMax: %4.1f     pitchAve: %5.1f   ", pitchMin, pitchMax, pitchAve);
+    //        Serial.print(message);
+    //        sprintf(message, "rollMin: %4.1f     rollMax: %4.1f     rollAve: %5.2f   ", rollMin, rollMax, rollAve);
+    //        Serial.print(message);
+    //        sprintf(message, "yawMin: %4.1f     yawMax: %4.1f     yawAve: %5.1f\n", yawMin, yawMax, yawAve);
+    //        Serial.print(message);
   }
 }
 
 
 
 /*****************************************************************************-
- *  setDrift()  Called to add the last 1/2 sec of drift values.
+      setDrift()  Called to add the last 1/2 sec of drift values.
  *****************************************************************************/
-void setDrift(float xAve, float yAve, float zAve) {
+void setDrift(float pitchAve, float rollAve, float yawAve) {
   static const int AVE_SIZE =  20;      // Equals 10 seconds of measurements
-  static float xAveArray[AVE_SIZE];
-  static float yAveArray[AVE_SIZE];
-  static float zAveArray[AVE_SIZE];
+  static float pitchAveArray[AVE_SIZE];
+  static float rollAveArray[AVE_SIZE];
+  static float yawAveArray[AVE_SIZE];
   static int avePtr = 0;
 
-  float sumXAve = 0.0;
-  float sumYAve = 0.0;
-  float sumZAve = 0.0;
+  float sumPitchAve = 0.0;
+  float sumRollAve = 0.0;
+  float sumYawAve = 0.0;
 
-  xAveArray[avePtr] = xAve;
-  yAveArray[avePtr] = yAve;
-  zAveArray[avePtr] = zAve;
+  pitchAveArray[avePtr] = pitchAve;
+  rollAveArray[avePtr] = rollAve;
+  yawAveArray[avePtr] = yawAve;
 
   ++avePtr;
   avePtr = avePtr % AVE_SIZE;
   if (aveTotal < avePtr) aveTotal = avePtr;
 
   for (int i = 0; i < aveTotal; i++) {
-    sumXAve += xAveArray[i];
-    sumYAve += yAveArray[i];
-    sumZAve += zAveArray[i];
+    sumPitchAve += pitchAveArray[i];
+    sumRollAve += rollAveArray[i];
+    sumYawAve += yawAveArray[i];
   }
-  float aveXDrift = sumXAve / aveTotal;
-  float aveYDrift = sumYAve / aveTotal;
-  float aveZDrift = sumZAve / aveTotal;
-  timeDriftPitch = aveXDrift;
-  timeDriftRoll = aveYDrift;
-  timeDriftYaw = aveZDrift;
+  float avePitchDrift = sumPitchAve / aveTotal;
+  float aveRollDrift = sumRollAve / aveTotal;
+  float aveYawDrift = sumYawAve / aveTotal;
+  timeDriftPitch = avePitchDrift;
+  timeDriftRoll = aveRollDrift;
+  timeDriftYaw = aveYawDrift;
+}
+
+
+
+/*****************************************************************************-
+     MadgwickQuaternionUpdate()
+
+     Implementation of Sebastian Madgwick's "...efficient orientation filter for... inertial/magnetic sensor arrays"
+   (see http://www.x-io.co.uk/category/open-source/ for examples and more details)
+    which fuses acceleration and rotation rate to produce a quaternion-based estimate of relative
+    device orientation -- which can be converted to yaw, pitch, and roll. Useful for stabilizing quadcopters, etc.
+    The performance of the orientation filter is at least as good as conventional Kalman-based filtering algorithms
+    but is much less computationally intensive---it can be performed on a 3.3 V Pro Mini operating at 8 MHz!
+ *****************************************************************************/
+
+void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz) {
+  float q1 = q[0], q2 = q[1], q3 = q[2], q4 = q[3];         // short name local variable for readability
+  float norm;                                               // vector norm
+  float f1, f2, f3;                                         // objetive funcyion elements
+  float J_11or24, J_12or23, J_13or22, J_14or21, J_32, J_33; // objective function Jacobian elements
+  float qDot1, qDot2, qDot3, qDot4;
+  float hatDot1, hatDot2, hatDot3, hatDot4;
+  float gerrx, gerry, gerrz, gbiasx, gbiasy, gbiasz;        // gyro bias error
+
+  // Auxiliary variables to avoid repeated arithmetic
+  float _halfq1 = 0.5f * q1;
+  float _halfq2 = 0.5f * q2;
+  float _halfq3 = 0.5f * q3;
+  float _halfq4 = 0.5f * q4;
+  float _2q1 = 2.0f * q1;
+  float _2q2 = 2.0f * q2;
+  float _2q3 = 2.0f * q3;
+  float _2q4 = 2.0f * q4;
+  float _2q1q3 = 2.0f * q1 * q3;
+  float _2q3q4 = 2.0f * q3 * q4;
+
+  // Normalise accelerometer measurement
+  norm = sqrt(ax * ax + ay * ay + az * az);
+  if (norm == 0.0f) return; // handle NaN
+  norm = 1.0f / norm;
+  ax *= norm;
+  ay *= norm;
+  az *= norm;
+
+  // Compute the objective function and Jacobian
+  f1 = _2q2 * q4 - _2q1 * q3 - ax;
+  f2 = _2q1 * q2 + _2q3 * q4 - ay;
+  f3 = 1.0f - _2q2 * q2 - _2q3 * q3 - az;
+  J_11or24 = _2q3;
+  J_12or23 = _2q4;
+  J_13or22 = _2q1;
+  J_14or21 = _2q2;
+  J_32 = 2.0f * J_14or21;
+  J_33 = 2.0f * J_11or24;
+
+  // Compute the gradient (matrix multiplication)
+  hatDot1 = J_14or21 * f2 - J_11or24 * f1;
+  hatDot2 = J_12or23 * f1 + J_13or22 * f2 - J_32 * f3;
+  hatDot3 = J_12or23 * f2 - J_33 * f3 - J_13or22 * f1;
+  hatDot4 = J_14or21 * f1 + J_11or24 * f2;
+
+  // Normalize the gradient
+  norm = sqrt(hatDot1 * hatDot1 + hatDot2 * hatDot2 + hatDot3 * hatDot3 + hatDot4 * hatDot4);
+  hatDot1 /= norm;
+  hatDot2 /= norm;
+  hatDot3 /= norm;
+  hatDot4 /= norm;
+
+  // Compute estimated gyroscope biases
+  gerrx = _2q1 * hatDot2 - _2q2 * hatDot1 - _2q3 * hatDot4 + _2q4 * hatDot3;
+  gerry = _2q1 * hatDot3 + _2q2 * hatDot4 - _2q3 * hatDot1 - _2q4 * hatDot2;
+  gerrz = _2q1 * hatDot4 - _2q2 * hatDot3 + _2q3 * hatDot2 - _2q4 * hatDot1;
+
+  // Compute and remove gyroscope biases
+  gbiasx += gerrx * deltat * zeta;
+  gbiasy += gerry * deltat * zeta;
+  gbiasz += gerrz * deltat * zeta;
+  gx -= gbiasx;
+  gy -= gbiasy;
+  gz -= gbiasz;
+
+  // Compute the quaternion derivative
+  qDot1 = -_halfq2 * gx - _halfq3 * gy - _halfq4 * gz;
+  qDot2 =  _halfq1 * gx + _halfq3 * gz - _halfq4 * gy;
+  qDot3 =  _halfq1 * gy - _halfq2 * gz + _halfq4 * gx;
+  qDot4 =  _halfq1 * gz + _halfq2 * gy - _halfq3 * gx;
+
+  // Compute then integrate estimated quaternion derivative
+  q1 += (qDot1 - (beta * hatDot1)) * deltat;
+  q2 += (qDot2 - (beta * hatDot2)) * deltat;
+  q3 += (qDot3 - (beta * hatDot3)) * deltat;
+  q4 += (qDot4 - (beta * hatDot4)) * deltat;
+
+  // Normalize the quaternion
+  norm = sqrt(q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4);    // normalise quaternion
+  norm = 1.0f / norm;
+  q[0] = q1 * norm;
+  q[1] = q2 * norm;
+  q[2] = q3 * norm;
+  q[3] = q4 * norm;
+}
+
+/*****************************************************************************-
+     MahonyAHRSupdateIMU()
+
+     From: http://x-io.co.uk/open-source-imu-and-ahrs-algorithms/
+
+ *****************************************************************************/
+
+
+#define twoKpDef  (2.0f * 0.5f) // 2 * proportional gain
+#define twoKiDef  (2.0f * 0.0f) // 2 * integral gain
+
+//---------------------------------------------------------------------------------------------------
+// Variable definitions
+
+volatile float twoKp = twoKpDef;                      // 2 * proportional gain (Kp)
+volatile float twoKi = twoKiDef;                      // 2 * integral gain (Ki)
+volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;          // quaternion of sensor frame relative to auxiliary frame
+volatile float integralFBx = 0.0f,  integralFBy = 0.0f, integralFBz = 0.0f; // integral error terms scaled by Ki
+
+
+void MahonyAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, float az) {
+  float recipNorm;
+  float halfvx, halfvy, halfvz;
+  float halfex, halfey, halfez;
+  float qa, qb, qc;
+
+  // Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
+  if (!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+
+    // Normalise accelerometer measurement
+    recipNorm = invSqrt(ax * ax + ay * ay + az * az);
+    ax *= recipNorm;
+    ay *= recipNorm;
+    az *= recipNorm;
+
+    // Estimated direction of gravity and vector perpendicular to magnetic flux
+    halfvx = q1 * q3 - q0 * q2;
+    halfvy = q0 * q1 + q2 * q3;
+    halfvz = q0 * q0 - 0.5f + q3 * q3;
+
+    // Error is sum of cross product between estimated and measured direction of gravity
+    halfex = (ay * halfvz - az * halfvy);
+    halfey = (az * halfvx - ax * halfvz);
+    halfez = (ax * halfvy - ay * halfvx);
+
+    // Compute and apply integral feedback if enabled
+    if (twoKi > 0.0f) {
+      integralFBx += twoKi * halfex * (1.0f / sampleFreq);  // integral error scaled by Ki
+      integralFBy += twoKi * halfey * (1.0f / sampleFreq);
+      integralFBz += twoKi * halfez * (1.0f / sampleFreq);
+      gx += integralFBx;  // apply integral feedback
+      gy += integralFBy;
+      gz += integralFBz;
+    }
+    else {
+      integralFBx = 0.0f; // prevent integral windup
+      integralFBy = 0.0f;
+      integralFBz = 0.0f;
+    }
+
+    // Apply proportional feedback
+    gx += twoKp * halfex;
+    gy += twoKp * halfey;
+    gz += twoKp * halfez;
+  }
+
+  // Integrate rate of change of quaternion
+  gx *= (0.5f * (1.0f / sampleFreq));   // pre-multiply common factors
+  gy *= (0.5f * (1.0f / sampleFreq));
+  gz *= (0.5f * (1.0f / sampleFreq));
+  qa = q0;
+  qb = q1;
+  qc = q2;
+  q0 += (-qb * gx - qc * gy - q3 * gz);
+  q1 += (qa * gx + qc * gz - q3 * gy);
+  q2 += (qa * gy - qb * gz + q3 * gx);
+  q3 += (qa * gz + qb * gy - qc * gx);
+
+  // Normalise quaternion
+  recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+  q[0] = q0 *= recipNorm;
+  q[1] = q1 *= recipNorm;
+  q[2] = q2 *= recipNorm;
+  q[3] = q3 *= recipNorm;
+} // End MahonyAHRSupdateIMU()
+
+
+
+//---------------------------------------------------------------------------------------------------
+// Fast inverse square-root
+// See: http://en.wikipedia.org/wiki/Fast_inverse_square_root
+
+float invSqrt(float x) {
+  float halfx = 0.5f * x;
+  float y = x;
+  long i = *(long*)&y;
+  i = 0x5f3759df - (i >> 1);
+  y = *(float*)&i;
+  y = y * (1.5f - (halfx * y * y));
+  return y;
 }
