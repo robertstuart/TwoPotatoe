@@ -236,7 +236,6 @@ void doHcMsg(int cmd, char msgStr[], int count, boolean isHc) {
     doUpMsg()
  *****************************************************************************/
 void doUpMsg(int cmd, char msgStr[], int count) {
-  static float locX = 0.0;
   int intVal;
   float floatVal;
   //  boolean booleanVal;
@@ -244,53 +243,34 @@ void doUpMsg(int cmd, char msgStr[], int count) {
 
   //Serial.println(cmd);
   switch (cmd) {
-    case FRUP_QUERY:
-      break;
-    case FRUP_SET_LOC_X:
+    case FRUP_JOYY: // steer
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        locX = floatVal; // Set aside so we can do both a once
+        routeSteer = floatVal;
       }
       break;
-    case FRUP_SET_LOC_Y:
+    case FRUP_JOYX: // speed
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        currentLoc.x = (double) locX;
-        currentLoc.y = (double) floatVal;
+        routeFps = floatVal;
       }
-      break;
-    case FRUP_SET_HEAD:
-      if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        setHeading(floatVal);
-      }
-      break;
-    case FRUP_FPS_DIFF:
-      if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        //        speedAdjustment = floatVal;
-      }
-      break;
-    case FRUP_FPS:
-      if (sscanf(msgStr, "%f", &floatVal) > 0) {
-        //        routeFps = floatVal;
-      }
-      break;
-    case FRUP_RT_NUM:
-      if (sscanf(msgStr, "%d", &intVal) > 0) {
-
-      }
-      break;
-    case FRUP_RUN_READY:
-      isRunReady = true;
       break;
     case FRUP_MSG:
       Serial.println(msgStr);
       break;
     case FRUP_STAT:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        //        isRouteInProgress = (intVal == 0) ? false : true;
-        //        upStatTime = timeMilliseconds;
+        byte statBits = intVal; 
+        isRouteInProgress = (statBits & B00000001) > 0;
+        isRouteStarted = (statBits & B00000010) > 0;
+        if (isRouteInProgress && isRouteStarted) {
+          buPattern = BLINK_ON;
+          isRunReady = true;
+        }
+        else if (isRouteInProgress && (!isRouteStarted)) buPattern = BLINK_FF;
+        else buPattern = BLINK_OFF;
       }
       break;
     default:
-      Serial.print("Illegal Up message: "); Serial.println("cmd");
+//      Serial.print("Illegal Up message: "); Serial.println(cmd);
       break;
   }
 }
@@ -391,12 +371,15 @@ void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
         break;
       case BUTTON_3R:
         break;
-      case BUTTON_4L:   // Start Route
+      case BUTTON_4L:   // RouteStart
+        sendUpMsg(TOUP_RT_START, true);
         break;
-      case BUTTON_4M:   // Ready Route
+      case BUTTON_4M:   // Route Enable
+        sendUpMsg(TOUP_RT_ENABLE, true);
         break;
       case BUTTON_4R:
-        break;
+         sendUpMsg(TOUP_RT_ENABLE, false);
+       break;
       default:
         break;
     }
@@ -432,14 +415,18 @@ void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
   } else if (!isShift && isCtrl) { // only control pressed
     switch (button) {
       case BUTTON_1L:  // V1++
+        setV1(true);
         break;
       case BUTTON_1M:  // V2+
+        setV2(true);
         break;
       case BUTTON_1R:   // Tune+
         break;
       case BUTTON_2L:   // V1-
+        setV1(false);
         break;
       case BUTTON_2M:   // V2-
+        setV2(false);
         break;
       case BUTTON_2R:   // Tune -
         break;
@@ -459,4 +446,23 @@ void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
         break;
     }
   }
+}
+
+void setV1(bool b) {
+  static const float V1_INC = 0.05;  // Set this to the amount to increment/decrement
+  static float *v1Addr   = &valZ;    // Set this to point to the variable itself
+  if (b) *v1Addr += V1_INC;
+  else *v1Addr -= V1_INC;
+  sprintf(message, "v1 = %5.2f", *v1Addr);
+  sendXMsg(SEND_MESSAGE, message);
+  Serial.println(*v1Addr);
+}
+void setV2(bool b) {
+  static const float V2_INC = 0.05;  // Set this to the amount to increment/decrement
+  static float *v2Addr   = &valZ;    // Set this to point to the variable itself
+  if (b) *v2Addr += V2_INC;
+  else *v2Addr -= V2_INC;
+  sprintf(message, "v2 = %5.2f", *v2Addr);
+  sendXMsg(SEND_MESSAGE, message);
+  Serial.println(*v2Addr);
 }

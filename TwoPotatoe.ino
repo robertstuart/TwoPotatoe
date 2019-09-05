@@ -15,8 +15,6 @@
 #define UP_SER Serial3
 #define WA_SER Serial4
 
-#define TICKS_PER_FOOT 2222.0D // For Losi DB XL 1/5 scale
-
 // Decrease this value to get greater turn for a given angle
 const float GYRO_SENS = 0.06097;      // Multiplier to get degrees. 
 const float ACCEL_SENSE = 1.0 / 4098.0;       // Multiplier to get force in g's.
@@ -57,7 +55,7 @@ float valV = 2.7;
 float valW = 9.5;
 float valX = 2.0;
 float valY = 0.2;
-float valZ = 1.2;   // testing G
+float valZ = -2.0;   // pitch offset, -2.0 with big rollers
 int intT = 0;
 int intU = 0;
 
@@ -69,7 +67,6 @@ struct loc {
 struct loc currentLoc;
 
 boolean isStartReceived = false;
-//double routeTargetXYDistance = 0.0;
 int originalAction = 0;
 
 long coTickPosition;
@@ -83,6 +80,8 @@ boolean isLogging = false;
 boolean isGettingUp = false;
 boolean isGettingDown = false;
 boolean isHcActive = false; // Hand controller connected.
+boolean isRouteInProgress = false;
+boolean isRouteStarted = false;
 
 unsigned long gettingUpStartTime = 0UL;
 unsigned long gettingDownStartTime = 0UL;
@@ -106,6 +105,7 @@ int targetMFpsRight = 0;
 int targetMFpsLeft = 0;
 
 // Wheel speed variables
+float aFps = 0.0;       // Horizontal velocity from accelerometers.
 float wFpsRight = 0.0f; // right feet per second
 float wFpsLeft = 0.0f; // left feet per second
 float wMFpsRight = 0.0f; // right milli-feet per second
@@ -115,6 +115,10 @@ volatile float targetWFpsLeft = 0.0;
 float targetWFps = 0.0;
 float wFps = 0.0f;
 int wMFps = 0;
+
+// Route variables
+float routeFps = 0.0;
+float routeSteer = 0.0;
 
 unsigned int statusTrigger = 0;
 unsigned int oldTimeTrigger = 0;

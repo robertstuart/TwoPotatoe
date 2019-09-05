@@ -192,6 +192,7 @@ void readSpeedLeft() {
 void checkMotors() {
     checkMotorRight();
     checkMotorLeft();
+    tickPosition = tickPositionRight + tickPositionLeft;
     wFps = (wFpsLeft + wFpsRight) / 2.0;
     wMFps = (wMFpsRight + wMFpsLeft) / 2;
 }

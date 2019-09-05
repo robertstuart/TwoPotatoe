@@ -37,21 +37,13 @@ void commonTasks() {
   timeMilliseconds = millis();
   readWa();
   readXBee();  // Read commands from PC or Hand Controller
-//  readUp(); 
+  readUp(); 
   setRunningState();
   setLedStates();
-//  gyroTemperature();
-//  testUp(); 
+  checkUpright();
   blink13();
 }
-void testUp() {
-  static  unsigned  int testUpTrigger = 0;
-  if (timeMilliseconds > testUpTrigger) {
-    testUpTrigger = timeMilliseconds + 500;
-    sprintf(message, "Test from Teensy: %d", testUpTrigger);
-    sendUpMsg(TOUP_LOG, message);  
-  }
-}
+
 
 
 /*****************************************************************************-
@@ -100,21 +92,15 @@ void setLedStates() {
  * checkUpright() Check to see if we have fallen sidways or forwards.
  *****************************************************************************/
 void checkUpright() {
-  static unsigned long tTime = 0UL; // time of last state change
-  static boolean tState = false;  // Timed state. true = upright
-
-//  boolean cState = ((abs(mqPitch) < 45.0) && ((abs(mqRoll) < 45.0))); // Current real state
-  boolean cState = (abs(gaPitch) < 40.0); // Current real state
-  if (!cState && tState) {
-    tTime = timeMilliseconds; // Start the timer for a state change to fallen.
-  } else if (!cState) {
-    if ((timeMilliseconds - tTime) > 50) {
-      isUpright = false; 
-    }
-  } else {
+  static unsigned long tTime = 0UL; // time of last upright state
+  if (abs(maPitch) < 70.0) { // is upright?
+    tTime = timeMilliseconds;
     isUpright = true;
+  } else {
+    if ((timeMilliseconds - tTime) > 500) { // Down more than 1/2 second?
+      isUpright = false;
+    }
   }
-  tState = cState;
 }
 
 

@@ -15,31 +15,28 @@ float controllerSpeed = 0.0;
 bool isDownTrigger = false;
 
 /*****************************************************************************-
- *  runLoop() Run the TwoPotatoe algorithm.
- *             This loops while in the RUN mode.
+ *  runLoop() Main loop
  *****************************************************************************/
 void runLoop() {
   timeMicroseconds = micros();
   timeMilliseconds = millis();
-  setHeading(0.0D);
   yePattern = BLINK_OFF;
   buPattern = BLINK_OFF;
   rePattern = BLINK_OFF;
   gnPattern = BLINK_OFF;
   sendWaMsg(SEND_BEEP, T_UP2);
-  resetTicks();
   while(mode == MODE_RUN) { // main loop
     commonTasks();
     if (isNewImu()) {
       checkMotors();
-//      setNavigation();
       if (isGettingUp) gettingUp();
       else if (isGettingDown) gettingDown();
       else run(); 
       sendLog();
-      checkUpright();
-//      sendUpData();
+      sendUpData();
       sendWaMsg(SEND_WATCH, 0);  // Update watchdog.
+//sprintf(message, "%d  %.2f  %5.2f", isRouteInProgress, routeFps, routeSteer);   
+//Serial.println(message);
     } 
   }
 }
@@ -51,11 +48,7 @@ const double ACCEL_TO_FPS = 0.06;
  *  run() Balance and turn.
  *****************************************************************************/
 void run() {
-  if (isLogging) {
-    sprintf(message, "%.2f,%.2f", gaPitch, maPitch);
-    sendUpMsg(TOUP_LOG, message);
-  }
- 
+   
   // Compute Center of Oscillation fps 
   pitchFps = gyroPitchDelta * valT;  // 4.5 Speed of the cos due to change in pitch (rotation)
   fps = wFps + pitchFps;
@@ -64,8 +57,11 @@ void run() {
   lpfFps = (lpfFpsOld * valU) + (fps * (1.0D - valU));
   lpfFpsOld = lpfFps;
 
-  controllerSpeed = controllerY * SPEED_MULTIPLIER; 
-
+  if (isRouteInProgress) {
+    controllerSpeed = routeFps;
+  } else {
+    controllerSpeed = controllerY * SPEED_MULTIPLIER; 
+  }
   // Find the fps error.  Constrain rate of change.
   fpsError = controllerSpeed - lpfFps;
 
@@ -76,8 +72,8 @@ void run() {
   targetAngle = constrain(targetAngle, -35.0, 35.0);
 
   // Compute angle error and weight factor
-  angleError = targetAngle - maPitch;
-//  angleError = targetAngle - gaPitch;
+  angleError = targetAngle - (maPitch - valZ);
+//  angleError = targetAngle - (gaPitch - valZ);
   fpsCorrection = angleError * valY; // 0.4 ******************* Angle error to fps *******************
 
   // Add the angle error to the base fps to get the target wheel fps.
@@ -152,12 +148,9 @@ void log208PerSec() {
 void sendUpData() {
   static int sendCount = 0;
   if ((++sendCount % 4) == 0) {
-    sendUpMsg(TOUP_X, 2, currentLoc.x);
-    sendUpMsg(TOUP_Y, 2, currentLoc.y);
-//    sendUpMsg(TOUP_HEADING, 2, gcHeading);
-//    sendUpMsg(TOUP_PITCH, 0, gaPitch);
+    sendUpMsg(TOUP_HEADING, 3, -maYaw);
     sendUpMsg(TOUP_FPS, 2, lpfFps);
-    sendUpMsg(TOUP_DIST, 2, ((float) tickPosition) / TICKS_PER_FOOT);
+    sendUpMsg(TOUP_TICKS, tickPosition);
   }
 }
 
@@ -166,7 +159,12 @@ void sendUpData() {
  *  steer() 
  ***********************************************************************/
 void steer(float fp) {
-  float fpsAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX; 
+  float fpsAdjustment = 0.0;
+  if (isRouteInProgress) {
+    fpsAdjustment = (((1.0 - abs(routeSteer)) * 1.5) + 0.5) * routeSteer;
+  } else {
+    fpsAdjustment = (((1.0 - abs(controllerY)) * 1.5) + 0.5) * controllerX;
+  }
   targetWFpsRight = fp - fpsAdjustment;
   targetWFpsLeft = fp + fpsAdjustment;
 }
@@ -196,7 +194,7 @@ void gettingUp() {
   float tFps = 0.0;
   unsigned long runTime = timeMilliseconds - gettingUpStartTime;
   if (runTime > 1000) {  // Give up if not up yet.
-sendUpMsg(TOUP_START_LOG, false);
+//sendUpMsg(TOUP_START_LOG, false);
     isGettingUp = false;
     isRunReady = false;
     return;
@@ -205,7 +203,7 @@ sendUpMsg(TOUP_START_LOG, false);
   if (ab < 15.0) {
     isGettingUp = false;
     isRunReady = true;
-sendUpMsg(TOUP_START_LOG, false);
+//sendUpMsg(TOUP_START_LOG, false);
     return;
   }
   bool isBack = (gaPitch > 0.0) ? true : false;

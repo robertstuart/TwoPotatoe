@@ -99,12 +99,14 @@ boolean isNewImu() {
     maPitch  = -atan2(2.0f * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
     maRoll = asin(2.0f * (q[1] * q[3] - q[0] * q[2]));
     maYaw   = atan2(2.0f * (q[1] * q[2] + q[0] * q[3]), q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3]);
-    maPitch *= 180.0f / PI;
-    maRoll  *= 180.0f / PI;
-    maYaw   *= 180.0f / PI;
+    maPitch *= RAD_TO_DEG;
+    maRoll  *= RAD_TO_DEG;
+    maYaw   *= RAD_TO_DEG;
 
-    sprintf(message, "%7.2f %7.2f %7.2f %7.2f %7.2f %7.2f", maPitch, maRoll, maYaw, gaPitch, gaRoll, gYaw);
-    Serial.println(message);
+    aFpsSet(accelX, accelY, accelZ);  // Compute accelerometer horizontal velocity.
+
+//    sprintf(message, "%7.2f %7.2f %7.2f %7.2f %7.2f %7.2f", maPitch, maRoll, maYaw, gaPitch, gaRoll, gYaw);
+//    Serial.println(message);
 
     return true;
   } else {
@@ -115,7 +117,7 @@ boolean isNewImu() {
 
 
 /*****************************************************************************-
- *  compFilter()  Complementary filter
+ *  compFilter()  Complementary filter to get angles
  *****************************************************************************/
 void compFilter(float gyroX, float gyroY, float gyroZ, float accelX, float accelY, float accelZ) {
 
@@ -131,7 +133,7 @@ void compFilter(float gyroX, float gyroY, float gyroZ, float accelX, float accel
   gYaw += gyroYawDelta;
   gHeading = rangeAngle(gYaw);  // This is the heading used by all navigation routines.
 
-  aPitch = ((atan2(-accelY, accelZ)) * RAD_TO_DEG) + valZ;
+  aPitch = ((atan2(-accelY, accelZ)) * RAD_TO_DEG);
   gaPitch = (gaPitch * GYRO_WEIGHT) + (aPitch * (1 - GYRO_WEIGHT));
  
   // Roll
@@ -142,64 +144,25 @@ void compFilter(float gyroX, float gyroY, float gyroZ, float accelX, float accel
 
 
 /*****************************************************************************-
-     doG()  Compute the current speed from the accelerometers.
+ *  aFpsSet()  compute the horizontal velocity from the accelerometers.
+ *             Cancel drift by adjusting from wheel speed when appropriate.
  *****************************************************************************/
-//void doG() {
-//  static float gvPitch = 0.0;
-//  static float speedGvHoriz = 0.0;
-//  static float distGHoriz = 0.0;
-//  float theta = gvPitch * DEG_TO_RAD;
-//  float gvHoriz = (sin(theta) * accelZ) - (cos(theta) * accelX);
-//  float gvVert = (cos(theta) * accelZ) + (sin(theta) * accelX);
-//  float gvX = accelX + (cos(theta) * gvHoriz);
-//  float gvZ = accelZ - (sin(theta) * gvHoriz);
-//  gvPitch = atan2(gvX, gvZ) * RAD_TO_DEG;
-//  speedGvHoriz += gvHoriz;
-//  distGHoriz += speedGvHoriz;
-//
-//  sprintf(message, "%.2f,%.2f,%.2f,%.2f,%.2f", aPitch, gvHoriz, gvX, gvZ, gvPitch);
-//  sendUpMsg(TOUP_LOG, message);
-//}
-//
-//
-/*****************************************************************************-
-     setNavigation() Set gmHeading, tmHeading, tickHeading, currentLoc
-                    Called 208/sec (every read of gyro).
- ***********************************************************************/
-#define TICK_BIAS_TRIGGER 500
-void setNavigation() {
-  static int navOldTickPosition = 0;
+void aFpsSet(float accelX, float accelY, float accelZ) {
+  const float HV_FACTOR = -0.15;
 
-  tickPosition = tickPositionRight + tickPositionLeft;
+  static int lCount = 0;
+  if ((lCount++ % 1000) == 0) aFps = wFps;
+  
+  float theta = maPitch * DEG_TO_RAD;
+  float cosMa = cos(theta);
+  float sinMa = sin(theta);
+  float ha = (cosMa * accelY) + (sinMa * accelZ);
+  float va = (cosMa * accelZ) - (sinMa * accelY);
+  aFps = aFps + (ha * HV_FACTOR);
 
-  // compute the Center of Oscillation Tick Position
-  coTickPosition = tickPosition - ((long) (sin(maPitch * DEG_TO_RAD) * 4000.0));
-
-  // Compute the new co position
-  double dist = ((double) (coTickPosition - navOldTickPosition)) / TICKS_PER_FOOT;
-  navOldTickPosition = coTickPosition;
-  currentLoc.x += sin(maYaw * DEG_TO_RAD) * dist;
-  currentLoc.y += cos(maYaw * DEG_TO_RAD) * dist;
-  //  currentLoc.x += sin(gHeading * DEG_TO_RAD) * dist;
-  //  currentLoc.y += cos(gHeading * DEG_TO_RAD) * dist;
-
-  //  currentAccelLoc();
-}
-
-
-
-/*****************************************************************************-
-   setHeading() Sets the bearing to the new value.  The the gridOffset
-                value will be set so that the gridBearing is an
-                offset from magHeading.  All of cumulative rotations
-                be lost.
- **************************************************************************/
-void setHeading(double newHeading) {
-  //  gcHeading = gHeading = gcYaw = gYaw = newHeading;
-}
-
-void resetTicks() {
-  tickPosition = tickPositionRight = tickPositionLeft = coTickPosition = 0;
+sprintf(message, "%6.3f,%6.3f,%7.3f,%7.3f", ha, va, aFps, wFps);
+//Serial.println(message);
+sendUpMsg(TOUP_LOG, message);
 }
 
 
@@ -209,9 +172,9 @@ float pitchArray[DRIFT_SIZE];
 float rollArray[DRIFT_SIZE];
 float yawArray[DRIFT_SIZE];
 /*****************************************************************************-
-   imuZeroDrift()  Called 200/sec.  Average gyroDrift for x, y & z
-                for 1/2 second periods.  Also, take average of accelerometer
-                readings and set -----------
+ * imuZeroDrift()  Called 200/sec.  Average gyroDrift for x, y & z
+ *              for 1/2 second periods.  Also, take average of accelerometer
+ *              readings and set -----------
  *****************************************************************************/
 void imuZeroDrift() {
   static int gPtr = 0;
@@ -276,7 +239,7 @@ void imuZeroDrift() {
 
 
 /*****************************************************************************-
-      setDrift()  Called to add the last 1/2 sec of drift values.
+ *    setDrift()  Called to add the last 1/2 sec of drift values.
  *****************************************************************************/
 void setDrift(float pitchAve, float rollAve, float yawAve) {
   static const int AVE_SIZE =  20;      // Equals 10 seconds of measurements
@@ -330,7 +293,7 @@ void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, 
   float J_11or24, J_12or23, J_13or22, J_14or21, J_32, J_33; // objective function Jacobian elements
   float qDot1, qDot2, qDot3, qDot4;
   float hatDot1, hatDot2, hatDot3, hatDot4;
-  float gerrx, gerry, gerrz, gbiasx, gbiasy, gbiasz;        // gyro bias error
+  float gerrx, gerry, gerrz, gbiasx = 0.0, gbiasy = 0.0, gbiasz = 0.0;        // gyro bias error
 
   // Auxiliary variables to avoid repeated arithmetic
   float _halfq1 = 0.5f * q1;
@@ -463,8 +426,7 @@ void MahonyAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, float
       gx += integralFBx;  // apply integral feedback
       gy += integralFBy;
       gz += integralFBz;
-    }
-    else {
+    } else {
       integralFBx = 0.0f; // prevent integral windup
       integralFBy = 0.0f;
       integralFBz = 0.0f;
