@@ -1,11 +1,13 @@
 /*****************************************************************************-
- *                        TwoPotatoe.ino
+ *                        TwoPotatoe
  *              Runs on Teensy 3.6, 180 MHz
  *****************************************************************************/
 
 #include "Ma_Hc.h"
 #include "Ma_Watch.h"
 #include "Ma_Up.h"
+//#include <Wire.h>
+//#include <LSM6.h>
 #include <SparkFunMPU9250-DMP.h>
 #include <math.h>
 
@@ -14,7 +16,7 @@
 #define WA_SER Serial4
 
 // Decrease this value to get greater turn for a given angle
-const float GYRO_SENS = 0.06097;      // Multiplier to get degrees.
+const float GYRO_SENS = 0.06097;      // Multiplier to get degrees. 
 const float ACCEL_SENSE = 1.0 / 4098.0;       // Multiplier to get force in g's.
 const float IMU_R = 208.0;           // Imu samples / second
 
@@ -26,7 +28,7 @@ const double YAW_DRIFT = 8.0;
 const int IMU_INT_PIN =     17;
 const int LED13_PIN = 13;
 
-int speedTuning = 0;  // Can be 0, 1, or 2.  From the Hc.
+const float SPEED_MULTIPLIER = 20.0;
 
 const String TAB = "\t";
 
@@ -47,48 +49,44 @@ unsigned int mode = MODE_RUN;
 //unsigned int mode = MODE_MOTOR_CTRL;
 
 // Values that can be modified to tune the system.
-float valT = 1.5;   // pitch delta to fps correction
+float valT = 1.5;
 float valU = 0.98;  // cos low pass filter tc
-float valV = 0.0;
-float valW = 0.0;
-float valX = 2.0;   // fps error to target angle
-float valY = 0.2;   // angle error to fps correction
-float valZ = 0.0;   // pitch offset
+float valV = 2.7;
+float valW = 9.5;
+float valX = 2.0;
+float valY = 0.2;
+float valZ = -2.0;   // pitch offset, -2.0 with big rollers
 int intT = 0;
 int intU = 0;
 
 struct loc {
-  float x;
-  float y;
+  double x;
+  double y;
 };
 
 struct loc currentLoc;
 
-bool isStartReceived = false;
+boolean isStartReceived = false;
 int originalAction = 0;
 
 long coTickPosition;
 double startDecelSpeed = 0.0;
 
-// System status
-bool isRunReady = false;   // Reflects the Run command
-bool isRunning = false;
-bool isUpright = false;
-bool isRunningOnGround = false;
-bool isLogging = false;
-bool isGettingUp = false;
-bool isGettingDown = false;
-bool isHcActive = false; // Hand controller connected.
-bool isRouteInProgress = false;
-bool isRouteStarted = false;
-bool isUpRunning = false;
-bool isCamPitch = false;
-bool isRampMode = false;
+// System status 
+boolean isRunReady = false;   // Reflects the Run command
+boolean isRunning = false;
+boolean isUpright = false;
+boolean isLogging = false;
+boolean isGettingUp = false;
+boolean isGettingDown = false;
+boolean isHcActive = false; // Hand controller connected.
+boolean isRouteInProgress = false;
+boolean isRouteStarted = false;
 
 unsigned long gettingUpStartTime = 0UL;
 unsigned long gettingDownStartTime = 0UL;
 
-// LED patterns. When changed, picked up and sent to watchdog
+// LED patterns
 int yePattern = BLINK_ON;
 int buPattern = BLINK_ON;
 int rePattern = BLINK_ON;
@@ -98,7 +96,6 @@ int gnPattern = BLINK_ON;
 volatile int tickPositionRight = 0;
 volatile int tickPositionLeft = 0;
 int tickPosition = 0;
-float feetPosition = 0.0;
 volatile unsigned int tickTimeRight = 0UL;  // time for the last interrupt
 volatile unsigned int  tickTimeLeft = 0UL;
 volatile int tickPeriodRight = 0L;     // last period. Minus for reverse.
@@ -148,16 +145,14 @@ char message[200] = "";   // Buffer for sprintf messages.
 //float distGHoriz = 0.0;
 //float posGHoriz = 0.0;
 //float speedGHozriz = 0.0;
-int aveTotal = 0;  // Total of gyro averages taken.
-float camPitch = 0.0;
+int aveTotal = 0;  // Total of gyro averages taken. 
 float maPitch = 0.0;
 float maRoll = 0.0;
 float maYaw = 0.0;
 float cfPitch = 0.0;
 float gaPitch = 0.0;
 float yAccel = 0.0;
-float vAccel = 0.0;
-float lpfAPitch = 0.0;
+float  lpfAPitch = 0.0;
 float gaRoll = 0.0;
 
 float aAvgPitch = 0.0;
@@ -198,9 +193,8 @@ float timeDriftYaw = YAW_DRIFT;
 //int gyroErrorY = 0;
 //int gyroErrorZ = 0;
 
-float battVolt = 0.0; // battery
-unsigned long tHc = 0UL;     // Time of last Hc packet
-unsigned long timeUp = 0UL;  // Time of last packet from Up Board
+float battVolt = 0.0; // battery 
+unsigned long tHc = 0L;  // Time of last Hc packet
 
 const int MAX_PACKET_SIZE = 100;
 byte sendArray[MAX_PACKET_SIZE + 1];
@@ -246,11 +240,11 @@ float tp7ControllerSpeed = 0.0;
 void setup() {
   XBEE_SER.begin(57600);   // XBee, See bottom of this page for settings.
   Serial.begin(115200);    // for debugging output
-  UP_SER.begin(115200);    // UP Board
-  WA_SER.begin(115200);    // Watchdog processor
+  UP_SER.begin(115200);    // UP Board  
+  WA_SER.begin(115200);    // Watchdog processor  
   delay(2000);
+//  while(!Serial) {}  // Wait for serial to start up
 
-  camInit();
   pinMode(LED13_PIN, OUTPUT);
   Serial.println("Serial & pins initialized.");
   imuInit();
@@ -282,7 +276,7 @@ void loop() { //Main Loop
     readXBee();
     break;
   } // end switch(mode)
-} // End loop().
+} // End loop().  
 
 
 
@@ -297,7 +291,7 @@ void pwmLoop() {
   sendWaMsg(SEND_BLINK, LED_SW_RE, BLINK_FF);
   sendWaMsg(SEND_BEEP, T_UP3);
   valT = valU = 0;
-
+  
   while (mode == MODE_PWM) {
     commonTasks();
     if (timeMilliseconds > pwmTrigger) {
@@ -320,14 +314,14 @@ void pwmLoop() {
       }
 //      sprintf(message, "%3d   %3d  %5.2f  %5.2f", intT, intU, wFpsRight, wFpsLeft);
 //      Serial.println(message);
-    } // end timed loop
+    } // end timed loop 
   } // while
 } // aPwmLoop()
 
 
 
 /*****************************************************************************-
- * motorControlLoop() Change the target fps and let
+ * motorControlLoop() Change the target fps and let 
  *                    checkMotor() control the speed.
  *                    For testing
  *****************************************************************************/
@@ -341,23 +335,23 @@ void motorControlLoop() {
   setLedStates();
   sendWaMsg(SEND_BEEP, T_UP3);
   valT = valU = 0;
-
+  
   while (mode == MODE_MOTOR_CTRL) {
     commonTasks();
     if (isNewImu()) {  // Use imu for timing.
       targetWFpsRight = ((float) intT) * 0.05; // Change to 0.25 fps per increment
-      targetWFpsLeft = ((float) intU) * 0.05 ; //
+      targetWFpsLeft = ((float) intU) * 0.05 ; // 
       checkMotors();
       sumRight += wFpsRight;
       sumLeft += wFpsLeft;
-      if (!(loop++ % 250)) {
+      if (!(loop++ % 250)) {  
         float r = sumRight / 250.0;
         float l = sumLeft / 250.0;
         sumRight = sumLeft = 0.0;
         sprintf(message, "%5.2f   %5.2f  %5.2f", l, r ,targetWFpsRight);
         Serial.println(message);
       }
-    } // end timed loop
+    } // end timed loop 
   } // while
 } // motorControlLoop()
 
@@ -383,9 +377,9 @@ void motorControlLoop() {
  *
  * Xbee settings
  *
- *     The XBee 900 hz modules are left in their
- *     default state except that the baud rate is set to
- *     57k and the destination addresses are set
+ *     The XBee 900 hz modules are left in their 
+ *     default state except that the baud rate is set to 
+ *     57k and the destination addresses are set 
  *     to point to the other module.
  *
  *********************************************************/

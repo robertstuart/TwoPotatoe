@@ -1,6 +1,7 @@
 /*****************************************************************************-
- *                        Tasks.ino
+ *                        Tasks
  *****************************************************************************/
+
 boolean flip = false;
 int warningCount = 0;
 int criticalCount = 0;
@@ -40,7 +41,6 @@ void commonTasks() {
   setRunningState();
   setLedStates();
   checkUpright();
-  checkUpStatus();
   blink13();
 }
 
@@ -51,9 +51,7 @@ void commonTasks() {
  *****************************************************************************/
 void setRunningState() {
   // Set the runnng bit to control motors
-  isRunning = (isRunReady && (isUpright || isGettingUp || isGettingDown || isRunningOnGround)) ? true : false;
-  if (isUpright) isRunningOnGround = false;
-  if (!isRunReady) isRunningOnGround = false;
+  isRunning = (isRunReady && (isUpright || isGettingUp || isGettingDown)) ? true : false;
   if (isRunning) yePattern = BLINK_ON;
   else if (isRunReady) yePattern = BLINK_FF;
   else yePattern = BLINK_OFF;
@@ -99,25 +97,10 @@ void checkUpright() {
     tTime = timeMilliseconds;
     isUpright = true;
   } else {
-    if ((timeMilliseconds - tTime) > 50) { // Down more than 1/2 second?
+    if ((timeMilliseconds - tTime) > 500) { // Down more than 1/2 second?
       isUpright = false;
     }
   }
-}
-
-
-
-/*****************************************************************************-
- *  checkUpStatus()  Check to see if the Up board is communicating
- *****************************************************************************/
-void checkUpStatus() {
-  if ((timeMilliseconds - timeUp) > 10) { // dead more than 10 ms?
-    if (isUpRunning) {
-      isUpRunning = false;  // set true on recieve stat message
-      rePattern = BLINK_OFF;
-      sendWaMsg(SEND_BEEP, T_DN4);
-    }
-  } 
 }
 
 
