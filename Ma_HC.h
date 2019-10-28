@@ -1,5 +1,5 @@
 /*****************************************************************************-
- *                        Ma_Hc
+ *                        Ma_Hc.h
  *              Master to Hand Controller - Constants
  *****************************************************************************/
 
@@ -28,7 +28,8 @@ enum {
   SEND_XPOS,
   SEND_YPOS,
   SEND_V1,
-  SEND_V2
+  SEND_V2,
+  SEND_TUNING
 };
 
 // Messages received, from Hand Controller to Master

@@ -1,3 +1,6 @@
+/*****************************************************************************-
+ *                        Motor.ino
+ *****************************************************************************/
 // defines for encoder pins. Reverse to change direction.
 const int ENCA_RIGHT_PIN = 26;  
 const int ENCB_RIGHT_PIN =  27;   
@@ -193,6 +196,7 @@ void checkMotors() {
     checkMotorRight();
     checkMotorLeft();
     tickPosition = tickPositionRight + tickPositionLeft;
+    feetPosition = ((float) tickPosition) / ((float) TICKS_PER_FOOT);
     wFps = (wFpsLeft + wFpsRight) / 2.0;
     wMFps = (wMFpsRight + wMFpsLeft) / 2;
 }

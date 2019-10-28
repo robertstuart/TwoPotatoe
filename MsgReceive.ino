@@ -1,5 +1,5 @@
 /*****************************************************************************-
-                          MsgReceive
+                          MsgReceive.ino
  *****************************************************************************/
 
 const int UP_BUFFER_SIZE = 100;
@@ -215,8 +215,6 @@ void doHcMsg(int cmd, char msgStr[], int count, boolean isHc) {
       }
       break;
     case RCV_BUTTON: // Button press on HC
-//      sprintf(message, "%4d %s", cmd, msgStr);
-//      Serial.println(message);
       if (sscanf(msgStr, "%d", &intVal) > 0) {
         button = intVal / 256;
         isShift = (intVal & IS_SHIFT_BIT) != 0;
@@ -238,23 +236,19 @@ void doHcMsg(int cmd, char msgStr[], int count, boolean isHc) {
 void doUpMsg(int cmd, char msgStr[], int count) {
   int intVal;
   float floatVal;
-  //  boolean booleanVal;
   String ss;
 
   //Serial.println(cmd);
   switch (cmd) {
-    case FRUP_JOYY: // steer
+    case FRUP_STEER: // steer
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
         routeSteer = floatVal;
       }
       break;
-    case FRUP_JOYX: // speed
+     case FRUP_FPS: // speed
       if (sscanf(msgStr, "%f", &floatVal) > 0) {
         routeFps = floatVal;
       }
-      break;
-    case FRUP_MSG:
-      Serial.println(msgStr);
       break;
     case FRUP_STAT:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
@@ -268,9 +262,23 @@ void doUpMsg(int cmd, char msgStr[], int count) {
         else if (isRouteInProgress && (!isRouteStarted)) buPattern = BLINK_FF;
         else buPattern = BLINK_OFF;
       }
+      if (!isUpRunning) {
+          sendWaMsg(SEND_BEEP, T_UP3);
+          isUpRunning = true;
+          rePattern = BLINK_ON; 
+      }
+      timeUp = timeMilliseconds;
+      break;
+    case FRUP_MSG:
+      sendXMsg(SEND_MESSAGE, msgStr);
+      break;
+    case FRUP_CAPITCH:
+      if (sscanf(msgStr, "%f", &floatVal) > 0) {
+        camPitch = floatVal; //Serial.print(caPitch); Serial.print("   ");
+      }
       break;
     default:
-//      Serial.print("Illegal Up message: "); Serial.println(cmd);
+      Serial.print("Illegal Up message: "); Serial.println(cmd);
       break;
   }
 }
@@ -340,72 +348,80 @@ void doWaButton(unsigned int sw, boolean isPressed) {
    doHcButton()  Button press on hand controller
 *****************************************************************************/
 void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
-//  sprintf(message, "%3d %3d %3d %3d", button, isPress, isShift, isCtrl);
-//  Serial.println(message);
   if (!isShift && !isCtrl) { // Neither shift nor control pressed
     switch (button) {
       case BUTTON_1L:   // Run
-        isRunReady = !isRunReady;
+        isRunReady = true;
         break;
-      case BUTTON_1M:   // Start log
+      case BUTTON_1M:   // Stop
+        isRunReady = false;
+        break;
+      case BUTTON_1R:    // Start log
         isLogging = true;
         yePattern = BLINK_ON;
         sendUpMsg(TOUP_START_LOG, true);
+       break;
+      case BUTTON_2L:   // Route Enable
+        sendUpMsg(TOUP_RT_ENABLE, true);  
         break;
-      case BUTTON_1R:
-        break;
-      case BUTTON_2L:   // Get up
+      case BUTTON_2M: // Get up
         setGetUp();
         break;
-      case BUTTON_2M:   // Stop log
+      case BUTTON_2R:   // Stop log
         isLogging = false;
         yePattern = BLINK_OFF;
         sendUpMsg(TOUP_START_LOG, false);
+       break;
+      case BUTTON_3L:   // Route Start
+        sendUpMsg(TOUP_RT_START, true);
         break;
-      case BUTTON_2R:
-        break;
-      case BUTTON_3L:   // Get down
+      case BUTTON_3M:   // Get down
         setGetDown();
-        break;
-      case BUTTON_3M:
         break;
       case BUTTON_3R:
         break;
-      case BUTTON_4L:   // RouteStart
-        sendUpMsg(TOUP_RT_START, true);
+      case BUTTON_4L:
+        sendUpMsg(TOUP_RT_ENABLE, false);
         break;
-      case BUTTON_4M:   // Route Enable
-        sendUpMsg(TOUP_RT_ENABLE, true);
+      case BUTTON_4M:
+        isRunningOnGround = !isRunningOnGround;
         break;
       case BUTTON_4R:
-         sendUpMsg(TOUP_RT_ENABLE, false);
-       break;
+        event();
+        break;
       default:
         break;
     }
   } else if (isShift && !isCtrl) { // only shift pressed
     switch (button) {
-      case BUTTON_1L:   // Fast
+      case BUTTON_1L:
+        isCamPitch = false;
         break;
       case BUTTON_1M:
         break;
-      case BUTTON_1R:
+      case BUTTON_1R:   // Fast
+        speedTuning = 2;
         break;
-      case BUTTON_2L:   // Medium
+      case BUTTON_2L:
+        isCamPitch = true;
         break;
       case BUTTON_2M:
         break;
-      case BUTTON_2R:
+      case BUTTON_2R:   // Medium
+        speedTuning = 1;
         break;
-      case BUTTON_3L:   // Slow
+      case BUTTON_3L:
         break;
       case BUTTON_3M:   // Route +
+        sendUpMsg(TOUP_RT_NUM, 1);
         break;
-      case BUTTON_3R:
+      case BUTTON_3R:  // Slow
+        speedTuning = 0;
         break;
       case BUTTON_4L:   // HC off, Reserved
         break;
       case BUTTON_4M:   // Route -
+        sendUpMsg(TOUP_RT_NUM, 0);
         break;
       case BUTTON_4R:
         break;
@@ -465,4 +481,7 @@ void setV2(bool b) {
   sprintf(message, "v2 = %5.2f", *v2Addr);
   sendXMsg(SEND_MESSAGE, message);
   Serial.println(*v2Addr);
+}
+void event() {
+   sendUpMsg(TOUP_EVENT, 0); Serial.println("sent event");
 }

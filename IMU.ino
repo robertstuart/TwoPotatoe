@@ -1,5 +1,5 @@
 /*****************************************************************************-
-                                     IMU
+ *                                   IMU.ino
  *****************************************************************************/
 //#define MPU9250_ADDRESS   MPU9250_ADDRESS_AD0 // 0x68
 #define sampleFreq  200.0f      // sample frequency in Hz
@@ -103,7 +103,7 @@ boolean isNewImu() {
     maRoll  *= RAD_TO_DEG;
     maYaw   *= RAD_TO_DEG;
 
-    aFpsSet(accelX, accelY, accelZ);  // Compute accelerometer horizontal velocity.
+    accelSet(accelX, accelY, accelZ);  // Compute accelerometer horizontal velocity & vertical g.
 
 //    sprintf(message, "%7.2f %7.2f %7.2f %7.2f %7.2f %7.2f", maPitch, maRoll, maYaw, gaPitch, gaRoll, gYaw);
 //    Serial.println(message);
@@ -144,25 +144,25 @@ void compFilter(float gyroX, float gyroY, float gyroZ, float accelX, float accel
 
 
 /*****************************************************************************-
- *  aFpsSet()  compute the horizontal velocity from the accelerometers.
+ *  accelSet()  compute the horizontal velocity from the accelerometers.
  *             Cancel drift by adjusting from wheel speed when appropriate.
  *****************************************************************************/
-void aFpsSet(float accelX, float accelY, float accelZ) {
+void accelSet(float accelX, float accelY, float accelZ) {
   const float HV_FACTOR = -0.15;
 
-  static int lCount = 0;
-  if ((lCount++ % 1000) == 0) aFps = wFps;
+//  static int lCount = 0;
+//  if ((lCount++ % 1000) == 0) aFps = wFps;
   
   float theta = maPitch * DEG_TO_RAD;
   float cosMa = cos(theta);
   float sinMa = sin(theta);
   float ha = (cosMa * accelY) + (sinMa * accelZ);
-  float va = (cosMa * accelZ) - (sinMa * accelY);
+  vAccel = (cosMa * accelZ) - (sinMa * accelY);
   aFps = aFps + (ha * HV_FACTOR);
 
-sprintf(message, "%6.3f,%6.3f,%7.3f,%7.3f", ha, va, aFps, wFps);
+//sprintf(message, "%6.3f,%6.3f,%7.3f,%7.3f", accelY, accelZ, theta, wFps);
 //Serial.println(message);
-sendUpMsg(TOUP_LOG, message);
+//sendUpMsg(TOUP_LOG, message);
 }
 
 
