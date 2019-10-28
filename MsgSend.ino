@@ -1,5 +1,5 @@
 /*****************************************************************************-
- *                        MsgSend
+ *                        MsgSend.ino
  *****************************************************************************/
 const int RF_DATA_SIZE = 72;
 byte rfData[RF_DATA_SIZE];
@@ -19,6 +19,7 @@ void sendStatusXBeeHc() {
       sendXMsg(SEND_FPS, 2, wFps);
       break;
     case 1:
+      sendXMsg(SEND_TUNING, speedTuning);
       break;
     case 2:
       break;
@@ -41,8 +42,7 @@ int getState() {
   if (isRunning)          statusInt += 1;
   if (isRunReady)         statusInt += 2;
   if (isUpright)          statusInt += 4;
-  if (isHcActive)         statusInt += 16;
-  if (isLogging)          statusInt += 32;
+  if (isCamPitch)          statusInt += 8;
   return statusInt;
 }
 

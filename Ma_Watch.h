@@ -1,6 +1,6 @@
 /*****************************************************************************-
  *                        Watch.h
- *    Constants shared between TwoPotatoe and TwoPotatoe-watch
+ *    Master processor to watchdog processor constants
  *****************************************************************************/
 
 // These are represented in the blinkArray in Lights
@@ -34,6 +34,7 @@ enum {
   T_UP2,
   T_UP3, 
   T_DN,
+  T_DN4,
   T_WARBLE,
   T_BACH,
   T_FUGUE2,
