@@ -3,7 +3,7 @@
  *              Routines to balance in varied terrain
  *****************************************************************************/
 #define CAMPOINTS_PER_FOOT   20.0
-#define CAM_POINTS_SIZE     500
+#define CAM_ARRAY_SIZE     500
 #define CAM_SETBACK           1.5  // Distance of measured area in front of wheels
 #define ILLEGAL_CAM        9999.9F
 
@@ -11,13 +11,13 @@ struct camPoint {
   float feet;
   float slope;
 };
-struct camPoint camArray[CAM_POINTS_SIZE];  // Circular buffer
+struct camPoint camArray[CAM_ARRAY_SIZE];  // Circular buffer
 
 
 /*****************************************************************************-
  *  logCam() Log the slope at the position so that TwoPotatoe will know the
  *           slope when it reaches that point.  The slope is the pitch angle
- *           from the camera minus the maPitch.  Positive slope = uphill.
+ *           from the camera minus the gaPitch.  Positive slope = uphill.
  *****************************************************************************/
 void logCam() {
   float camFeet = feetPosition + CAM_SETBACK;  // Point at which slope is measured
@@ -25,7 +25,7 @@ void logCam() {
   camIndex = modCam(camIndex);  // This is the place we will store value.
   struct camPoint cp;
   cp.feet = feetPosition;
-  cp.slope = camPitch - maPitch;
+  cp.slope = camPitch - gaPitch;
   camArray[camIndex] = cp;
 
   // Set nearby points if they aren't set nearby.
@@ -46,17 +46,15 @@ void logCam() {
 float getCamSlope() {
   int camIndex = (int) (feetPosition * CAMPOINTS_PER_FOOT);
   camIndex = modCam(camIndex);
-  struct camPoint cp = camArray[camIndex];
-  if (cp.slope >= (ILLEGAL_CAM))  return maPitch;
-  else return cp.slope;
+  return camArray[camIndex].slope;
 }
 
 
 /*****************************************************************************-
- *  modCam() Return array index that wraps around
+ *  modCam() Return array index that wraps around and is non-negative
  *****************************************************************************/
 int modCam(int a) {
-   return ((a % CAM_POINTS_SIZE) + CAM_POINTS_SIZE) % CAM_POINTS_SIZE;
+   return ((a % CAM_ARRAY_SIZE) + CAM_ARRAY_SIZE) % CAM_ARRAY_SIZE;
 }
 
 
@@ -64,8 +62,17 @@ int modCam(int a) {
  *  camInit() fill wioth illegal values
  *****************************************************************************/
 void camInit() {
-  struct camPoint cp = {ILLEGAL_CAM - 1.0, ILLEGAL_CAM - 1.0};
-  for (int i = 0; i < CAM_POINTS_SIZE; i++) {
+  struct camPoint cp = {ILLEGAL_CAM, ILLEGAL_CAM};
+  for (int i = 0; i < CAM_ARRAY_SIZE; i++) {
     camArray[i] = cp;
   }
+}
+
+
+
+/*****************************************************************************-
+ *  isIllegalCam()
+ *****************************************************************************/
+bool isIllegalCam(float slope) {
+  return slope > (ILLEGAL_CAM - 1.0);
 }

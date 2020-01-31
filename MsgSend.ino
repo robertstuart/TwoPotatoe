@@ -87,6 +87,7 @@ void sendUpMsg(int cmd, String val) {
       UP_SER.write((byte) cmd); 
       UP_SER.print(val); 
       UP_SER.write((byte) 0);
+      Serial.println(val);
 }
 
 void sendWaMsg(int cmd, int v1, int v2) {

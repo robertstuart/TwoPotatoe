@@ -36,7 +36,7 @@ void commonTasks() {
   timeMilliseconds = millis();
   readWa();
   readXBee();  // Read commands from PC or Hand Controller
-  readUp(); 
+  readUp();
   setRunningState();
   setLedStates();
   checkUpright();
@@ -69,21 +69,21 @@ void setLedStates() {
   static int waBuPattern = BLINK_ON;
   static int waRePattern = BLINK_ON;
   static int waGnPattern = BLINK_ON;
-  
+
   if (yePattern != waYePattern ) {
-    sendWaMsg(SEND_BLINK, LED_SW_YE, yePattern); 
+    sendWaMsg(SEND_BLINK, LED_SW_YE, yePattern);
     waYePattern = yePattern;
   }
   if (buPattern != waBuPattern ) {
-    sendWaMsg(SEND_BLINK, LED_SW_BU, buPattern); 
+    sendWaMsg(SEND_BLINK, LED_SW_BU, buPattern);
     waBuPattern = buPattern;
   }
   if (rePattern != waRePattern ) {
-    sendWaMsg(SEND_BLINK, LED_SW_RE, rePattern); 
+    sendWaMsg(SEND_BLINK, LED_SW_RE, rePattern);
     waRePattern = rePattern;
   }
   if (gnPattern != waGnPattern ) {
-    sendWaMsg(SEND_BLINK, LED_SW_GN, gnPattern); 
+    sendWaMsg(SEND_BLINK, LED_SW_GN, gnPattern);
     waGnPattern = gnPattern;
   }
 }
@@ -111,13 +111,13 @@ void checkUpright() {
  *  checkUpStatus()  Check to see if the Up board is communicating
  *****************************************************************************/
 void checkUpStatus() {
-  if ((timeMilliseconds - timeUp) > 10) { // dead more than 10 ms?
+  if ((timeMilliseconds - timeUp) > 100) { // dead more than 100 ms?
     if (isUpRunning) {
       isUpRunning = false;  // set true on recieve stat message
       rePattern = BLINK_OFF;
       sendWaMsg(SEND_BEEP, T_DN4);
     }
-  } 
+  }
 }
 
 
@@ -132,9 +132,9 @@ void blink13() {
   if (timeMilliseconds > blinkTrigger) {
     blinkTrigger = timeMilliseconds + 100;
     blinkPat++;
-    blinkPat = blinkPat % 6;  
-    if (blinkPat == 1)  b = true; 
-    if (blinkPat == 3)  b = true; 
+    blinkPat = blinkPat % 6;
+    if (blinkPat == 1)  b = true;
+    if (blinkPat == 3)  b = true;
     digitalWrite(LED13_PIN, b ? HIGH : LOW);
   }
 }

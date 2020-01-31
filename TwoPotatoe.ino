@@ -83,7 +83,7 @@ bool isRouteInProgress = false;
 bool isRouteStarted = false;
 bool isUpRunning = false;
 bool isCamPitch = false;
-bool isRampMode = false;
+bool isBowlMode = false;
 
 unsigned long gettingUpStartTime = 0UL;
 unsigned long gettingDownStartTime = 0UL;

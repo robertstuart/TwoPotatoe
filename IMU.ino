@@ -105,8 +105,8 @@ boolean isNewImu() {
 
     accelSet(accelX, accelY, accelZ);  // Compute accelerometer horizontal velocity & vertical g.
 
-//    sprintf(message, "%7.2f %7.2f %7.2f %7.2f %7.2f %7.2f", maPitch, maRoll, maYaw, gaPitch, gaRoll, gYaw);
-//    Serial.println(message);
+    sprintf(message, "%7.2f %7.2f %7.2f %7.2f %7.2f %7.2f", maPitch, maRoll, maYaw, gaPitch, gaRoll, gYaw);
+    Serial.println(message);
 
     return true;
   } else {

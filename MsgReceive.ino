@@ -252,7 +252,7 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       break;
     case FRUP_STAT:
       if (sscanf(msgStr, "%d", &intVal) > 0) {
-        byte statBits = intVal; 
+        byte statBits = intVal;
         isRouteInProgress = (statBits & B00000001) > 0;
         isRouteStarted = (statBits & B00000010) > 0;
         if (isRouteInProgress && isRouteStarted) {
@@ -265,7 +265,7 @@ void doUpMsg(int cmd, char msgStr[], int count) {
       if (!isUpRunning) {
           sendWaMsg(SEND_BEEP, T_UP3);
           isUpRunning = true;
-          rePattern = BLINK_ON; 
+          rePattern = BLINK_ON;
       }
       timeUp = timeMilliseconds;
       break;
@@ -362,7 +362,7 @@ void doHcButton(int button, boolean isPress, boolean isShift, boolean isCtrl) {
         sendUpMsg(TOUP_START_LOG, true);
        break;
       case BUTTON_2L:   // Route Enable
-        sendUpMsg(TOUP_RT_ENABLE, true);  
+        sendUpMsg(TOUP_RT_ENABLE, true);
         break;
       case BUTTON_2M: // Get up
         setGetUp();
@@ -483,5 +483,8 @@ void setV2(bool b) {
   Serial.println(*v2Addr);
 }
 void event() {
-   sendUpMsg(TOUP_EVENT, 0); Serial.println("sent event");
+   // sendUpMsg(TOUP_EVENT, 0); Serial.println("sent event");
+   isBowlMode = !isBowlMode;
+   if (isBowlMode) sendXMsg(SEND_MESSAGE, "Bowl");
+   else sendXMsg(SEND_MESSAGE, "    ");
 }

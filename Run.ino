@@ -9,13 +9,11 @@ float targetAngle = 0.0;
 float lpfFps = 0.0;
 float lpfFpsOld = 0.0;
 float fpsError = 0;
-float fps = 0.0;
-float pitchFps = 0.0;
 float controllerSpeed = 0.0;
 bool isDownTrigger = false;
 
 /*****************************************************************************-
-    runLoop() Main loop
+ *   runLoop() Main loop
  *****************************************************************************/
 void runLoop() {
   timeMicroseconds = micros();
@@ -32,6 +30,7 @@ void runLoop() {
       if (isGettingUp) gettingUp();
       else if (isGettingDown) gettingDown();
       else if (isRunningOnGround) runOnGround();
+      else if (isBowlMode) runBowl();
       else run();
       sendLog();
       sendUpData();
@@ -46,33 +45,36 @@ void runLoop() {
 
 const double ACCEL_TO_FPS = 0.06;
 /*****************************************************************************-
-    run() Balance and turn.
+ *   run() Balance and turn.
  *****************************************************************************/
+/*****************************************************************************-
+ *  Include explanation of balancing. Use Segway/hoverboard as one end of a 
+ *  continuum and a tall inverted pendulum bot as the other.  Modify this 
+ *  algorith to directly reflect this by having one variable be the height
+ *  to the CO.  Also include instrutions for tuning.
+ *****************************************************************************/
+ 
 void run() {
+  //
+  // // Compute Center of Oscillation fps
+  // pitchFps = gyroPitchDelta * valT;  // 1.5 Speed of the cos due to change in pitch (rotation)
+  // fps = wFps - pitchFps;
+  //
+  // // 0.92 .u value: 0.0 = no hf filtering, large values give slow response
+  // lpfFps = (lpfFpsOld * valU) + (fps * (1.0D - valU));
+  // lpfFpsOld = lpfFps;
 
-  if (isRampMode) {
-    lpfFps =wFps;
-    targetAngle = getCamSlope();
+  if (isRouteInProgress) {
+    controllerSpeed = routeFps;
   } else {
-    // Compute Center of Oscillation fps
-    pitchFps = gyroPitchDelta * valT;  // 1.5 Speed of the cos due to change in pitch (rotation)
-    fps = wFps - pitchFps;
-
-    // 0.92 .u value: 0.0 = no hf filtering, large values give slow response
-    lpfFps = (lpfFpsOld * valU) + (fps * (1.0D - valU));
-    lpfFpsOld = lpfFps;
-
-    if (isRouteInProgress) {
-      controllerSpeed = routeFps;
-    } else {
-      controllerSpeed = getControllerSpeed();
-    }
-    // Find the fps error.  Constrain rate of change.
-    fpsError = controllerSpeed - lpfFps;
-
-    // compute a weighted angle to eventually correct the fps error
-    targetAngle = -(fpsError * valX); //** 4.0 ******** Speed error to angle *******************
+    controllerSpeed = getControllerSpeed();
   }
+  // Find the fps error.  Constrain rate of change.
+  fpsError = controllerSpeed - getCoFps();
+
+  // compute a weighted angle to eventually correct the fps error
+  targetAngle = -(fpsError * valX); //** 4.0 ******** Speed error to angle *******************
+
   // Compute maximum angles for the current wheel fps and enforce limits.
   targetAngle = constrain(targetAngle, -35.0, 35.0);
 
@@ -91,19 +93,49 @@ void run() {
 
 
 
+/*****************************************************************************-
+ *    runBowl() Run in a bowl
+ *****************************************************************************/
+void runBowl() {
+
+  float camSlope = getCamSlope();
+  if (isIllegalCam(camSlope)) {
+    run();
+  } else {
+    float targetAngle = gPitch;
+    fpsCorrection = angleError * valY; // 0.4 ******************* Angle error to fps *******************
+    fpsCorrection += gyroPitchDelta * -0.5;  // add "D" to reduce overshoot
+
+    // Add the angle error to the base fps to get the target wheel fps.
+    targetWFps = fpsCorrection + getCoFps();
+
+    // These routines set the steering values.
+    steer(targetWFps);
+  }
+} // end run()
+
+
+
 /***********************************************************************.
  *  runOnGround()
- ***********************************************************************/
+ *****************************************************************************/
 void runOnGround() {
   steer(getControllerSpeed());
 }
 
+
+
+/***********************************************************************.
+ *  getTpPitch()  return the pitch from maPitch or xxxx
+ ***********************************************************************/
 float getTpPitch() {
   float pitch;
   if (isCamPitch && isUpRunning) pitch = camPitch;
   else pitch = (maPitch - valZ);
   return pitch;
 }
+
+
 
 /***********************************************************************.
  *  sendLog() Called 200 times/sec.
@@ -120,6 +152,28 @@ void sendLog() {
 //    if (!(logLoop % 2)) log104PerSec(); // 125/sec
 //    log200PerSec();
 }
+
+
+
+/*****************************************************************************-
+ *    getCoFps() Return the fps of the "robot".  This is the speed of The
+ *             computed center of oscillation (Co).
+ *****************************************************************************/
+float getCoFps() {
+  static float lpfFpsOld = 0.0;
+
+  // Compute Center of Oscillation fps
+  float pitchFps = gyroPitchDelta * valT;  // 1.5 Speed of the cos due to change in pitch (rotation)
+  float fps = wFps - pitchFps;
+
+  // Low pass filter to resolve time difference between gyro and ticks
+  // 0.92 .u value: 0.0 = no lp filtering, large values give slow response
+  lpfFps = (lpfFpsOld * valU) + (fps * (1.0D - valU));
+  lpfFpsOld = lpfFps;
+  return lpfFps;
+}
+
+
 
 void logUp() {
   //  sprintf(message, "%5.2f,%5.2f,%5.2f,%5.2f", controllerSpeed, aPitch, gPitch ,wFps);
